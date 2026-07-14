@@ -1,0 +1,2 @@
+import type { OpeningEntry } from "./types";
+export function summarize(entries:OpeningEntry[]) { const active=entries.filter(e=>e.status==="active"); const by=(types:OpeningEntry["type"][])=>active.filter(e=>types.includes(e.type)).reduce((s,e)=>s+e.total,0); const initialCapital=by(["initial_capital"]),otherIncome=by(["income","refund"]),expenses=by(["expense"]),assets=by(["asset"]),deposits=by(["deposit"]); return {initialCapital,otherIncome,expenses,assets,deposits,balance:initialCapital+otherIncome-expenses-assets-deposits,active}; }

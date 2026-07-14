@@ -1,0 +1,12 @@
+alter table public.business_admins add constraint one_active_membership unique (business_id,user_id);
+alter table public.categories add constraint unique_business_category unique (business_id,name);
+alter table public.opening_entries add constraint opening_entry_description_length check (char_length(trim(description)) between 1 and 160);
+alter table public.opening_entries add constraint opening_entry_tax_rate_range check (tax_rate between 0 and 100);
+alter table public.opening_entries add constraint opening_entry_net_positive check (net_amount >= 0);
+alter table public.opening_entries add constraint opening_entry_tax_positive check (tax_amount >= 0);
+alter table public.opening_entries add constraint opening_entry_total_valid check (total_amount > 0 and net_amount + tax_amount = total_amount);
+alter table public.opening_entries add constraint opening_entry_note_length check (note is null or char_length(note) <= 500);
+alter table public.attachments add constraint attachment_size_positive check (size > 0);
+alter table public.attachments add constraint attachment_storage_path_unique unique (storage_path);
+create index opening_entries_business_date_idx on public.opening_entries(business_id,entry_date desc);
+create index opening_entries_ledger_idx on public.opening_entries(ledger_id);

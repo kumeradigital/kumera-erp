@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ERP KUMERA
 
-## Getting Started
+MVP para registrar capital, gastos, activos y depósitos durante la apertura de un pequeño negocio de alimentos.
 
-First, run the development server:
+## Desarrollo local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La aplicación está conectada al proyecto Supabase de desarrollo. La portada requiere sesión y obtiene negocios, categorías, movimientos y comprobantes usando RLS. El modo `localStorage` permanece solo como fallback cuando el componente se utiliza explícitamente sin conexión.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Conectar Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Crear un proyecto Supabase y copiar `.env.example` a `.env.local`.
+2. Completar URL, clave pública, URL de PostgreSQL y clave de servicio.
+3. Ejecutar las migraciones de `supabase/migrations`.
+4. Crear un bucket privado llamado `receipts` con límite de tamaño y MIME para PDF e imágenes.
+5. Crear el primer usuario superadministrador desde Supabase Auth y marcar su perfil como `is_superadmin = true`.
 
-## Learn More
+La página `/login` implementa acceso por email y contraseña. Antes de producción debe activarse la protección de rutas una vez que el proyecto Supabase esté conectado.
 
-To learn more about Next.js, take a look at the following resources:
+## Comandos
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `npm run dev`: servidor local.
+- `npm run build`: build de producción.
+- `npm run lint`: análisis estático.
+- `npm test`: pruebas de cálculos.
+- `npm run db:generate`: genera migraciones desde Drizzle.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Arquitectura
 
-## Deploy on Vercel
+- Next.js, React y TypeScript.
+- PostgreSQL, Auth y Storage de Supabase.
+- Drizzle ORM y migraciones SQL.
+- Vitest para reglas financieras.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Los montos se guardan como enteros en CLP. Los registros financieros se anulan; nunca se eliminan físicamente.

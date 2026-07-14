@@ -1,0 +1,2 @@
+import { z } from "zod";
+export const openingEntrySchema=z.object({date:z.iso.date(),description:z.string().trim().min(1).max(160),categoryId:z.uuid().nullable().optional(),type:z.enum(["initial_capital","income","expense","asset","deposit","refund"]).default("expense"),taxMode:z.enum(["included","added","exempt"]).default("included"),amount:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),estimated:z.boolean().default(false),note:z.string().max(500).optional()});
