@@ -348,11 +348,9 @@ export function OpeningApp({
             label="Libro de apertura"
           />
           <Nav
-            active={view === "costs"}
-            onClick={() => setView("costs")}
+            onClick={() => (location.href = "/ventas")}
             icon={<CircleDollarSign size={17} />}
-            label="Costos"
-            badge="Pronto"
+            label="Ventas y caja"
           />
         </nav>
         <div className="mt-auto">
@@ -454,10 +452,9 @@ export function OpeningApp({
           label="Movimientos"
         />
         <Nav
-          active={view === "costs"}
-          onClick={() => setView("costs")}
+          onClick={() => (location.href = "/ventas")}
           icon={<CircleDollarSign size={18} />}
-          label="Costos"
+          label="Ventas"
         />
       </nav>
       {dialog && (

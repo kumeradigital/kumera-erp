@@ -1,5 +1,15 @@
 # Historial del esquema Supabase
 
+## 2026-07-14.6 — Ventas y caja
+
+- Migraciones: `0005_add_simple_pos_module.sql`, `0006_add_atomic_sale_function.sql`.
+- Catálogo de productos con imágenes privadas y categorías.
+- Jornadas de caja con apertura y cierre.
+- Ventas y detalle histórico por producto y medio de pago.
+- Función transaccional para registrar ventas con precios calculados en servidor.
+- Sin inventario, descuentos, pagos mixtos, impresión ni integración tributaria.
+- Aplicado en desarrollo: sí, mediante Supabase MCP.
+
 ## 2026-07-14.4 — Datos iniciales KUMERA
 
 - Migración: `0004_seed_kumera_initial_business.sql`.

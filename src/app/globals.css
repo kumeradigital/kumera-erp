@@ -1,14 +1,82 @@
 @import "tailwindcss";
 
-:root { --ink:#252824; --muted:#70756d; --line:#e5e5dc; --cream:#f7f6ee; --paper:#fffef9; --green:#235b45; --lime:#d8f070; --orange:#e56b3f; }
-* { box-sizing: border-box; }
-html { background: var(--cream); }
-body { margin:0; background:var(--cream); color:var(--ink); font-family:Arial, Helvetica, sans-serif; }
-button,input,select { font:inherit; } button { cursor:pointer; }
-::selection { background:var(--lime); color:var(--ink); }
-.card { background:rgba(255,254,249,.94); border:1px solid var(--line); border-radius:18px; box-shadow:0 1px 1px rgba(32,43,35,.03),0 12px 34px rgba(32,43,35,.035); }
-.money { font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
-.scrollbar::-webkit-scrollbar { height:7px; width:7px; }
-.scrollbar::-webkit-scrollbar-thumb { background:#cfd1c7; border-radius:20px; }
-@keyframes rise { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }
-.rise { animation:rise .35s ease both; }
+:root {
+  --ink: #252824;
+  --muted: #70756d;
+  --line: #e5e5dc;
+  --cream: #f7f6ee;
+  --paper: #fffef9;
+  --green: #235b45;
+  --lime: #d8f070;
+  --orange: #e56b3f;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--cream);
+}
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+::selection {
+  background: var(--lime);
+  color: var(--ink);
+}
+.card {
+  background: rgba(255, 254, 249, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow:
+    0 1px 1px rgba(32, 43, 35, 0.03),
+    0 12px 34px rgba(32, 43, 35, 0.035);
+}
+.money {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.input {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid #d8d8cf;
+  border-radius: 12px;
+  background: white;
+  padding: 0 12px;
+  font-size: 14px;
+  outline: none;
+}
+.input:focus {
+  border-color: #235b45;
+}
+.scrollbar::-webkit-scrollbar {
+  height: 7px;
+  width: 7px;
+}
+.scrollbar::-webkit-scrollbar-thumb {
+  background: #cfd1c7;
+  border-radius: 20px;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.35s ease both;
+}
