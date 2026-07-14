@@ -16,6 +16,7 @@ import {
   Copy,
   FileText,
   LayoutDashboard,
+  LogOut,
   Plus,
   Search,
   Settings,
@@ -36,6 +37,7 @@ import {
   saveEntryAction,
   voidEntryAction,
 } from "./actions";
+import { signOutAction } from "@/modules/auth/actions";
 
 const today = new Date().toISOString().slice(0, 10);
 const seed: OpeningEntry[] = [
@@ -355,13 +357,22 @@ export function OpeningApp({
         </nav>
         <div className="mt-auto">
           <Nav icon={<Settings size={17} />} label="Configuración" />
+          <form action={signOutAction} className="mt-1">
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-[#5f645d] transition hover:bg-[#f4dfd8] hover:text-[#a33d20]"
+            >
+              <LogOut size={17} />
+              <span>Cerrar sesión</span>
+            </button>
+          </form>
           <div className="mt-4 flex items-center gap-3 border-t border-[#d9d9cf] pt-4">
             <div className="grid size-9 place-items-center rounded-full bg-[#d8f070] text-xs font-bold">
               JF
             </div>
             <div>
               <p className="text-xs font-bold">Administrador</p>
-              <p className="text-[11px] text-[#777b72]">admin@kumera.cl</p>
+              <p className="text-[11px] text-[#777b72]">contacto@kumera.com</p>
             </div>
           </div>
         </div>
@@ -383,12 +394,24 @@ export function OpeningApp({
               </span>
             </p>
           </div>
-          <button
-            onClick={openNew}
-            className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#194735]"
-          >
-            <Plus size={17} /> Nuevo movimiento
-          </button>
+          <div className="flex items-center gap-2">
+            <form action={signOutAction} className="lg:hidden">
+              <button
+                type="submit"
+                title="Cerrar sesión"
+                className="grid size-10 place-items-center rounded-xl border border-[#d7d7ce] text-[#686d65]"
+              >
+                <LogOut size={17} />
+              </button>
+            </form>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-2 rounded-xl bg-[#235b45] px-3 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#194735] md:px-4"
+            >
+              <Plus size={17} />
+              <span className="hidden sm:inline">Nuevo movimiento</span>
+            </button>
+          </div>
         </header>
         {view === "dashboard" && (
           <Dashboard
