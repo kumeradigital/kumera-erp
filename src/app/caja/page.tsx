@@ -1,4 +1,8 @@
-import { getOpenCashSession, getProducts } from "@/modules/pos/data";
+import {
+  getCashSalesTotal,
+  getOpenCashSession,
+  getProducts,
+} from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { PosClient } from "@/modules/pos/pos-client";
 export default async function PosPage() {
@@ -6,9 +10,10 @@ export default async function PosPage() {
     getProducts(),
     getOpenCashSession(),
   ]);
+  const cashSales = session ? await getCashSalesTotal(session.id) : 0;
   return (
     <PosShell active="pos">
-      <PosClient products={products} session={session} />
+      <PosClient products={products} session={session} cashSales={cashSales} />
     </PosShell>
   );
 }

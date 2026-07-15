@@ -77,8 +77,25 @@ export async function getOpenCashSession(): Promise<CashSession | null> {
     : null;
 }
 
-export async function getSalesSummary(): Promise<{
-  session: CashSession | null;
+export type SalesRange = {
+  from: string;
+  to: string;
+};
+
+export async function getCashSalesTotal(sessionId: string): Promise<number> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("sales")
+    .select("total")
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .eq("payment_method", "cash")
+    .eq("status", "completed");
+  if (error) throw error;
+  return (data || []).reduce((sum, sale) => sum + Number(sale.total), 0);
+}
+
+export async function getSalesSummary(range: SalesRange): Promise<{
   summary: SaleSummary;
   recent: {
     id: string;
@@ -88,45 +105,15 @@ export async function getSalesSummary(): Promise<{
   }[];
 }> {
   const ctx = await businessContext();
-  let session = await getOpenCashSession();
-  if (!session) {
-    const { data } = await ctx.supabase
-      .from("cash_sessions")
-      .select("id,status,opening_cash,counted_cash,opened_at,closed_at")
-      .eq("business_id", ctx.businessId)
-      .order("opened_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data)
-      session = {
-        id: data.id,
-        status: data.status,
-        openingCash: Number(data.opening_cash),
-        countedCash:
-          data.counted_cash == null ? undefined : Number(data.counted_cash),
-        openedAt: data.opened_at,
-        closedAt: data.closed_at || undefined,
-      };
-  }
-  if (!session)
-    return {
-      session: null,
-      summary: {
-        total: 0,
-        count: 0,
-        average: 0,
-        byPayment: [],
-        topProducts: [],
-      },
-      recent: [],
-    };
   const { data: sales, error } = await ctx.supabase
     .from("sales")
     .select(
       "id,total,payment_method,created_at,sale_items(product_name,quantity)",
     )
-    .eq("cash_session_id", session.id)
+    .eq("business_id", ctx.businessId)
     .eq("status", "completed")
+    .gte("created_at", range.from)
+    .lt("created_at", range.to)
     .order("created_at", { ascending: false });
   if (error) throw error;
   const rows = sales || [];
@@ -145,7 +132,6 @@ export async function getSalesSummary(): Promise<{
     );
   });
   return {
-    session,
     summary: {
       total,
       count: rows.length,
@@ -157,13 +143,11 @@ export async function getSalesSummary(): Promise<{
         .map(([name, quantity]) => ({ name, quantity }))
         .sort((a, b) => b.quantity - a.quantity),
     },
-    recent: rows
-      .slice(0, 10)
-      .map((r) => ({
-        id: r.id,
-        total: Number(r.total),
-        payment: r.payment_method as PaymentMethod,
-        createdAt: r.created_at,
-      })),
+    recent: rows.slice(0, 10).map((r) => ({
+      id: r.id,
+      total: Number(r.total),
+      payment: r.payment_method as PaymentMethod,
+      createdAt: r.created_at,
+    })),
   };
 }

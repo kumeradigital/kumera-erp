@@ -350,7 +350,7 @@ export function OpeningApp({
           <Nav
             onClick={() => (location.href = "/ventas")}
             icon={<CircleDollarSign size={17} />}
-            label="Ventas y caja"
+            label="Ventas"
           />
         </nav>
         <div className="mt-auto">

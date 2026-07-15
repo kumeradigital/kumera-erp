@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { Banknote, Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
-import { openCashSessionAction, registerSaleAction } from "./actions";
+import {
+  closeCashSessionAction,
+  openCashSessionAction,
+  registerSaleAction,
+} from "./actions";
 import {
   paymentLabels,
   type CashSession,
@@ -14,14 +18,17 @@ type Cart = Record<string, number>;
 export function PosClient({
   products,
   session,
+  cashSales,
 }: {
   products: Product[];
   session: CashSession | null;
+  cashSales: number;
 }) {
   const [cart, setCart] = useState<Cart>({});
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
+  const [closing, setClosing] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const lines = products
     .filter((p) => cart[p.id])
@@ -160,12 +167,12 @@ export function PosClient({
           >
             Cobrar
           </button>
-          <a
-            href="/ventas"
-            className="mt-3 block text-center text-xs font-bold text-[#666]"
+          <button
+            onClick={() => setClosing(true)}
+            className="mt-3 w-full text-center text-xs font-bold text-[#a24628]"
           >
-            Ver jornada y cerrar caja
-          </a>
+            Cerrar jornada de caja
+          </button>
         </div>
       </aside>
       {paying && (
@@ -193,7 +200,85 @@ export function PosClient({
           }}
         />
       )}
+      {closing && (
+        <CloseSessionDialog
+          session={session}
+          expectedCash={session.openingCash + cashSales}
+          onClose={() => setClosing(false)}
+        />
+      )}
     </main>
+  );
+}
+
+function CloseSessionDialog({
+  session,
+  expectedCash,
+  onClose,
+}: {
+  session: CashSession;
+  expectedCash: number;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl">
+        <div className="flex justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              Fin de jornada
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Cerrar caja</h2>
+          </div>
+          <button onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        <div className="mt-5 rounded-xl bg-[#eff0e8] p-4">
+          <div className="flex justify-between text-sm">
+            <span>Efectivo esperado</span>
+            <b className="money">{formatClp(expectedCash)}</b>
+          </div>
+          <p className="mt-1 text-[11px] text-[#777]">
+            Efectivo inicial + ventas en efectivo
+          </p>
+        </div>
+        <form
+          action={async (form) => {
+            setBusy(true);
+            await closeCashSessionAction(
+              session.id,
+              Number(form.get("countedCash")),
+              String(form.get("note") || ""),
+            );
+            location.reload();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <label className="block text-xs font-bold">
+            Efectivo contado
+            <input
+              name="countedCash"
+              required
+              inputMode="numeric"
+              defaultValue={expectedCash}
+              className="input mt-2"
+            />
+          </label>
+          <label className="block text-xs font-bold">
+            Nota opcional
+            <input name="note" className="input mt-2" />
+          </label>
+          <button
+            disabled={busy}
+            className="h-13 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-50"
+          >
+            {busy ? "Cerrando..." : "Confirmar cierre"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 function OpenSession() {

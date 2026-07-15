@@ -27,7 +27,7 @@ export function PosShell({
           />
           <Nav
             href="/caja"
-            label="Caja"
+            label="Iniciar caja"
             active={active === "pos"}
             icon={<ShoppingCart size={16} />}
           />
