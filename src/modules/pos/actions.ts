@@ -149,6 +149,37 @@ export async function closeCashSessionAction(
   revalidatePath("/caja");
   revalidatePath("/ventas");
 }
+export async function reconcileCashSessionAction(
+  sessionId: string,
+  countedCash: number,
+  note = "",
+) {
+  const ctx = await context();
+  if (!Number.isInteger(countedCash) || countedCash < 0)
+    throw new Error("Efectivo contado inválido");
+  const reconciliationNote = note.trim()
+    ? `Regularización posterior: ${note.trim()}`
+    : "Efectivo real informado posteriormente";
+  const { data, error } = await ctx.supabase
+    .from("cash_sessions")
+    .update({
+      counted_cash: countedCash,
+      closing_note: reconciliationNote,
+      reconciled_at: new Date().toISOString(),
+      reconciled_by: ctx.user.id,
+    })
+    .eq("id", sessionId)
+    .eq("business_id", ctx.businessId)
+    .eq("status", "closed")
+    .eq("auto_closed", true)
+    .is("counted_cash", null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Este cierre ya fue regularizado");
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
+}
 export async function registerSaleAction(
   sessionId: string,
   payment: PaymentMethod,

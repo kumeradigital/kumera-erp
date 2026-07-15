@@ -6,6 +6,7 @@ import { formatClp } from "@/shared/money";
 import {
   closeCashSessionAction,
   openCashSessionAction,
+  reconcileCashSessionAction,
   registerSaleAction,
 } from "./actions";
 import {
@@ -380,6 +381,7 @@ function CloseSessionDialog({
 }
 function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
   const [busy, setBusy] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   return (
     <main className="grid min-h-[calc(100vh-64px)] place-items-center p-5">
       <div className="card w-full max-w-md p-7 text-center">
@@ -393,10 +395,81 @@ function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
         {latestSession?.autoClosed && (
           <div className="mt-5 rounded-xl border border-[#e7d8a5] bg-[#fff8dc] p-4 text-left text-xs text-[#6f5b17]">
             <b>La jornada anterior se cerró automáticamente.</b>
-            <p className="mt-1">
-              El cierre quedó registrado sin efectivo contado porque no fue
-              confirmado manualmente.
-            </p>
+            {latestSession.countedCash == null ? (
+              <>
+                <p className="mt-1">
+                  El cierre quedó registrado sin efectivo contado. Puedes
+                  informarlo ahora sin reabrir la jornada.
+                </p>
+                {!reconciling ? (
+                  <button
+                    onClick={() => setReconciling(true)}
+                    className="mt-3 rounded-lg bg-[#6f5b17] px-3 py-2 font-bold text-white"
+                  >
+                    Completar cierre pendiente
+                  </button>
+                ) : (
+                  <form
+                    action={async (form) => {
+                      setBusy(true);
+                      try {
+                        await reconcileCashSessionAction(
+                          latestSession.id,
+                          Number(form.get("countedCash")),
+                          String(form.get("reconciliationNote") || ""),
+                        );
+                        location.reload();
+                      } catch (error) {
+                        alert(
+                          error instanceof Error
+                            ? error.message
+                            : "No se pudo regularizar",
+                        );
+                        setBusy(false);
+                      }
+                    }}
+                    className="mt-4 space-y-3"
+                  >
+                    <label className="block font-bold">
+                      Efectivo real contado
+                      <input
+                        name="countedCash"
+                        required
+                        inputMode="numeric"
+                        className="input mt-1 bg-white"
+                      />
+                    </label>
+                    <label className="block font-bold">
+                      Nota opcional
+                      <input
+                        name="reconciliationNote"
+                        className="input mt-1 bg-white"
+                        placeholder="Ej: Conteo realizado al día siguiente"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={busy}
+                        className="rounded-lg bg-[#235b45] px-3 py-2 font-bold text-white disabled:opacity-50"
+                      >
+                        {busy ? "Guardando..." : "Guardar efectivo real"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReconciling(false)}
+                        className="px-3 py-2 font-bold"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
+            ) : (
+              <p className="mt-1">
+                El efectivo real ya fue informado posteriormente.
+              </p>
+            )}
           </div>
         )}
         <form

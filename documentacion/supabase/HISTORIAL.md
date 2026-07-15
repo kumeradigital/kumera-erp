@@ -1,5 +1,13 @@
 # Historial del esquema Supabase
 
+## 2026-07-15.2 — Regularización de cierres automáticos
+
+- Migración: `0011_add_cash_close_reconciliation.sql`.
+- Un cierre automático puede recibir posteriormente el efectivo real contado.
+- La regularización conserva el cierre original y registra fecha, usuario y nota.
+- Una jornada regularizada no se reabre ni modifica sus ventas.
+- Aplicado en desarrollo: sí, mediante Supabase MCP.
+
 ## 2026-07-15.1 — Cierre automático de caja
 
 - Migración: `0010_add_automatic_cash_close.sql`.
