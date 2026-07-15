@@ -126,6 +126,84 @@ export async function getCashSalesTotal(sessionId: string): Promise<number> {
   return (data || []).reduce((sum, sale) => sum + Number(sale.total), 0);
 }
 
+export type CashClosure = {
+  id: string;
+  openedAt: string;
+  closedAt: string;
+  autoClosed: boolean;
+  openingCash: number;
+  cashSales: number;
+  expectedCash: number;
+  countedCash: number | null;
+  difference: number | null;
+  note: string | null;
+  adjustments: {
+    previous: number | null;
+    next: number;
+    reason: string;
+    createdAt: string;
+  }[];
+};
+
+export async function getCashClosureHistory(): Promise<CashClosure[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cash_sessions")
+    .select(
+      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,payment_method,status),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at)",
+    )
+    .eq("business_id", businessId)
+    .eq("status", "closed")
+    .order("opened_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data || []).map((row) => {
+    const cashSales = (row.sales || [])
+      .filter(
+        (sale: { payment_method: string; status: string }) =>
+          sale.payment_method === "cash" && sale.status === "completed",
+      )
+      .reduce(
+        (sum: number, sale: { total: number | string }) =>
+          sum + Number(sale.total),
+        0,
+      );
+    const expectedCash = Number(row.opening_cash) + cashSales;
+    const countedCash =
+      row.counted_cash == null ? null : Number(row.counted_cash);
+    return {
+      id: row.id,
+      openedAt: row.opened_at,
+      closedAt: row.closed_at,
+      autoClosed: row.auto_closed,
+      openingCash: Number(row.opening_cash),
+      cashSales,
+      expectedCash,
+      countedCash,
+      difference: countedCash == null ? null : countedCash - expectedCash,
+      note: row.closing_note,
+      adjustments: (row.cash_session_adjustments || [])
+        .map(
+          (adjustment: {
+            previous_counted_cash: number | string | null;
+            new_counted_cash: number | string;
+            reason: string;
+            created_at: string;
+          }) => ({
+            previous:
+              adjustment.previous_counted_cash == null
+                ? null
+                : Number(adjustment.previous_counted_cash),
+            next: Number(adjustment.new_counted_cash),
+            reason: adjustment.reason,
+            createdAt: adjustment.created_at,
+          }),
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    };
+  });
+}
+
 export async function getSalesSummary(range: SalesRange): Promise<{
   summary: SaleSummary;
   recent: {

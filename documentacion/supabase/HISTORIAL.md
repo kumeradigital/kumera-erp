@@ -1,5 +1,14 @@
 # Historial del esquema Supabase
 
+## 2026-07-15.3 — Historial independiente de cierres
+
+- Migraciones: `0012_add_cash_closure_history.sql`, `0013_secure_cash_correction_function.sql`.
+- Nueva ruta administrativa `/cierres`, separada del resumen de ventas.
+- Muestra apertura, cierre, efectivo esperado, contado y diferencia por jornada.
+- Permite completar o corregir cierres con motivo obligatorio.
+- Cada ajuste conserva valor anterior, nuevo valor, responsable y fecha.
+- Aplicado en desarrollo: sí, mediante Supabase MCP.
+
 ## 2026-07-15.2 — Regularización de cierres automáticos
 
 - Migración: `0011_add_cash_close_reconciliation.sql`.

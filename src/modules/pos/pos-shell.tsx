@@ -1,12 +1,18 @@
 import Link from "next/link";
-import { BookOpen, Boxes, LayoutDashboard, ShoppingCart } from "lucide-react";
+import {
+  BookOpen,
+  Boxes,
+  History,
+  LayoutDashboard,
+  ShoppingCart,
+} from "lucide-react";
 import { signOutAction } from "@/modules/auth/actions";
 export function PosShell({
   children,
   active,
 }: {
   children: React.ReactNode;
-  active: "sales" | "pos" | "products";
+  active: "sales" | "closures" | "pos" | "products";
 }) {
   return (
     <div className="min-h-screen bg-[#f7f6ee]">
@@ -24,6 +30,12 @@ export function PosShell({
             label="Ventas"
             active={active === "sales"}
             icon={<LayoutDashboard size={16} />}
+          />
+          <Nav
+            href="/cierres"
+            label="Historial de cierres"
+            active={active === "closures"}
+            icon={<History size={16} />}
           />
           <Nav
             href="/caja"
