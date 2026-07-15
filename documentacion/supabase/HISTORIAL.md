@@ -1,5 +1,14 @@
 # Historial del esquema Supabase
 
+## 2026-07-14.7 — Productos por unidad y por peso
+
+- Migraciones: `0007_add_weighted_products.sql`, `0008_seed_product_categories.sql`.
+- Los productos pueden venderse por unidad o por kilogramo.
+- Para productos por peso, la cantidad histórica se almacena en kilogramos con tres decimales.
+- El precio y total de cada línea se calculan en el servidor.
+- Categorías establecidas: Bollería, Empanadas, Pan, Pan envasado, Bebidas y Otros.
+- Aplicado en desarrollo: sí, mediante Supabase MCP.
+
 ## 2026-07-14.6 — Ventas y caja
 
 - Migraciones: `0005_add_simple_pos_module.sql`, `0006_add_atomic_sale_function.sql`.

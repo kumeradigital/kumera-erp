@@ -84,7 +84,11 @@ export function SalesDashboard({
                   {i + 1}
                 </span>
                 <span className="flex-1 text-sm font-bold">{p.name}</span>
-                <b>{p.quantity} un.</b>
+                <b>
+                  {p.saleUnit === "kg"
+                    ? `${p.quantity.toLocaleString("es-CL", { maximumFractionDigits: 3 })} kg`
+                    : `${p.quantity} un.`}
+                </b>
               </div>
             ))}
             {!summary.topProducts.length && <Empty />}

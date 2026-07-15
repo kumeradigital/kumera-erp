@@ -65,7 +65,8 @@ export function ProductsClient({ products }: { products: Product[] }) {
                     <p className="mt-1 text-xs text-[#7c8078]">{p.category}</p>
                   </div>
                   <p className="money font-black text-[#235b45]">
-                    {formatClp(p.price)}
+                    {formatClp(p.price)}{" "}
+                    {p.saleUnit === "kg" ? "/ kg" : "/ un."}
                   </p>
                 </div>
                 {p.description && (
@@ -117,23 +118,32 @@ export function ProductsClient({ products }: { products: Product[] }) {
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
+                <Field label="Forma de venta *">
+                  <select name="saleUnit" className="input" defaultValue="unit">
+                    <option value="unit">Por unidad</option>
+                    <option value="kg">Por kilogramo</option>
+                  </select>
+                </Field>
                 <Field label="Precio final *">
                   <input
                     name="price"
                     required
                     inputMode="numeric"
                     className="input"
-                    placeholder="$ 0"
-                  />
-                </Field>
-                <Field label="Categoría">
-                  <input
-                    name="category"
-                    className="input"
-                    placeholder="Ej: Empanadas"
+                    placeholder="Por unidad o kilo"
                   />
                 </Field>
               </div>
+              <Field label="Categoría">
+                <select name="category" className="input" defaultValue="Otros">
+                  <option>Bollería</option>
+                  <option>Empanadas</option>
+                  <option>Pan</option>
+                  <option>Pan envasado</option>
+                  <option>Bebidas</option>
+                  <option>Otros</option>
+                </select>
+              </Field>
               <Field label="Descripción opcional">
                 <textarea
                   name="description"

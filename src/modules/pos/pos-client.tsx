@@ -29,12 +29,18 @@ export function PosClient({
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
   const [closing, setClosing] = useState(false);
+  const [weighing, setWeighing] = useState<Product | null>(null);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const lines = products
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
   const total = lines.reduce((s, l) => s + l.price * l.quantity, 0);
   function add(id: string) {
+    const product = products.find((item) => item.id === id);
+    if (product?.saleUnit === "kg") {
+      setWeighing(product);
+      return;
+    }
     setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
   }
   function change(id: string, delta: number) {
@@ -85,7 +91,7 @@ export function PosClient({
                       {p.name}
                     </p>
                     <p className="money mt-2 text-base font-black text-[#235b45]">
-                      {formatClp(p.price)}
+                      {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
                     </p>
                   </div>
                 </button>
@@ -131,20 +137,36 @@ export function PosClient({
                 <p className="money text-xs text-[#777]">
                   {formatClp(l.price * l.quantity)}
                 </p>
+                {l.saleUnit === "kg" && (
+                  <p className="text-[11px] text-[#777]">
+                    {Math.round(l.quantity * 1000)} g · {formatClp(l.price)}/kg
+                  </p>
+                )}
               </div>
-              <button
-                onClick={() => change(l.id, -1)}
-                className="grid size-8 place-items-center rounded-lg bg-[#eeeFe7]"
-              >
-                <Minus size={14} />
-              </button>
-              <b className="w-5 text-center">{l.quantity}</b>
-              <button
-                onClick={() => change(l.id, 1)}
-                className="grid size-8 place-items-center rounded-lg bg-[#d8f070]"
-              >
-                <Plus size={14} />
-              </button>
+              {l.saleUnit === "unit" ? (
+                <>
+                  <button
+                    onClick={() => change(l.id, -1)}
+                    className="grid size-8 place-items-center rounded-lg bg-[#eeeFe7]"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <b className="w-5 text-center">{l.quantity}</b>
+                  <button
+                    onClick={() => change(l.id, 1)}
+                    className="grid size-8 place-items-center rounded-lg bg-[#d8f070]"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => change(l.id, -l.quantity)}
+                  className="text-xs font-bold text-[#a24628]"
+                >
+                  Quitar
+                </button>
+              )}
             </div>
           ))}
           {!lines.length && (
@@ -200,6 +222,21 @@ export function PosClient({
           }}
         />
       )}
+      {weighing && (
+        <WeightDialog
+          product={weighing}
+          onClose={() => setWeighing(null)}
+          onConfirm={(kilograms) => {
+            setCart((current) => ({
+              ...current,
+              [weighing.id]: Number(
+                ((current[weighing.id] || 0) + kilograms).toFixed(3),
+              ),
+            }));
+            setWeighing(null);
+          }}
+        />
+      )}
       {closing && (
         <CloseSessionDialog
           session={session}
@@ -208,6 +245,64 @@ export function PosClient({
         />
       )}
     </main>
+  );
+}
+
+function WeightDialog({
+  product,
+  onClose,
+  onConfirm,
+}: {
+  product: Product;
+  onClose: () => void;
+  onConfirm: (kilograms: number) => void;
+}) {
+  const [grams, setGrams] = useState("");
+  const value = Number(grams) || 0;
+  const total = Math.round((product.price * value) / 1000);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl">
+        <div className="flex justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              Venta por peso
+            </p>
+            <h2 className="mt-1 text-2xl font-black">{product.name}</h2>
+          </div>
+          <button onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        <p className="mt-3 text-sm text-[#747970]">
+          Precio: {formatClp(product.price)} por kilogramo
+        </p>
+        <label className="mt-5 block text-xs font-bold">
+          Peso en gramos
+          <input
+            autoFocus
+            value={grams}
+            onChange={(event) =>
+              setGrams(event.target.value.replace(/\D/g, ""))
+            }
+            inputMode="numeric"
+            placeholder="Ej: 350"
+            className="input mt-2 text-2xl font-black"
+          />
+        </label>
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-[#eff0e8] p-4">
+          <span className="font-bold">Subtotal</span>
+          <b className="money text-2xl">{formatClp(total)}</b>
+        </div>
+        <button
+          disabled={value <= 0}
+          onClick={() => onConfirm(value / 1000)}
+          className="mt-5 h-14 w-full rounded-xl bg-[#235b45] text-lg font-black text-white disabled:opacity-40"
+        >
+          Agregar al carro
+        </button>
+      </div>
+    </div>
   );
 }
 

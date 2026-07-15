@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
-import type { PaymentMethod } from "./types";
+import type { PaymentMethod, SaleUnit } from "./types";
 
 async function context() {
   const supabase = await createClient();
@@ -26,8 +26,11 @@ export async function saveProductAction(form: FormData) {
   const categoryName =
     String(form.get("category") || "General").trim() || "General";
   const price = Number(form.get("price"));
+  const saleUnit = String(form.get("saleUnit") || "unit") as SaleUnit;
   if (!name || name.length > 100 || !Number.isInteger(price) || price <= 0)
     throw new Error("Producto inválido");
+  if (!(["unit", "kg"] as SaleUnit[]).includes(saleUnit))
+    throw new Error("Forma de venta inválida");
   const { data: existingCategory, error: categoryError } = await ctx.supabase
     .from("product_categories")
     .select("id")
@@ -65,6 +68,7 @@ export async function saveProductAction(form: FormData) {
     name,
     description: description || null,
     price,
+    sale_unit: saleUnit,
     image_path: imagePath,
     updated_at: new Date().toISOString(),
   };

@@ -22,7 +22,7 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
   let query = supabase
     .from("products")
     .select(
-      "id,name,description,price,image_path,active,product_categories(name)",
+      "id,name,description,price,sale_unit,image_path,active,product_categories(name)",
     )
     .eq("business_id", businessId)
     .order("position")
@@ -47,6 +47,7 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
         name: row.name,
         description: row.description || undefined,
         price: Number(row.price),
+        saleUnit: row.sale_unit,
         category: category || "Sin categoría",
         imageUrl,
         active: row.active,
@@ -108,7 +109,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const { data: sales, error } = await ctx.supabase
     .from("sales")
     .select(
-      "id,total,payment_method,created_at,sale_items(product_name,quantity)",
+      "id,total,payment_method,created_at,sale_items(product_name,quantity,sale_unit)",
     )
     .eq("business_id", ctx.businessId)
     .eq("status", "completed")
@@ -119,16 +120,25 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const rows = sales || [];
   const total = rows.reduce((s, r) => s + Number(r.total), 0);
   const payments = new Map<PaymentMethod, number>();
-  const products = new Map<string, number>();
+  const products = new Map<
+    string,
+    { quantity: number; saleUnit: "unit" | "kg" }
+  >();
   rows.forEach((r) => {
     const method = r.payment_method as PaymentMethod;
     payments.set(method, (payments.get(method) || 0) + Number(r.total));
     (r.sale_items || []).forEach(
-      (item: { product_name: string; quantity: number }) =>
-        products.set(
-          item.product_name,
-          (products.get(item.product_name) || 0) + item.quantity,
-        ),
+      (item: {
+        product_name: string;
+        quantity: number | string;
+        sale_unit: "unit" | "kg";
+      }) => {
+        const previous = products.get(item.product_name);
+        products.set(item.product_name, {
+          quantity: (previous?.quantity || 0) + Number(item.quantity),
+          saleUnit: item.sale_unit,
+        });
+      },
     );
   });
   return {
@@ -140,7 +150,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
         .map(([method, value]) => ({ method, total: value }))
         .sort((a, b) => b.total - a.total),
       topProducts: [...products]
-        .map(([name, quantity]) => ({ name, quantity }))
+        .map(([name, value]) => ({ name, ...value }))
         .sort((a, b) => b.quantity - a.quantity),
     },
     recent: rows.slice(0, 10).map((r) => ({
