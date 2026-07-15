@@ -17,6 +17,7 @@ export type CashSession = {
   countedCash?: number;
   openedAt: string;
   closedAt?: string;
+  autoClosed?: boolean;
 };
 export type SaleSummary = {
   total: number;

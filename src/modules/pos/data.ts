@@ -61,7 +61,9 @@ export async function getOpenCashSession(): Promise<CashSession | null> {
   const { businessId, supabase } = await businessContext();
   const { data, error } = await supabase
     .from("cash_sessions")
-    .select("id,status,opening_cash,counted_cash,opened_at,closed_at")
+    .select(
+      "id,status,opening_cash,counted_cash,opened_at,closed_at,auto_closed",
+    )
     .eq("business_id", businessId)
     .eq("status", "open")
     .maybeSingle();
@@ -75,6 +77,33 @@ export async function getOpenCashSession(): Promise<CashSession | null> {
           data.counted_cash == null ? undefined : Number(data.counted_cash),
         openedAt: data.opened_at,
         closedAt: data.closed_at || undefined,
+        autoClosed: data.auto_closed,
+      }
+    : null;
+}
+
+export async function getLatestCashSession(): Promise<CashSession | null> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cash_sessions")
+    .select(
+      "id,status,opening_cash,counted_cash,opened_at,closed_at,auto_closed",
+    )
+    .eq("business_id", businessId)
+    .order("opened_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data
+    ? {
+        id: data.id,
+        status: data.status,
+        openingCash: Number(data.opening_cash),
+        countedCash:
+          data.counted_cash == null ? undefined : Number(data.counted_cash),
+        openedAt: data.opened_at,
+        closedAt: data.closed_at || undefined,
+        autoClosed: data.auto_closed,
       }
     : null;
 }

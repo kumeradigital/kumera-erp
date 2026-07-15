@@ -1,5 +1,13 @@
 # Historial del esquema Supabase
 
+## 2026-07-15.1 — Cierre automático de caja
+
+- Migración: `0010_add_automatic_cash_close.sql`.
+- Hora inicial de cierre automático: 22:00 según la zona horaria del negocio.
+- Supabase revisa jornadas abiertas cada cinco minutos mediante `pg_cron`.
+- El cierre queda identificado como automático y no inventa un efectivo contado.
+- Aplicado en desarrollo: sí, mediante Supabase MCP.
+
 ## 2026-07-14.8 — Edición y eliminación segura de productos
 
 - Migración: `0009_add_product_soft_delete.sql`.

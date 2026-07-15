@@ -19,10 +19,12 @@ export function PosClient({
   products,
   session,
   cashSales,
+  latestSession,
 }: {
   products: Product[];
   session: CashSession | null;
   cashSales: number;
+  latestSession: CashSession | null;
 }) {
   const [cart, setCart] = useState<Cart>({});
   const [paying, setPaying] = useState(false);
@@ -50,7 +52,7 @@ export function PosClient({
       return next;
     });
   }
-  if (!session) return <OpenSession />;
+  if (!session) return <OpenSession latestSession={latestSession} />;
   return (
     <main className="grid min-h-[calc(100vh-64px)] lg:grid-cols-[1fr_390px]">
       <section className="p-4 md:p-6">
@@ -376,7 +378,7 @@ function CloseSessionDialog({
     </div>
   );
 }
-function OpenSession() {
+function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
   const [busy, setBusy] = useState(false);
   return (
     <main className="grid min-h-[calc(100vh-64px)] place-items-center p-5">
@@ -388,6 +390,15 @@ function OpenSession() {
         <p className="mt-2 text-sm text-[#747970]">
           Indica cuánto efectivo hay al comenzar.
         </p>
+        {latestSession?.autoClosed && (
+          <div className="mt-5 rounded-xl border border-[#e7d8a5] bg-[#fff8dc] p-4 text-left text-xs text-[#6f5b17]">
+            <b>La jornada anterior se cerró automáticamente.</b>
+            <p className="mt-1">
+              El cierre quedó registrado sin efectivo contado porque no fue
+              confirmado manualmente.
+            </p>
+          </div>
+        )}
         <form
           action={async (form) => {
             setBusy(true);
