@@ -25,6 +25,7 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
       "id,name,description,price,sale_unit,image_path,active,product_categories(name)",
     )
     .eq("business_id", businessId)
+    .is("deleted_at", null)
     .order("position")
     .order("name");
   if (!includeInactive) query = query.eq("active", true);

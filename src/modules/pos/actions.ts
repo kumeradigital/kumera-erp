@@ -95,6 +95,22 @@ export async function toggleProductAction(id: string, active: boolean) {
   revalidatePath("/productos");
   revalidatePath("/caja");
 }
+export async function deleteProductAction(id: string) {
+  const ctx = await context();
+  const { error } = await ctx.supabase
+    .from("products")
+    .update({
+      active: false,
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null);
+  if (error) throw error;
+  revalidatePath("/productos");
+  revalidatePath("/caja");
+}
 export async function openCashSessionAction(openingCash: number, note = "") {
   const ctx = await context();
   if (!Number.isInteger(openingCash) || openingCash < 0)

@@ -1,5 +1,12 @@
 # Historial del esquema Supabase
 
+## 2026-07-14.8 — Edición y eliminación segura de productos
+
+- Migración: `0009_add_product_soft_delete.sql`.
+- Los productos pueden editarse, ocultarse temporalmente o eliminarse del catálogo.
+- La eliminación conserva las ventas históricas y bloquea nuevas ventas del producto.
+- Aplicado en desarrollo: sí, mediante Supabase MCP.
+
 ## 2026-07-14.7 — Productos por unidad y por peso
 
 - Migraciones: `0007_add_weighted_products.sql`, `0008_seed_product_categories.sql`.

@@ -1,12 +1,17 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-import { ImageIcon, Plus, X } from "lucide-react";
+import { ImageIcon, Pencil, Plus, Trash2, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
-import { saveProductAction, toggleProductAction } from "./actions";
+import {
+  deleteProductAction,
+  saveProductAction,
+  toggleProductAction,
+} from "./actions";
 import type { Product } from "./types";
 export function ProductsClient({ products }: { products: Product[] }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
   async function submit(form: FormData) {
     setBusy(true);
@@ -33,7 +38,10 @@ export function ProductsClient({ products }: { products: Product[] }) {
           </p>
         </div>
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setEditing(null);
+            setOpen(true);
+          }}
           className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
         >
           <Plus size={17} />
@@ -72,15 +80,41 @@ export function ProductsClient({ products }: { products: Product[] }) {
                 {p.description && (
                   <p className="mt-3 text-xs text-[#747970]">{p.description}</p>
                 )}
-                <button
-                  onClick={async () => {
-                    await toggleProductAction(p.id, !p.active);
-                    location.reload();
-                  }}
-                  className="mt-4 text-xs font-bold text-[#62675f] hover:underline"
-                >
-                  {p.active ? "Ocultar de caja" : "Volver a activar"}
-                </button>
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-[#ebeae2] pt-3">
+                  <button
+                    onClick={() => {
+                      setEditing(p);
+                      setOpen(true);
+                    }}
+                    className="flex items-center gap-1 rounded-lg bg-[#edf1e8] px-3 py-2 text-xs font-bold text-[#235b45]"
+                  >
+                    <Pencil size={13} /> Editar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await toggleProductAction(p.id, !p.active);
+                      location.reload();
+                    }}
+                    className="rounded-lg px-3 py-2 text-xs font-bold text-[#62675f] hover:bg-[#eee]"
+                  >
+                    {p.active ? "Ocultar" : "Activar"}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (
+                        !confirm(
+                          `¿Eliminar ${p.name}? Ya no aparecerá en el catálogo ni en caja.`,
+                        )
+                      )
+                        return;
+                      await deleteProductAction(p.id);
+                      location.reload();
+                    }}
+                    className="ml-auto flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-[#a24628] hover:bg-[#f7e8e2]"
+                  >
+                    <Trash2 size={13} /> Eliminar
+                  </button>
+                </div>
               </div>
             </article>
           ))}
@@ -99,27 +133,35 @@ export function ProductsClient({ products }: { products: Product[] }) {
             <div className="flex justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
-                  Nuevo
+                  {editing ? "Editar" : "Nuevo"}
                 </p>
-                <h2 className="mt-1 text-2xl font-black">Agregar producto</h2>
+                <h2 className="mt-1 text-2xl font-black">
+                  {editing ? "Editar producto" : "Agregar producto"}
+                </h2>
               </div>
               <button onClick={() => setOpen(false)}>
                 <X />
               </button>
             </div>
             <form action={submit} className="mt-6 space-y-4">
+              {editing && <input type="hidden" name="id" value={editing.id} />}
               <Field label="Nombre *">
                 <input
                   name="name"
                   required
                   maxLength={100}
+                  defaultValue={editing?.name}
                   className="input"
                   placeholder="Ej: Empanada de queso"
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Forma de venta *">
-                  <select name="saleUnit" className="input" defaultValue="unit">
+                  <select
+                    name="saleUnit"
+                    className="input"
+                    defaultValue={editing?.saleUnit || "unit"}
+                  >
                     <option value="unit">Por unidad</option>
                     <option value="kg">Por kilogramo</option>
                   </select>
@@ -129,13 +171,18 @@ export function ProductsClient({ products }: { products: Product[] }) {
                     name="price"
                     required
                     inputMode="numeric"
+                    defaultValue={editing?.price}
                     className="input"
                     placeholder="Por unidad o kilo"
                   />
                 </Field>
               </div>
               <Field label="Categoría">
-                <select name="category" className="input" defaultValue="Otros">
+                <select
+                  name="category"
+                  className="input"
+                  defaultValue={editing?.category || "Otros"}
+                >
                   <option>Bollería</option>
                   <option>Empanadas</option>
                   <option>Pan</option>
@@ -148,6 +195,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
                 <textarea
                   name="description"
                   maxLength={300}
+                  defaultValue={editing?.description}
                   className="input min-h-20 py-3"
                 />
               </Field>
@@ -158,12 +206,21 @@ export function ProductsClient({ products }: { products: Product[] }) {
                   accept="image/png,image/jpeg,image/webp"
                   className="block w-full text-xs"
                 />
+                {editing?.imageUrl && (
+                  <span className="mt-1 block text-[11px] font-normal text-[#777]">
+                    Déjalo vacío para conservar la imagen actual.
+                  </span>
+                )}
               </Field>
               <button
                 disabled={busy}
                 className="h-12 w-full rounded-xl bg-[#235b45] font-bold text-white disabled:opacity-50"
               >
-                {busy ? "Guardando..." : "Guardar producto"}
+                {busy
+                  ? "Guardando..."
+                  : editing
+                    ? "Guardar cambios"
+                    : "Guardar producto"}
               </button>
             </form>
           </div>
