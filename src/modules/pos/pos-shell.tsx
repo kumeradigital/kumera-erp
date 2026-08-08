@@ -4,6 +4,7 @@ import {
   Boxes,
   History,
   LayoutDashboard,
+  LineChart,
   ShoppingCart,
 } from "lucide-react";
 import { signOutAction } from "@/modules/auth/actions";
@@ -12,7 +13,7 @@ export function PosShell({
   active,
 }: {
   children: React.ReactNode;
-  active: "sales" | "closures" | "pos" | "products";
+  active: "sales" | "closures" | "pos" | "products" | "costs";
 }) {
   return (
     <div className="min-h-screen bg-[#f7f6ee]">
@@ -49,6 +50,12 @@ export function PosShell({
             active={active === "products"}
             icon={<Boxes size={16} />}
           />
+          <Nav
+            href="/costos"
+            label="Costos"
+            active={active === "costs"}
+            icon={<LineChart size={16} />}
+          />
         </nav>
         <form action={signOutAction}>
           <button className="text-xs font-bold text-[#777] hover:text-[#a33d20]">
@@ -77,7 +84,7 @@ function Nav({
       className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 ${active ? "bg-[#235b45] text-white" : "text-[#62675f] hover:bg-[#eeeFe6]"}`}
     >
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      <span className="hidden xl:inline">{label}</span>
     </Link>
   );
 }

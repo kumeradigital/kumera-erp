@@ -1,5 +1,16 @@
 # Historial del esquema Supabase
 
+## 2026-08-07.1 — Motor de costos, recetas y proyecciones
+
+- Migración: `0014_add_costing_engine.sql`.
+- Materias primas sin inventario, con historial de precios y unidades normalizadas.
+- Recetas y subrecetas con rendimiento por unidad o kilogramo.
+- Vinculación de recetas con productos de caja, merma y margen objetivo.
+- Parámetros de IVA, mezcla de pagos y comisiones.
+- Costos fijos prorrateables y escenarios de venta por mezcla de productos.
+- Todas las entidades nuevas tienen aislamiento RLS por negocio.
+- Aplicado en desarrollo: sí, mediante Supabase MCP (versión remota `20260808003559`).
+
 ## 2026-07-15.3 — Historial independiente de cierres
 
 - Migraciones: `0012_add_cash_closure_history.sql`, `0013_secure_cash_correction_function.sql`.

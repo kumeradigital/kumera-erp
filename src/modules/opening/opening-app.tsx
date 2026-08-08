@@ -12,6 +12,7 @@ import {
 import {
   ArrowDownToLine,
   BookOpen,
+  Calculator,
   CircleDollarSign,
   Copy,
   FileText,
@@ -352,6 +353,11 @@ export function OpeningApp({
             icon={<CircleDollarSign size={17} />}
             label="Ventas"
           />
+          <Nav
+            onClick={() => (location.href = "/costos")}
+            icon={<Calculator size={17} />}
+            label="Costos y rentabilidad"
+          />
         </nav>
         <div className="mt-auto">
           <Nav icon={<Settings size={17} />} label="Configuración" />
@@ -455,6 +461,11 @@ export function OpeningApp({
           onClick={() => (location.href = "/ventas")}
           icon={<CircleDollarSign size={18} />}
           label="Ventas"
+        />
+        <Nav
+          onClick={() => (location.href = "/costos")}
+          icon={<Calculator size={18} />}
+          label="Costos"
         />
       </nav>
       {dialog && (
