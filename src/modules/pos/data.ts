@@ -1,5 +1,11 @@
 import { createClient } from "@/server/supabase/server";
-import type { CashSession, PaymentMethod, Product, SaleSummary } from "./types";
+import type {
+  CashSession,
+  DailyAvailability,
+  PaymentMethod,
+  Product,
+  SaleSummary,
+} from "./types";
 
 async function businessContext() {
   const supabase = await createClient();
@@ -22,7 +28,7 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
   let query = supabase
     .from("products")
     .select(
-      "id,name,description,price,sale_unit,image_path,active,product_categories(name)",
+      "id,name,description,price,sale_unit,image_path,active,track_daily_availability,product_categories(name)",
     )
     .eq("business_id", businessId)
     .is("deleted_at", null)
@@ -52,9 +58,39 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
         category: category || "Sin categoría",
         imageUrl,
         active: row.active,
+        trackDailyAvailability: row.track_daily_availability,
       };
     }),
   );
+}
+
+export async function getDailyAvailability(
+  sessionId: string,
+): Promise<DailyAvailability[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cash_session_product_availability")
+    .select(
+      "product_id,opening_quantity,available_quantity,produced_quantity,sold_quantity,adjusted_quantity,products(name)",
+    )
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .order("created_at");
+  if (error) throw error;
+  return (data || []).map((row) => {
+    const product = Array.isArray(row.products)
+      ? row.products[0]
+      : (row.products as { name: string } | null);
+    return {
+      productId: row.product_id,
+      productName: product?.name || "Producto",
+      openingQuantity: Number(row.opening_quantity),
+      availableQuantity: Number(row.available_quantity),
+      producedQuantity: Number(row.produced_quantity),
+      soldQuantity: Number(row.sold_quantity),
+      adjustedQuantity: Number(row.adjusted_quantity),
+    };
+  });
 }
 
 export async function getOpenCashSession(): Promise<CashSession | null> {

@@ -1,17 +1,28 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-import { Banknote, Check, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import {
+  Banknote,
+  Check,
+  ClipboardList,
+  Minus,
+  Plus,
+  ShoppingBag,
+  X,
+} from "lucide-react";
 import { formatClp } from "@/shared/money";
 import {
   closeCashSessionAction,
+  adjustAvailabilityAction,
   openCashSessionAction,
   reconcileCashSessionAction,
   registerSaleAction,
 } from "./actions";
 import {
   paymentLabels,
+  type AvailabilityMovementType,
   type CashSession,
+  type DailyAvailability,
   type PaymentMethod,
   type Product,
 } from "./types";
@@ -21,11 +32,13 @@ export function PosClient({
   session,
   cashSales,
   latestSession,
+  availability,
 }: {
   products: Product[];
   session: CashSession | null;
   cashSales: number;
   latestSession: CashSession | null;
+  availability: DailyAvailability[];
 }) {
   const [cart, setCart] = useState<Cart>({});
   const [paying, setPaying] = useState(false);
@@ -33,6 +46,7 @@ export function PosClient({
   const [category, setCategory] = useState("Todos");
   const [closing, setClosing] = useState(false);
   const [weighing, setWeighing] = useState<Product | null>(null);
+  const [managingAvailability, setManagingAvailability] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const lines = products
     .filter((p) => cart[p.id])
@@ -44,6 +58,11 @@ export function PosClient({
       setWeighing(product);
       return;
     }
+    if (
+      product?.trackDailyAvailability &&
+      (product.availability?.availableQuantity || 0) <= (cart[id] || 0)
+    )
+      return;
     setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
   }
   function change(id: string, delta: number) {
@@ -53,52 +72,84 @@ export function PosClient({
       return next;
     });
   }
-  if (!session) return <OpenSession latestSession={latestSession} />;
+  if (!session)
+    return <OpenSession latestSession={latestSession} products={products} />;
   return (
     <main className="grid min-h-[calc(100vh-64px)] lg:grid-cols-[1fr_390px]">
       <section className="p-4 md:p-6">
-        <div className="flex gap-2 overflow-x-auto pb-4">
-          {categories.map((c) => (
+        <div className="flex items-start justify-between gap-3 pb-4">
+          <div className="flex gap-2 overflow-x-auto">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          {availability.length > 0 && (
             <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
+              onClick={() => setManagingAvailability(true)}
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-3 py-2 text-xs font-black text-[#235b45]"
             >
-              {c}
+              <ClipboardList size={16} />
+              <span className="hidden sm:inline">Disponibilidad</span>
             </button>
-          ))}
+          )}
         </div>
         {products.length ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {products
               .filter((p) => category === "Todos" || p.category === category)
-              .map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => add(p.id)}
-                  className="card overflow-hidden text-left transition active:scale-[.98]"
-                >
-                  <div className="grid h-28 place-items-center bg-[#eaeae1]">
-                    {p.imageUrl ? (
-                      <img
-                        src={p.imageUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <ShoppingBag className="text-[#9da198]" />
+              .map((p) => {
+                const remaining = p.trackDailyAvailability
+                  ? Math.max(
+                      0,
+                      (p.availability?.availableQuantity || 0) -
+                        (cart[p.id] || 0),
+                    )
+                  : null;
+                const soldOut = remaining === 0;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => add(p.id)}
+                    disabled={soldOut}
+                    className="card relative overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {remaining !== null && (
+                      <span
+                        className={`absolute right-2 top-2 z-10 rounded-full px-2.5 py-1 text-[11px] font-black shadow-sm ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
+                      >
+                        {remaining === 0
+                          ? "Agotado"
+                          : `${remaining} disponibles`}
+                      </span>
                     )}
-                  </div>
-                  <div className="p-3">
-                    <p className="min-h-10 text-sm font-black leading-5">
-                      {p.name}
-                    </p>
-                    <p className="money mt-2 text-base font-black text-[#235b45]">
-                      {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                    <div className="grid h-28 place-items-center bg-[#eaeae1]">
+                      {p.imageUrl ? (
+                        <img
+                          src={p.imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ShoppingBag className="text-[#9da198]" />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="min-h-10 text-sm font-black leading-5">
+                        {p.name}
+                      </p>
+                      <p className="money mt-2 text-base font-black text-[#235b45]">
+                        {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         ) : (
           <div className="card p-12 text-center">
@@ -157,6 +208,10 @@ export function PosClient({
                   <b className="w-5 text-center">{l.quantity}</b>
                   <button
                     onClick={() => change(l.id, 1)}
+                    disabled={
+                      l.trackDailyAvailability &&
+                      l.quantity >= (l.availability?.availableQuantity || 0)
+                    }
                     className="grid size-8 place-items-center rounded-lg bg-[#d8f070]"
                   >
                     <Plus size={14} />
@@ -245,9 +300,167 @@ export function PosClient({
           session={session}
           expectedCash={session.openingCash + cashSales}
           onClose={() => setClosing(false)}
+          availability={availability}
+        />
+      )}
+      {managingAvailability && (
+        <AvailabilityDialog
+          sessionId={session.id}
+          availability={availability}
+          onClose={() => setManagingAvailability(false)}
         />
       )}
     </main>
+  );
+}
+
+function AvailabilityDialog({
+  sessionId,
+  availability,
+  onClose,
+}: {
+  sessionId: string;
+  availability: DailyAvailability[];
+  onClose: () => void;
+}) {
+  const [adjusting, setAdjusting] = useState<DailyAvailability | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-2xl md:rounded-3xl">
+        <div className="flex justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              Jornada actual
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Disponibilidad del día</h2>
+            <p className="mt-2 text-sm text-[#747970]">
+              Agrega producción o registra mermas, consumo y correcciones.
+            </p>
+          </div>
+          <button onClick={onClose} className="self-start">
+            <X />
+          </button>
+        </div>
+        <div className="mt-5 space-y-3">
+          {availability.map((item) => (
+            <div
+              key={item.productId}
+              className="flex items-center gap-4 rounded-2xl border border-[#e2e2d8] p-4"
+            >
+              <span
+                className={`grid size-12 shrink-0 place-items-center rounded-xl text-lg font-black ${item.availableQuantity === 0 ? "bg-[#f6e2da] text-[#a24628]" : item.availableQuantity <= 5 ? "bg-[#fff0b7] text-[#6f5711]" : "bg-[#e6f0e4] text-[#235b45]"}`}
+              >
+                {item.availableQuantity}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-black">{item.productName}</p>
+                <p className="mt-1 text-[11px] text-[#777]">
+                  Inicio {item.openingQuantity} · Producción +
+                  {item.producedQuantity} · Vendidas {item.soldQuantity} ·
+                  Ajustes {item.adjustedQuantity > 0 ? "+" : ""}
+                  {item.adjustedQuantity}
+                </p>
+              </div>
+              <button
+                onClick={() => setAdjusting(item)}
+                className="shrink-0 rounded-xl bg-[#235b45] px-3 py-2 text-xs font-black text-white"
+              >
+                Ajustar
+              </button>
+            </div>
+          ))}
+        </div>
+        {adjusting && (
+          <form
+            action={async (form) => {
+              setBusy(true);
+              try {
+                const operation = String(form.get("operation"));
+                const quantity = Number(form.get("quantity"));
+                const kind = operation.replace(
+                  /_(add|remove)$/,
+                  "",
+                ) as AvailabilityMovementType;
+                const positive =
+                  operation === "production" || operation.endsWith("_add");
+                await adjustAvailabilityAction(
+                  sessionId,
+                  adjusting.productId,
+                  kind,
+                  positive ? quantity : -quantity,
+                  String(form.get("reason") || ""),
+                );
+                location.reload();
+              } catch (error) {
+                alert(
+                  error instanceof Error
+                    ? error.message
+                    : "No se pudo ajustar la disponibilidad",
+                );
+                setBusy(false);
+              }
+            }}
+            className="mt-5 rounded-2xl bg-[#f1f3ec] p-5"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase text-[#777]">
+                  Ajustar
+                </p>
+                <h3 className="font-black">{adjusting.productName}</h3>
+              </div>
+              <button type="button" onClick={() => setAdjusting(null)}>
+                <X size={19} />
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-bold">
+                Motivo del movimiento
+                <select name="operation" className="input mt-2">
+                  <option value="production">Nueva producción (+)</option>
+                  <option value="waste">Merma o producto dañado (−)</option>
+                  <option value="consumption">Consumo interno (−)</option>
+                  <option value="correction_add">
+                    Corrección: agregar (+)
+                  </option>
+                  <option value="correction_remove">
+                    Corrección: restar (−)
+                  </option>
+                </select>
+              </label>
+              <label className="text-xs font-bold">
+                Cantidad
+                <input
+                  name="quantity"
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  className="input mt-2"
+                />
+              </label>
+            </div>
+            <label className="mt-3 block text-xs font-bold">
+              Nota breve *
+              <input
+                name="reason"
+                maxLength={200}
+                required
+                className="input mt-2 bg-white"
+                placeholder="Ej: Segunda hornada o unidad dañada"
+              />
+            </label>
+            <button
+              disabled={busy}
+              className="mt-4 h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-50"
+            >
+              {busy ? "Guardando..." : "Guardar movimiento"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -313,10 +526,12 @@ function CloseSessionDialog({
   session,
   expectedCash,
   onClose,
+  availability,
 }: {
   session: CashSession;
   expectedCash: number;
   onClose: () => void;
+  availability: DailyAvailability[];
 }) {
   const [busy, setBusy] = useState(false);
   return (
@@ -342,6 +557,24 @@ function CloseSessionDialog({
             Efectivo inicial + ventas en efectivo
           </p>
         </div>
+        {availability.length > 0 && (
+          <div className="mt-4 rounded-xl border border-[#e1e1d7] p-4">
+            <p className="text-xs font-black uppercase tracking-wider text-[#777]">
+              Disponibilidad final teórica
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs">
+              {availability.map((item) => (
+                <div
+                  key={item.productId}
+                  className="flex justify-between gap-2"
+                >
+                  <span className="truncate">{item.productName}</span>
+                  <b>{item.availableQuantity}</b>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <form
           action={async (form) => {
             setBusy(true);
@@ -379,18 +612,27 @@ function CloseSessionDialog({
     </div>
   );
 }
-function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
+function OpenSession({
+  latestSession,
+  products,
+}: {
+  latestSession: CashSession | null;
+  products: Product[];
+}) {
   const [busy, setBusy] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const trackedProducts = products.filter(
+    (product) => product.trackDailyAvailability && product.saleUnit === "unit",
+  );
   return (
     <main className="grid min-h-[calc(100vh-64px)] place-items-center p-5">
-      <div className="card w-full max-w-md p-7 text-center">
+      <div className="card w-full max-w-2xl p-7 text-center">
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#d8f070] text-[#235b45]">
           <Banknote />
         </div>
         <h1 className="mt-5 text-2xl font-black">Abrir jornada de caja</h1>
         <p className="mt-2 text-sm text-[#747970]">
-          Indica cuánto efectivo hay al comenzar.
+          Indica el efectivo inicial y los productos frescos disponibles.
         </p>
         {latestSession?.autoClosed && (
           <div className="mt-5 rounded-xl border border-[#e7d8a5] bg-[#fff8dc] p-4 text-left text-xs text-[#6f5b17]">
@@ -478,6 +720,10 @@ function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
             await openCashSessionAction(
               Number(form.get("openingCash")),
               String(form.get("note") || ""),
+              trackedProducts.map((product) => ({
+                product_id: product.id,
+                quantity: Number(form.get(`availability-${product.id}`) || 0),
+              })),
             );
             location.reload();
           }}
@@ -493,6 +739,37 @@ function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
               className="input mt-2"
             />
           </label>
+          {trackedProducts.length > 0 && (
+            <fieldset className="rounded-2xl border border-[#dfe3d8] bg-[#f4f6ef] p-4">
+              <legend className="px-2 text-xs font-black uppercase tracking-wider text-[#235b45]">
+                Disponibilidad al abrir
+              </legend>
+              <p className="mb-4 text-xs font-normal leading-5 text-[#70766e]">
+                Indica las unidades listas para vender. Puedes agregar nuevas
+                hornadas durante la jornada.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {trackedProducts.map((product) => (
+                  <label
+                    key={product.id}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 text-sm font-bold"
+                  >
+                    <span className="min-w-0 truncate">{product.name}</span>
+                    <input
+                      name={`availability-${product.id}`}
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      step="1"
+                      defaultValue="0"
+                      required
+                      className="h-11 w-24 rounded-lg border border-[#d8d8cf] px-3 text-right text-lg font-black outline-none focus:border-[#235b45]"
+                    />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <label className="block text-xs font-bold">
             Nota opcional
             <input name="note" className="input mt-2" />

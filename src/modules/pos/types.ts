@@ -9,6 +9,19 @@ export type Product = {
   category: string;
   imageUrl?: string;
   active: boolean;
+  trackDailyAvailability: boolean;
+  availability?: DailyAvailability;
+};
+export type AvailabilityMovementType =
+  "production" | "waste" | "consumption" | "correction";
+export type DailyAvailability = {
+  productId: string;
+  productName: string;
+  openingQuantity: number;
+  availableQuantity: number;
+  producedQuantity: number;
+  soldQuantity: number;
+  adjustedQuantity: number;
 };
 export type CashSession = {
   id: string;

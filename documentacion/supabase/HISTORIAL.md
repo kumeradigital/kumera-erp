@@ -1,5 +1,16 @@
 # Historial del esquema Supabase
 
+## 2026-08-07.2 — Disponibilidad operativa por jornada
+
+- Migración: `0015_add_daily_product_availability.sql`.
+- Los productos por unidad pueden activar control de disponibilidad diaria.
+- La apertura de caja registra unidades listas para vender por producto.
+- Cada venta valida y descuenta disponibilidad dentro de la misma transacción.
+- Se registran nueva producción, merma, consumo interno y correcciones con motivo.
+- La disponibilidad pertenece a la jornada y no se arrastra al día siguiente.
+- Las tablas nuevas tienen aislamiento RLS por negocio.
+- Aplicado en desarrollo: sí, mediante Supabase MCP (versión remota `20260808012417`).
+
 ## 2026-08-07.1 — Motor de costos, recetas y proyecciones
 
 - Migración: `0014_add_costing_engine.sql`.

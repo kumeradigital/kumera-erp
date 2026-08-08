@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-import { ImageIcon, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ImageIcon, PackageCheck, Pencil, Plus, Trash2, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import {
   deleteProductAction,
@@ -79,6 +79,11 @@ export function ProductsClient({ products }: { products: Product[] }) {
                 </div>
                 {p.description && (
                   <p className="mt-3 text-xs text-[#747970]">{p.description}</p>
+                )}
+                {p.trackDailyAvailability && (
+                  <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
+                    <PackageCheck size={14} /> Disponibilidad diaria activa
+                  </p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-[#ebeae2] pt-3">
                   <button
@@ -199,6 +204,24 @@ export function ProductsClient({ products }: { products: Product[] }) {
                   className="input min-h-20 py-3"
                 />
               </Field>
+              <label className="flex items-start gap-3 rounded-xl border border-[#dfe4da] bg-[#f3f6ef] p-4 text-sm">
+                <input
+                  name="trackDailyAvailability"
+                  type="checkbox"
+                  defaultChecked={editing?.trackDailyAvailability}
+                  className="mt-0.5 size-4 accent-[#235b45]"
+                />
+                <span>
+                  <b className="block text-[#235b45]">
+                    Controlar disponibilidad diaria
+                  </b>
+                  <span className="mt-1 block text-xs font-normal leading-5 text-[#6f756d]">
+                    Para productos vendidos por unidad, como empanadas. La
+                    cantidad se solicitará al abrir caja y bajará con cada
+                    venta.
+                  </span>
+                </span>
+              </label>
               <Field label="Imagen opcional">
                 <input
                   name="image"

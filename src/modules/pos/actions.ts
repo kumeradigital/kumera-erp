@@ -1,7 +1,11 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
-import type { PaymentMethod, SaleUnit } from "./types";
+import type {
+  AvailabilityMovementType,
+  PaymentMethod,
+  SaleUnit,
+} from "./types";
 
 async function context() {
   const supabase = await createClient();
@@ -27,6 +31,8 @@ export async function saveProductAction(form: FormData) {
     String(form.get("category") || "General").trim() || "General";
   const price = Number(form.get("price"));
   const saleUnit = String(form.get("saleUnit") || "unit") as SaleUnit;
+  const trackDailyAvailability =
+    saleUnit === "unit" && form.get("trackDailyAvailability") === "on";
   if (!name || name.length > 100 || !Number.isInteger(price) || price <= 0)
     throw new Error("Producto inválido");
   if (!(["unit", "kg"] as SaleUnit[]).includes(saleUnit))
@@ -69,6 +75,7 @@ export async function saveProductAction(form: FormData) {
     description: description || null,
     price,
     sale_unit: saleUnit,
+    track_daily_availability: trackDailyAvailability,
     image_path: imagePath,
     updated_at: new Date().toISOString(),
   };
@@ -111,19 +118,60 @@ export async function deleteProductAction(id: string) {
   revalidatePath("/productos");
   revalidatePath("/caja");
 }
-export async function openCashSessionAction(openingCash: number, note = "") {
+export async function openCashSessionAction(
+  openingCash: number,
+  note = "",
+  quantities: { product_id: string; quantity: number }[] = [],
+) {
   const ctx = await context();
   if (!Number.isInteger(openingCash) || openingCash < 0)
     throw new Error("Monto inicial inválido");
-  const { error } = await ctx.supabase.from("cash_sessions").insert({
-    business_id: ctx.businessId,
-    opened_by: ctx.user.id,
-    opening_cash: openingCash,
-    opening_note: note || null,
-  });
+  if (
+    quantities.some(
+      (item) =>
+        !item.product_id ||
+        !Number.isInteger(item.quantity) ||
+        item.quantity < 0,
+    )
+  )
+    throw new Error("Disponibilidad inicial inválida");
+  const { error } = await ctx.supabase.rpc(
+    "open_cash_session_with_availability",
+    {
+      p_opening_cash: openingCash,
+      p_note: note,
+      p_quantities: quantities,
+    },
+  );
   if (error) throw error;
   revalidatePath("/caja");
   revalidatePath("/ventas");
+}
+export async function adjustAvailabilityAction(
+  sessionId: string,
+  productId: string,
+  kind: AvailabilityMovementType,
+  delta: number,
+  reason = "",
+) {
+  const ctx = await context();
+  if (
+    !sessionId ||
+    !productId ||
+    !["production", "waste", "consumption", "correction"].includes(kind) ||
+    !Number.isInteger(delta) ||
+    delta === 0
+  )
+    throw new Error("Ajuste de disponibilidad inválido");
+  const { error } = await ctx.supabase.rpc("adjust_product_availability", {
+    p_session: sessionId,
+    p_product: productId,
+    p_kind: kind,
+    p_delta: delta,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  revalidatePath("/caja");
 }
 export async function closeCashSessionAction(
   sessionId: string,

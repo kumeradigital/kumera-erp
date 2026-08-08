@@ -1,5 +1,6 @@
 import {
   getCashSalesTotal,
+  getDailyAvailability,
   getLatestCashSession,
   getOpenCashSession,
   getProducts,
@@ -13,10 +14,16 @@ export default async function PosPage() {
     getLatestCashSession(),
   ]);
   const cashSales = session ? await getCashSalesTotal(session.id) : 0;
+  const availability = session ? await getDailyAvailability(session.id) : [];
+  const productsWithAvailability = products.map((product) => ({
+    ...product,
+    availability: availability.find((row) => row.productId === product.id),
+  }));
   return (
     <PosShell active="pos">
       <PosClient
-        products={products}
+        products={productsWithAvailability}
+        availability={availability}
         session={session}
         cashSales={cashSales}
         latestSession={latestSession}
