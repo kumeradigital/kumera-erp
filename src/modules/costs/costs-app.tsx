@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Beaker,
+  BookOpenCheck,
   Calculator,
   CheckCircle2,
   CircleDollarSign,
@@ -72,17 +74,26 @@ export function CostsApp({
   ];
   return (
     <main className="mx-auto max-w-7xl p-4 pb-24 md:p-8">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6e746c]">
-          Motor económico
-        </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight">
-          Costos, precios y rentabilidad
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-[#747970]">
-          Los costos se calculan desde precios, ingredientes y recetas. No se
-          ingresa manualmente el costo de un producto.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6e746c]">
+            Motor económico
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight">
+            Costos, precios y rentabilidad
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm text-[#747970]">
+            Los costos se calculan desde precios, ingredientes y recetas. No se
+            ingresa manualmente el costo de un producto.
+          </p>
+        </div>
+        <Link
+          href="/costos/guia"
+          className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-[#235b45] bg-[#fffef9] px-4 py-3 text-xs font-black text-[#235b45] hover:bg-[#edf3ea]"
+        >
+          <BookOpenCheck size={17} />
+          Guía para costear y fijar precios
+        </Link>
       </div>
       <div className="mt-6 flex gap-2 overflow-x-auto pb-2">
         {tabs.map((item) => (
