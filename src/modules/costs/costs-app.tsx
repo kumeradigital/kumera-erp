@@ -22,6 +22,7 @@ import {
   addIngredientPriceAction,
   addRecipeItemAction,
   configureProductCostAction,
+  deleteRecipeAction,
   deleteRecipeItemAction,
   saveCostSettingsAction,
   saveFixedCostAction,
@@ -36,6 +37,7 @@ import type {
   Ingredient,
   ProductCostAnalysis,
   Recipe,
+  RecipeKind,
   RecipeCost,
   Scenario,
 } from "./types";
@@ -250,19 +252,36 @@ function RecipesView({
   recipes: Recipe[];
   costs: Record<string, RecipeCost>;
 }) {
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<RecipeKind | null>(null);
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [addingTo, setAddingTo] = useState<Recipe | null>(null);
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
   const recipeMap = new Map(recipes.map((item) => [item.id, item]));
   return (
     <section className="mt-5">
-      <SectionHeader
-        title="Recetas y subrecetas"
-        subtitle="Crea preparaciones base y luego combínalas en la receta final de cada producto."
-        action={() => setCreating(true)}
-        actionLabel="Receta"
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black">Recetas y subrecetas</h2>
+          <p className="mt-1 text-sm text-[#777]">
+            Crea preparaciones base y luego combínalas en la receta final de
+            cada producto.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setCreating("subrecipe")}
+            className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-xs font-black text-[#235b45]"
+          >
+            <Plus size={15} /> Subreceta
+          </button>
+          <button
+            onClick={() => setCreating("final")}
+            className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-xs font-black text-white"
+          >
+            <Plus size={15} /> Receta final
+          </button>
+        </div>
+      </div>
       <div className="mt-4 rounded-2xl border border-[#d8e3d6] bg-[#eef4eb] p-5">
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#235b45] text-white">
@@ -299,7 +318,14 @@ function RecipesView({
             <article key={recipe.id} className="card p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-black">{recipe.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-black">{recipe.name}</h3>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${recipe.kind === "final" ? "bg-[#d8f070] text-[#235b45]" : "bg-[#e8eee6] text-[#5e6b62]"}`}
+                    >
+                      {recipe.kind === "final" ? "Receta final" : "Subreceta"}
+                    </span>
+                  </div>
                   <p className="mt-1 text-xs text-[#777]">
                     Rinde {recipe.yieldQuantity}{" "}
                     {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
@@ -364,7 +390,7 @@ function RecipesView({
                   {cost.missing.join(" · ")}
                 </p>
               )}
-              <div className="mt-4 flex gap-4">
+              <div className="mt-4 flex flex-wrap gap-4">
                 <button
                   onClick={() => setAddingTo(recipe)}
                   className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
@@ -377,6 +403,29 @@ function RecipesView({
                 >
                   Editar receta
                 </button>
+                <button
+                  onClick={async () => {
+                    if (
+                      !confirm(
+                        `¿Eliminar ${recipe.name}? Se desvinculará de cualquier producto que la tenga asignada.`,
+                      )
+                    )
+                      return;
+                    try {
+                      await deleteRecipeAction(recipe.id);
+                      location.reload();
+                    } catch (error) {
+                      alert(
+                        error instanceof Error
+                          ? error.message
+                          : "No se pudo eliminar la receta",
+                      );
+                    }
+                  }}
+                  className="flex items-center gap-1 text-xs font-bold text-[#a24628]"
+                >
+                  <Trash2 size={14} /> Eliminar
+                </button>
               </div>
             </article>
           );
@@ -385,7 +434,12 @@ function RecipesView({
           <Empty text="Crea una receta base, como Masa de empanada o Pan corriente." />
         )}
       </div>
-      {creating && <RecipeDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <RecipeDialog
+          defaultKind={creating}
+          onClose={() => setCreating(null)}
+        />
+      )}
       {editing && (
         <RecipeDialog recipe={editing} onClose={() => setEditing(null)} />
       )}
@@ -960,18 +1014,33 @@ function PriceDialog({
 
 function RecipeDialog({
   recipe,
+  defaultKind = "subrecipe",
   onClose,
 }: {
   recipe?: Recipe;
+  defaultKind?: RecipeKind;
   onClose: () => void;
 }) {
+  const kind = recipe?.kind || defaultKind;
   return (
     <Dialog
-      title={recipe ? "Editar receta" : "Nueva receta o preparación"}
+      title={
+        recipe
+          ? "Editar receta"
+          : kind === "final"
+            ? "Nueva receta final"
+            : "Nueva subreceta"
+      }
       onClose={onClose}
     >
       <AsyncForm action={saveRecipeAction}>
         {recipe && <input type="hidden" name="id" value={recipe.id} />}
+        <Field label="Tipo *">
+          <select name="recipeKind" defaultValue={kind} className="input">
+            <option value="subrecipe">Subreceta o preparación base</option>
+            <option value="final">Receta final de un producto</option>
+          </select>
+        </Field>
         <Field label="Nombre *">
           <input
             name="name"
@@ -982,8 +1051,9 @@ function RecipeDialog({
           />
         </Field>
         <p className="-mt-2 text-xs leading-5 text-[#777]">
-          Puede ser una preparación base, como “Masa de empanada”, o el armado
-          final de un producto, como “Empanada de pino”.
+          {kind === "final"
+            ? "Esta receta reunirá las subrecetas y materias primas del producto que vendes."
+            : "Una subreceta es una preparación reutilizable, como masa, pino o relleno."}
         </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Rendimiento">
@@ -1015,7 +1085,7 @@ function RecipeDialog({
             className="input min-h-20 py-3"
           />
         </Field>
-        <Submit>Crear receta</Submit>
+        <Submit>{recipe ? "Guardar cambios" : "Crear"}</Submit>
       </AsyncForm>
     </Dialog>
   );
@@ -1035,8 +1105,10 @@ function RecipeItemDialog({
   const [key, setKey] = useState(
     ingredients[0]
       ? `ingredient:${ingredients[0].id}`
-      : recipes.find((item) => item.id !== recipe.id)
-        ? `recipe:${recipes.find((item) => item.id !== recipe.id)!.id}`
+      : recipes.find(
+            (item) => item.id !== recipe.id && item.kind === "subrecipe",
+          )
+        ? `recipe:${recipes.find((item) => item.id !== recipe.id && item.kind === "subrecipe")!.id}`
         : "",
   );
   const [kind, id] = key.split(":");
@@ -1073,7 +1145,9 @@ function RecipeItemDialog({
             </optgroup>
             <optgroup label="Subrecetas">
               {recipes
-                .filter((item) => item.id !== recipe.id)
+                .filter(
+                  (item) => item.id !== recipe.id && item.kind === "subrecipe",
+                )
                 .map((item) => (
                   <option key={item.id} value={`recipe:${item.id}`}>
                     {item.name}
@@ -1133,12 +1207,20 @@ function ProductCostDialog({
             className="input"
           >
             <option value="">Sin receta</option>
-            {recipes.map((recipe) => (
-              <option key={recipe.id} value={recipe.id}>
-                {recipe.name} · rinde en{" "}
-                {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
-              </option>
-            ))}
+            {recipes
+              .filter(
+                (recipe) =>
+                  recipe.kind === "final" || recipe.id === product.recipeId,
+              )
+              .map((recipe) => (
+                <option key={recipe.id} value={recipe.id}>
+                  {recipe.name}
+                  {recipe.kind !== "final"
+                    ? " · actualmente es subreceta"
+                    : ""}{" "}
+                  · rinde en {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
+                </option>
+              ))}
           </select>
         </Field>
         <p className="-mt-2 text-xs leading-5 text-[#777]">

@@ -53,6 +53,7 @@ describe("motor de costos", () => {
         name: "Masa",
         yieldQuantity: 15,
         yieldUnit: "unit",
+        kind: "subrecipe",
         items: [
           {
             id: "mass-item",
@@ -67,6 +68,7 @@ describe("motor de costos", () => {
         name: "Pino",
         yieldQuantity: 10,
         yieldUnit: "unit",
+        kind: "subrecipe",
         items: [
           {
             id: "pino-item",
@@ -81,6 +83,7 @@ describe("motor de costos", () => {
         name: "Empanada de pino",
         yieldQuantity: 1,
         yieldUnit: "unit",
+        kind: "final",
         items: [
           { id: "a", subrecipeId: "mass", quantity: 1, unit: "unit" },
           { id: "b", subrecipeId: "pino", quantity: 1, unit: "unit" },

@@ -1,5 +1,6 @@
 export type CostUnit = "g" | "kg" | "ml" | "l" | "unit";
 export type YieldUnit = "unit" | "kg";
+export type RecipeKind = "subrecipe" | "final";
 export type FixedCostPeriod =
   "daily" | "monthly" | "quarterly" | "semiannual" | "annual";
 
@@ -40,6 +41,7 @@ export type Recipe = {
   description?: string;
   yieldQuantity: number;
   yieldUnit: YieldUnit;
+  kind: RecipeKind;
   items: RecipeItem[];
 };
 

@@ -59,7 +59,7 @@ export async function getCostingData() {
       .order("created_at", { ascending: false }),
     supabase
       .from("recipes")
-      .select("id,name,description,yield_quantity,yield_unit")
+      .select("id,name,description,yield_quantity,yield_unit,recipe_kind")
       .eq("business_id", businessId)
       .is("deleted_at", null)
       .order("name"),
@@ -161,6 +161,7 @@ export async function getCostingData() {
     description: row.description || undefined,
     yieldQuantity: Number(row.yield_quantity),
     yieldUnit: row.yield_unit,
+    kind: row.recipe_kind,
     items: itemsByRecipe.get(row.id) || [],
   }));
 

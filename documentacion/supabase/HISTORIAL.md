@@ -1,5 +1,15 @@
 # Historial del esquema Supabase
 
+## 2026-08-12.1 — Clasificación y eliminación de recetas
+
+- Migración: `0016_classify_and_delete_recipes.sql`.
+- Las preparaciones se clasifican como `subrecipe` o `final`.
+- Sólo las recetas finales pueden vincularse a productos.
+- Las subrecetas pueden reutilizarse como componentes de recetas finales.
+- Una receta puede eliminarse y se desvincula de los productos asociados.
+- La eliminación se bloquea si la preparación todavía forma parte de otra receta.
+- Aplicado en desarrollo: sí, mediante Supabase MCP (versión remota `20260812131412`).
+
 ## 2026-08-07.2 — Disponibilidad operativa por jornada
 
 - Migración: `0015_add_daily_product_availability.sql`.

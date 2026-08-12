@@ -95,3 +95,8 @@ Empanada de pino (receta final)
 El producto `Empanada de pino` se vincula a la receta final del mismo nombre, no
 solamente a la masa. Así una misma masa puede reutilizarse en distintas
 variedades y todos sus costos se actualizan cuando cambia esa preparación.
+
+En la interfaz existen acciones separadas para crear una **Subreceta** o una
+**Receta final**. Una preparación se puede eliminar siempre que no esté siendo
+utilizada dentro de otra receta; si está vinculada directamente a un producto,
+el sistema la desvincula antes de eliminarla.

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
 import { toBaseQuantity } from "./calculations";
-import type { CostUnit, FixedCostPeriod } from "./types";
+import type { CostUnit, FixedCostPeriod, RecipeKind } from "./types";
 
 async function context() {
   const supabase = await createClient();
@@ -120,15 +120,19 @@ export async function saveRecipeAction(form: FormData) {
   const description = text(form, "description");
   const yieldQuantity = positive(form, "yieldQuantity");
   const yieldUnit = text(form, "yieldUnit");
+  const recipeKind = text(form, "recipeKind") as RecipeKind;
   if (!name || name.length > 120) throw new Error("Nombre inválido");
   if (!(["unit", "kg"] as const).includes(yieldUnit as "unit" | "kg"))
     throw new Error("Rendimiento inválido");
+  if (!(["subrecipe", "final"] as const).includes(recipeKind))
+    throw new Error("Tipo de receta inválido");
   const values = {
     business_id: ctx.businessId,
     name,
     description: description || null,
     yield_quantity: yieldQuantity,
     yield_unit: yieldUnit,
+    recipe_kind: recipeKind,
     updated_at: new Date().toISOString(),
   };
   const result = id
@@ -139,6 +143,15 @@ export async function saveRecipeAction(form: FormData) {
         .eq("business_id", ctx.businessId)
     : await ctx.supabase.from("recipes").insert(values);
   if (result.error) throw result.error;
+  revalidatePath("/costos");
+}
+
+export async function deleteRecipeAction(id: string) {
+  const ctx = await context();
+  const { error } = await ctx.supabase.rpc("delete_recipe", {
+    p_recipe: id,
+  });
+  if (error) throw error;
   revalidatePath("/costos");
 }
 
@@ -153,6 +166,35 @@ export async function addRecipeItemAction(form: FormData) {
     throw new Error("Componente inválido");
   if (componentType === "recipe" && componentId === recipeId)
     throw new Error("Una receta no puede contenerse a sí misma");
+  const { data: targetRecipe, error: targetError } = await ctx.supabase
+    .from("recipes")
+    .select("id")
+    .eq("id", recipeId)
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null)
+    .single();
+  if (targetError || !targetRecipe) throw new Error("Receta no válida");
+  if (componentType === "recipe") {
+    const { data: componentRecipe, error: componentError } = await ctx.supabase
+      .from("recipes")
+      .select("recipe_kind")
+      .eq("id", componentId)
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .single();
+    if (componentError || componentRecipe?.recipe_kind !== "subrecipe")
+      throw new Error("Sólo una subreceta puede agregarse como componente");
+  } else {
+    const { data: ingredient, error: ingredientError } = await ctx.supabase
+      .from("ingredients")
+      .select("id")
+      .eq("id", componentId)
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .single();
+    if (ingredientError || !ingredient)
+      throw new Error("Materia prima no válida");
+  }
   const { error } = await ctx.supabase.from("recipe_items").insert({
     business_id: ctx.businessId,
     recipe_id: recipeId,
@@ -189,6 +231,17 @@ export async function configureProductCostAction(form: FormData) {
     throw new Error("Merma inválida");
   if (targetMarginPercentage < 0 || targetMarginPercentage >= 95)
     throw new Error("Margen objetivo inválido");
+  if (recipeId) {
+    const { data: recipe, error: recipeError } = await ctx.supabase
+      .from("recipes")
+      .select("recipe_kind")
+      .eq("id", recipeId)
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .single();
+    if (recipeError || recipe?.recipe_kind !== "final")
+      throw new Error("Debes seleccionar una receta final");
+  }
   const { error } = await ctx.supabase
     .from("products")
     .update({
