@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import {
+  CollectionToolbar,
+  useCollectionView,
+} from "@/shared/ui/collection-controls";
+import {
   addIngredientPriceAction,
   addRecipeItemAction,
   configureProductCostAction,
@@ -144,6 +148,20 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [pricing, setPricing] = useState<Ingredient | null>(null);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("Todas");
+  const [view, setView] = useCollectionView("ingredients");
+  const categories = [
+    "Todas",
+    ...new Set(ingredients.map((ingredient) => ingredient.category)),
+  ];
+  const visible = ingredients.filter(
+    (ingredient) =>
+      (category === "Todas" || ingredient.category === category) &&
+      `${ingredient.name} ${ingredient.category}`
+        .toLocaleLowerCase("es")
+        .includes(search.trim().toLocaleLowerCase("es")),
+  );
   return (
     <section className="mt-5">
       <SectionHeader
@@ -152,80 +170,156 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
         action={() => setCreating(true)}
         actionLabel="Materia prima"
       />
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ingredients.map((ingredient) => (
-          <article key={ingredient.id} className="card p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-black">{ingredient.name}</h3>
-                <p className="mt-1 text-xs text-[#777]">
-                  {ingredient.category} · base por{" "}
-                  {unitLabel(ingredient.baseUnit)}
-                </p>
+      <CollectionToolbar
+        view={view}
+        onViewChange={setView}
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Buscar materia prima..."
+      >
+        <select
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          className="input h-11 min-h-0 sm:w-48"
+        >
+          {categories.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
+        </select>
+      </CollectionToolbar>
+      <div
+        className={
+          view === "cards"
+            ? "mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            : "card mt-4 overflow-x-auto"
+        }
+      >
+        {view === "list" && visible.length > 0 && (
+          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+            <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
+              <tr>
+                <th className="px-4 py-3">Materia prima</th>
+                <th className="px-4 py-3">Categoría</th>
+                <th className="px-4 py-3">Unidad base</th>
+                <th className="px-4 py-3">Costo vigente</th>
+                <th className="px-4 py-3">Última compra</th>
+                <th className="px-4 py-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#ecebe3]">
+              {visible.map((ingredient) => (
+                <tr key={ingredient.id} className="hover:bg-[#fafaf4]">
+                  <td className="px-4 py-3 font-black">{ingredient.name}</td>
+                  <td className="px-4 py-3 text-[#70756d]">
+                    {ingredient.category}
+                  </td>
+                  <td className="px-4 py-3">
+                    {unitLabel(ingredient.baseUnit)}
+                  </td>
+                  <td className="money px-4 py-3 font-black text-[#235b45]">
+                    {ingredient.latestPrice
+                      ? `${formatDecimalMoney(ingredient.latestPrice.costPerBase)} / ${unitLabel(ingredient.baseUnit)}`
+                      : "Sin precio"}
+                  </td>
+                  <td className="px-4 py-3 text-[#70756d]">
+                    {ingredient.latestPrice
+                      ? formatDate(ingredient.latestPrice.purchaseDate)
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-3 whitespace-nowrap text-xs font-bold">
+                      <button onClick={() => setEditing(ingredient)}>
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => setPricing(ingredient)}
+                        className="text-[#235b45]"
+                      >
+                        {ingredient.latestPrice
+                          ? "Actualizar precio"
+                          : "Agregar precio"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {view === "cards" &&
+          visible.map((ingredient) => (
+            <article key={ingredient.id} className="card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-black">{ingredient.name}</h3>
+                  <p className="mt-1 text-xs text-[#777]">
+                    {ingredient.category} · base por{" "}
+                    {unitLabel(ingredient.baseUnit)}
+                  </p>
+                </div>
+                {ingredient.latestPrice ? (
+                  <CheckCircle2 size={19} className="text-[#235b45]" />
+                ) : (
+                  <AlertTriangle size={19} className="text-[#b17a12]" />
+                )}
               </div>
               {ingredient.latestPrice ? (
-                <CheckCircle2 size={19} className="text-[#235b45]" />
-              ) : (
-                <AlertTriangle size={19} className="text-[#b17a12]" />
-              )}
-            </div>
-            {ingredient.latestPrice ? (
-              <div className="mt-4 rounded-xl bg-[#f0f1e9] p-3">
-                <p className="text-[10px] font-bold uppercase text-[#777]">
-                  Costo vigente
-                </p>
-                <p className="money mt-1 text-xl font-black">
-                  {formatDecimalMoney(ingredient.latestPrice.costPerBase)} /{" "}
-                  {unitLabel(ingredient.baseUnit)}
-                </p>
-                <p className="mt-1 text-[11px] text-[#777]">
-                  {ingredient.latestPrice.purchaseQuantity}{" "}
-                  {unitLabel(ingredient.latestPrice.purchaseUnit)} por{" "}
-                  {formatClp(ingredient.latestPrice.grossAmount)} ·{" "}
-                  {formatDate(ingredient.latestPrice.purchaseDate)}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-4 rounded-xl bg-[#fff4d4] p-3 text-xs text-[#795f0d]">
-                Falta registrar un precio.
-              </p>
-            )}
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setEditing(ingredient)}
-                className="rounded-xl border border-[#d7d7ce] py-2.5 text-xs font-bold"
-              >
-                Editar
-              </button>
-              <button
-                onClick={() => setPricing(ingredient)}
-                className="rounded-xl border border-[#d7d7ce] py-2.5 text-xs font-bold"
-              >
-                {ingredient.latestPrice
-                  ? "Actualizar precio"
-                  : "Agregar precio"}
-              </button>
-            </div>
-            {ingredient.prices.length > 1 && (
-              <details className="mt-3">
-                <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
-                  Ver historial ({ingredient.prices.length})
-                </summary>
-                <div className="mt-2 space-y-1">
-                  {ingredient.prices.map((price) => (
-                    <p key={price.id} className="text-[11px] text-[#777]">
-                      {formatDate(price.purchaseDate)} ·{" "}
-                      {formatClp(price.grossAmount)} ·{" "}
-                      {formatDecimalMoney(price.costPerBase)}/
-                      {unitLabel(ingredient.baseUnit)}
-                    </p>
-                  ))}
+                <div className="mt-4 rounded-xl bg-[#f0f1e9] p-3">
+                  <p className="text-[10px] font-bold uppercase text-[#777]">
+                    Costo vigente
+                  </p>
+                  <p className="money mt-1 text-xl font-black">
+                    {formatDecimalMoney(ingredient.latestPrice.costPerBase)} /{" "}
+                    {unitLabel(ingredient.baseUnit)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#777]">
+                    {ingredient.latestPrice.purchaseQuantity}{" "}
+                    {unitLabel(ingredient.latestPrice.purchaseUnit)} por{" "}
+                    {formatClp(ingredient.latestPrice.grossAmount)} ·{" "}
+                    {formatDate(ingredient.latestPrice.purchaseDate)}
+                  </p>
                 </div>
-              </details>
-            )}
-          </article>
-        ))}
-        {!ingredients.length && (
+              ) : (
+                <p className="mt-4 rounded-xl bg-[#fff4d4] p-3 text-xs text-[#795f0d]">
+                  Falta registrar un precio.
+                </p>
+              )}
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setEditing(ingredient)}
+                  className="rounded-xl border border-[#d7d7ce] py-2.5 text-xs font-bold"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => setPricing(ingredient)}
+                  className="rounded-xl border border-[#d7d7ce] py-2.5 text-xs font-bold"
+                >
+                  {ingredient.latestPrice
+                    ? "Actualizar precio"
+                    : "Agregar precio"}
+                </button>
+              </div>
+              {ingredient.prices.length > 1 && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
+                    Ver historial ({ingredient.prices.length})
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    {ingredient.prices.map((price) => (
+                      <p key={price.id} className="text-[11px] text-[#777]">
+                        {formatDate(price.purchaseDate)} ·{" "}
+                        {formatClp(price.grossAmount)} ·{" "}
+                        {formatDecimalMoney(price.costPerBase)}/
+                        {unitLabel(ingredient.baseUnit)}
+                      </p>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </article>
+          ))}
+        {!visible.length && (
           <Empty text="Crea la primera materia prima para comenzar el costeo." />
         )}
       </div>
@@ -255,8 +349,36 @@ function RecipesView({
   const [creating, setCreating] = useState<RecipeKind | null>(null);
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [addingTo, setAddingTo] = useState<Recipe | null>(null);
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [view, setView] = useCollectionView("recipes");
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
   const recipeMap = new Map(recipes.map((item) => [item.id, item]));
+  const visible = recipes.filter(
+    (recipe) =>
+      (kindFilter === "all" || recipe.kind === kindFilter) &&
+      recipe.name
+        .toLocaleLowerCase("es")
+        .includes(search.trim().toLocaleLowerCase("es")),
+  );
+  async function removeRecipe(recipe: Recipe) {
+    if (
+      !confirm(
+        `¿Eliminar ${recipe.name}? Se desvinculará de cualquier producto que la tenga asignada.`,
+      )
+    )
+      return;
+    try {
+      await deleteRecipeAction(recipe.id);
+      location.reload();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar la receta",
+      );
+    }
+  }
   return (
     <section className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -311,126 +433,198 @@ function RecipesView({
           </div>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
-        {recipes.map((recipe) => {
-          const cost = costs[recipe.id];
-          return (
-            <article key={recipe.id} className="card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-black">{recipe.name}</h3>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${recipe.kind === "final" ? "bg-[#d8f070] text-[#235b45]" : "bg-[#e8eee6] text-[#5e6b62]"}`}
-                    >
+      <CollectionToolbar
+        view={view}
+        onViewChange={setView}
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Buscar receta..."
+      >
+        <select
+          value={kindFilter}
+          onChange={(event) => setKindFilter(event.target.value)}
+          className="input h-11 min-h-0 sm:w-48"
+        >
+          <option value="all">Todas</option>
+          <option value="subrecipe">Subrecetas</option>
+          <option value="final">Recetas finales</option>
+        </select>
+      </CollectionToolbar>
+      <div
+        className={
+          view === "cards" ? "mt-4 space-y-3" : "card mt-4 overflow-x-auto"
+        }
+      >
+        {view === "list" && visible.length > 0 && (
+          <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
+              <tr>
+                <th className="px-4 py-3">Nombre</th>
+                <th className="px-4 py-3">Tipo</th>
+                <th className="px-4 py-3">Rendimiento</th>
+                <th className="px-4 py-3">Componentes</th>
+                <th className="px-4 py-3">Costo calculado</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#ecebe3]">
+              {visible.map((recipe) => {
+                const cost = costs[recipe.id];
+                return (
+                  <tr key={recipe.id} className="hover:bg-[#fafaf4]">
+                    <td className="px-4 py-3 font-black">{recipe.name}</td>
+                    <td className="px-4 py-3">
                       {recipe.kind === "final" ? "Receta final" : "Subreceta"}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-[#777]">
-                    Rinde {recipe.yieldQuantity}{" "}
-                    {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase text-[#777]">
-                    Costo calculado
-                  </p>
-                  <p className="money mt-1 text-xl font-black text-[#235b45]">
-                    {formatClp(Math.round(cost?.perYieldUnit || 0))} /{" "}
-                    {recipe.yieldUnit === "kg" ? "kg" : "unidad"}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 divide-y divide-[#ecebe3] rounded-xl border border-[#e4e3da]">
-                {recipe.items.map((item) => {
-                  const ingredient = item.ingredientId
-                    ? ingredientMap.get(item.ingredientId)
-                    : undefined;
-                  const subrecipe = item.subrecipeId
-                    ? recipeMap.get(item.subrecipeId)
-                    : undefined;
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
-                    >
-                      <div>
-                        <b>
-                          {ingredient?.name ||
-                            subrecipe?.name ||
-                            "Componente eliminado"}
-                        </b>
-                        <p className="text-xs text-[#777]">
-                          {item.quantity} {unitLabel(item.unit)}{" "}
-                          {subrecipe ? "· subreceta" : ""}
-                        </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {recipe.yieldQuantity}{" "}
+                      {recipe.yieldUnit === "kg" ? "kg" : "un."}
+                    </td>
+                    <td className="px-4 py-3">{recipe.items.length}</td>
+                    <td className="money px-4 py-3 font-black text-[#235b45]">
+                      {formatClp(Math.round(cost?.perYieldUnit || 0))} /{" "}
+                      {recipe.yieldUnit === "kg" ? "kg" : "un."}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {cost?.complete ? "Completa" : "Incompleta"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-3 whitespace-nowrap text-xs font-bold">
+                        <button
+                          className="text-[#235b45]"
+                          onClick={() => setAddingTo(recipe)}
+                        >
+                          Agregar componente
+                        </button>
+                        <button onClick={() => setEditing(recipe)}>
+                          Editar
+                        </button>
+                        <button
+                          className="text-[#a24628]"
+                          onClick={() => removeRecipe(recipe)}
+                        >
+                          Eliminar
+                        </button>
                       </div>
-                      <button
-                        onClick={async () => {
-                          if (confirm("¿Quitar este componente?")) {
-                            await deleteRecipeItemAction(item.id);
-                            location.reload();
-                          }
-                        }}
-                        className="text-[#a24628]"
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        {view === "cards" &&
+          visible.map((recipe) => {
+            const cost = costs[recipe.id];
+            return (
+              <article key={recipe.id} className="card p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-black">{recipe.name}</h3>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${recipe.kind === "final" ? "bg-[#d8f070] text-[#235b45]" : "bg-[#e8eee6] text-[#5e6b62]"}`}
                       >
-                        <Trash2 size={15} />
-                      </button>
+                        {recipe.kind === "final" ? "Receta final" : "Subreceta"}
+                      </span>
                     </div>
-                  );
-                })}
-                {!recipe.items.length && (
-                  <p className="p-4 text-center text-xs text-[#888]">
-                    Receta todavía vacía
+                    <p className="mt-1 text-xs text-[#777]">
+                      Rinde {recipe.yieldQuantity}{" "}
+                      {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase text-[#777]">
+                      Costo calculado
+                    </p>
+                    <p className="money mt-1 text-xl font-black text-[#235b45]">
+                      {formatClp(Math.round(cost?.perYieldUnit || 0))} /{" "}
+                      {recipe.yieldUnit === "kg" ? "kg" : "unidad"}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 divide-y divide-[#ecebe3] rounded-xl border border-[#e4e3da]">
+                  {recipe.items.map((item) => {
+                    const ingredient = item.ingredientId
+                      ? ingredientMap.get(item.ingredientId)
+                      : undefined;
+                    const subrecipe = item.subrecipeId
+                      ? recipeMap.get(item.subrecipeId)
+                      : undefined;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+                      >
+                        <div>
+                          <b>
+                            {ingredient?.name ||
+                              subrecipe?.name ||
+                              "Componente eliminado"}
+                          </b>
+                          <p className="text-xs text-[#777]">
+                            {item.quantity} {unitLabel(item.unit)}{" "}
+                            {subrecipe ? "· subreceta" : ""}
+                          </p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (confirm("¿Quitar este componente?")) {
+                              await deleteRecipeItemAction(item.id);
+                              location.reload();
+                            }
+                          }}
+                          className="text-[#a24628]"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {!recipe.items.length && (
+                    <p className="p-4 text-center text-xs text-[#888]">
+                      Receta todavía vacía
+                    </p>
+                  )}
+                </div>
+                {cost && !cost.complete && (
+                  <p className="mt-3 rounded-xl bg-[#fff4d4] p-3 text-xs text-[#795f0d]">
+                    {cost.missing.join(" · ")}
                   </p>
                 )}
-              </div>
-              {cost && !cost.complete && (
-                <p className="mt-3 rounded-xl bg-[#fff4d4] p-3 text-xs text-[#795f0d]">
-                  {cost.missing.join(" · ")}
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap gap-4">
-                <button
-                  onClick={() => setAddingTo(recipe)}
-                  className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
-                >
-                  <Plus size={14} /> Agregar materia prima o subreceta
-                </button>
-                <button
-                  onClick={() => setEditing(recipe)}
-                  className="text-xs font-bold text-[#62675f]"
-                >
-                  Editar receta
-                </button>
-                <button
-                  onClick={async () => {
-                    if (
-                      !confirm(
-                        `¿Eliminar ${recipe.name}? Se desvinculará de cualquier producto que la tenga asignada.`,
+                <div className="mt-4 flex flex-wrap gap-4">
+                  <button
+                    onClick={() => setAddingTo(recipe)}
+                    className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
+                  >
+                    <Plus size={14} /> Agregar materia prima o subreceta
+                  </button>
+                  <button
+                    onClick={() => setEditing(recipe)}
+                    className="text-xs font-bold text-[#62675f]"
+                  >
+                    Editar receta
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (
+                        !confirm(
+                          `¿Eliminar ${recipe.name}? Se desvinculará de cualquier producto que la tenga asignada.`,
+                        )
                       )
-                    )
-                      return;
-                    try {
-                      await deleteRecipeAction(recipe.id);
-                      location.reload();
-                    } catch (error) {
-                      alert(
-                        error instanceof Error
-                          ? error.message
-                          : "No se pudo eliminar la receta",
-                      );
-                    }
-                  }}
-                  className="flex items-center gap-1 text-xs font-bold text-[#a24628]"
-                >
-                  <Trash2 size={14} /> Eliminar
-                </button>
-              </div>
-            </article>
-          );
-        })}
-        {!recipes.length && (
+                        return;
+                      await removeRecipe(recipe);
+                    }}
+                    className="flex items-center gap-1 text-xs font-bold text-[#a24628]"
+                  >
+                    <Trash2 size={14} /> Eliminar
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        {!visible.length && (
           <Empty text="Crea una receta base, como Masa de empanada o Pan corriente." />
         )}
       </div>
@@ -463,111 +657,201 @@ function ProductsCostView({
   recipes: Recipe[];
 }) {
   const [editing, setEditing] = useState<ProductCostAnalysis | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [view, setView] = useCollectionView("product-costs");
+  const visible = analyses.filter(
+    (product) =>
+      (status === "all" ||
+        (status === "complete" ? product.complete : !product.complete)) &&
+      product.name
+        .toLocaleLowerCase("es")
+        .includes(search.trim().toLocaleLowerCase("es")),
+  );
   return (
     <section className="mt-5">
       <SectionHeader
         title="Rentabilidad por producto"
         subtitle="Costo, margen y precio sugerido desde la receta vinculada."
       />
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        {analyses.map((product) => (
-          <article key={product.id} className="card p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-black">{product.name}</h3>
-                <p className="mt-1 text-xs text-[#777]">
-                  {product.recipeName || "Sin receta"} · venta por{" "}
-                  {product.saleUnit === "kg" ? "kg" : "unidad"}
-                </p>
-              </div>
-              <Status
-                complete={product.complete}
-                margin={product.contributionPercentage}
-              />
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Mini label="Precio" value={formatClp(product.price)} />
-              <Mini
-                label="Costo variable"
-                value={
-                  product.complete
-                    ? formatClp(Math.round(product.variableCost))
-                    : "Incompleto"
-                }
-              />
-              <Mini
-                label="Contribución"
-                value={
-                  product.complete
-                    ? formatClp(Math.round(product.contribution))
-                    : "—"
-                }
-              />
-              <Mini
-                label="Margen"
-                value={
-                  product.complete
-                    ? `${product.contributionPercentage.toFixed(1)}%`
-                    : "—"
-                }
-              />
-            </div>
-            {product.complete && (
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-[#e8f0e6] p-4">
+      <CollectionToolbar
+        view={view}
+        onViewChange={setView}
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Buscar producto..."
+      >
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+          className="input h-11 min-h-0 sm:w-48"
+        >
+          <option value="all">Todos</option>
+          <option value="complete">Costeo completo</option>
+          <option value="incomplete">Costeo incompleto</option>
+        </select>
+      </CollectionToolbar>
+      <div
+        className={
+          view === "cards"
+            ? "mt-4 grid gap-4 lg:grid-cols-2"
+            : "card mt-4 overflow-x-auto"
+        }
+      >
+        {view === "list" && visible.length > 0 && (
+          <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
+              <tr>
+                <th className="px-4 py-3">Producto</th>
+                <th className="px-4 py-3">Receta final</th>
+                <th className="px-4 py-3">Precio</th>
+                <th className="px-4 py-3">Costo variable</th>
+                <th className="px-4 py-3">Contribución</th>
+                <th className="px-4 py-3">Margen</th>
+                <th className="px-4 py-3">Precio sugerido</th>
+                <th className="px-4 py-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#ecebe3]">
+              {visible.map((product) => (
+                <tr key={product.id} className="hover:bg-[#fafaf4]">
+                  <td className="px-4 py-3 font-black">{product.name}</td>
+                  <td className="px-4 py-3 text-[#70756d]">
+                    {product.recipeName || "Sin receta"}
+                  </td>
+                  <td className="money px-4 py-3">
+                    {formatClp(product.price)}
+                  </td>
+                  <td className="money px-4 py-3">
+                    {product.complete
+                      ? formatClp(Math.round(product.variableCost))
+                      : "Incompleto"}
+                  </td>
+                  <td className="money px-4 py-3">
+                    {product.complete
+                      ? formatClp(Math.round(product.contribution))
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3 font-black">
+                    {product.complete
+                      ? `${product.contributionPercentage.toFixed(1)}%`
+                      : "—"}
+                  </td>
+                  <td className="money px-4 py-3 font-black text-[#235b45]">
+                    {product.complete ? formatClp(product.suggestedPrice) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => setEditing(product)}
+                      className="whitespace-nowrap text-xs font-bold text-[#235b45]"
+                    >
+                      Configurar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {view === "cards" &&
+          visible.map((product) => (
+            <article key={product.id} className="card p-5">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase text-[#66766c]">
-                    Precio sugerido
-                  </p>
-                  <p className="mt-1 text-xs text-[#66766c]">
-                    Para margen objetivo de {product.targetMarginPercentage}%
+                  <h3 className="font-black">{product.name}</h3>
+                  <p className="mt-1 text-xs text-[#777]">
+                    {product.recipeName || "Sin receta"} · venta por{" "}
+                    {product.saleUnit === "kg" ? "kg" : "unidad"}
                   </p>
                 </div>
-                <b className="money text-2xl text-[#235b45]">
-                  {formatClp(product.suggestedPrice)}
-                </b>
+                <Status
+                  complete={product.complete}
+                  margin={product.contributionPercentage}
+                />
               </div>
-            )}
-            {product.complete && (
-              <details className="mt-3 rounded-xl border border-[#e2e1d8] p-3">
-                <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
-                  Ver explicación del cálculo
-                </summary>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <Breakdown
-                    label="Ingreso neto sin IVA"
-                    value={product.netRevenue}
-                  />
-                  <Breakdown
-                    label="Costo físico"
-                    value={product.physicalCost}
-                  />
-                  <Breakdown label="Merma" value={product.wasteCost} />
-                  <Breakdown
-                    label="Comisión esperada"
-                    value={product.commissionCost}
-                  />
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Mini label="Precio" value={formatClp(product.price)} />
+                <Mini
+                  label="Costo variable"
+                  value={
+                    product.complete
+                      ? formatClp(Math.round(product.variableCost))
+                      : "Incompleto"
+                  }
+                />
+                <Mini
+                  label="Contribución"
+                  value={
+                    product.complete
+                      ? formatClp(Math.round(product.contribution))
+                      : "—"
+                  }
+                />
+                <Mini
+                  label="Margen"
+                  value={
+                    product.complete
+                      ? `${product.contributionPercentage.toFixed(1)}%`
+                      : "—"
+                  }
+                />
+              </div>
+              {product.complete && (
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-[#e8f0e6] p-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase text-[#66766c]">
+                      Precio sugerido
+                    </p>
+                    <p className="mt-1 text-xs text-[#66766c]">
+                      Para margen objetivo de {product.targetMarginPercentage}%
+                    </p>
+                  </div>
+                  <b className="money text-2xl text-[#235b45]">
+                    {formatClp(product.suggestedPrice)}
+                  </b>
                 </div>
-                <p className="mt-3 text-xs text-[#666]">
-                  El precio sugerido cubre el costo variable y busca un margen
-                  de {product.targetMarginPercentage}% sobre el ingreso neto,
-                  redondeado al siguiente $100.
+              )}
+              {product.complete && (
+                <details className="mt-3 rounded-xl border border-[#e2e1d8] p-3">
+                  <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
+                    Ver explicación del cálculo
+                  </summary>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <Breakdown
+                      label="Ingreso neto sin IVA"
+                      value={product.netRevenue}
+                    />
+                    <Breakdown
+                      label="Costo físico"
+                      value={product.physicalCost}
+                    />
+                    <Breakdown label="Merma" value={product.wasteCost} />
+                    <Breakdown
+                      label="Comisión esperada"
+                      value={product.commissionCost}
+                    />
+                  </div>
+                  <p className="mt-3 text-xs text-[#666]">
+                    El precio sugerido cubre el costo variable y busca un margen
+                    de {product.targetMarginPercentage}% sobre el ingreso neto,
+                    redondeado al siguiente $100.
+                  </p>
+                </details>
+              )}
+              {!product.complete && (
+                <p className="mt-3 rounded-xl bg-[#fff4d4] p-3 text-xs text-[#795f0d]">
+                  {product.missing.join(" · ")}
                 </p>
-              </details>
-            )}
-            {!product.complete && (
-              <p className="mt-3 rounded-xl bg-[#fff4d4] p-3 text-xs text-[#795f0d]">
-                {product.missing.join(" · ")}
-              </p>
-            )}
-            <button
-              onClick={() => setEditing(product)}
-              className="mt-4 rounded-xl border border-[#d7d7ce] px-4 py-2.5 text-xs font-bold"
-            >
-              Configurar costeo
-            </button>
-          </article>
-        ))}
-        {!analyses.length && (
+              )}
+              <button
+                onClick={() => setEditing(product)}
+                className="mt-4 rounded-xl border border-[#d7d7ce] px-4 py-2.5 text-xs font-bold"
+              >
+                Configurar costeo
+              </button>
+            </article>
+          ))}
+        {!visible.length && (
           <Empty text="Crea productos en el catálogo para calcular su rentabilidad." />
         )}
       </div>

@@ -4,6 +4,10 @@ import { useState } from "react";
 import { ImageIcon, PackageCheck, Pencil, Plus, Trash2, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import {
+  CollectionToolbar,
+  useCollectionView,
+} from "@/shared/ui/collection-controls";
+import {
   deleteProductAction,
   saveProductAction,
   toggleProductAction,
@@ -14,12 +18,18 @@ export function ProductsClient({ products }: { products: Product[] }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
+  const [search, setSearch] = useState("");
+  const [view, setView] = useCollectionView("products");
   const categories = [
     "Todos",
     ...new Set(products.map((product) => product.category)),
   ];
   const visibleProducts = products.filter(
-    (product) => category === "Todos" || product.category === category,
+    (product) =>
+      (category === "Todos" || product.category === category) &&
+      `${product.name} ${product.description || ""}`
+        .toLocaleLowerCase("es")
+        .includes(search.trim().toLocaleLowerCase("es")),
   );
   async function submit(form: FormData) {
     setBusy(true);
@@ -76,86 +86,127 @@ export function ProductsClient({ products }: { products: Product[] }) {
           })}
         </div>
       )}
+      {products.length > 0 && (
+        <CollectionToolbar
+          view={view}
+          onViewChange={setView}
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Buscar producto..."
+        />
+      )}
       {products.length ? (
         visibleProducts.length ? (
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleProducts.map((p) => (
-              <article
-                key={p.id}
-                className={`card overflow-hidden ${!p.active ? "opacity-55" : ""}`}
-              >
-                <div className="grid h-36 place-items-center bg-[#edece3]">
-                  {p.imageUrl ? (
-                    <img
-                      src={p.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <ImageIcon className="text-[#a4a79f]" />
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="font-black">{p.name}</p>
-                      <p className="mt-1 text-xs text-[#7c8078]">
-                        {p.category}
+          <div
+            className={
+              view === "cards"
+                ? "mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                : "card mt-5 overflow-x-auto"
+            }
+          >
+            {view === "list" && (
+              <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+                <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
+                  <tr>
+                    <th className="px-4 py-3">Producto</th>
+                    <th className="px-4 py-3">Categoría</th>
+                    <th className="px-4 py-3">Precio</th>
+                    <th className="px-4 py-3">Venta</th>
+                    <th className="px-4 py-3">Disponibilidad</th>
+                    <th className="px-4 py-3">Estado</th>
+                    <th className="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ecebe3]">
+                  {visibleProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className={
+                        !product.active ? "opacity-55" : "hover:bg-[#fafaf4]"
+                      }
+                    >
+                      <td className="px-4 py-3 font-black">{product.name}</td>
+                      <td className="px-4 py-3 text-[#70756d]">
+                        {product.category}
+                      </td>
+                      <td className="money px-4 py-3 font-black text-[#235b45]">
+                        {formatClp(product.price)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.saleUnit === "kg" ? "Por kg" : "Por unidad"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.trackDailyAvailability
+                          ? "Diaria"
+                          : "Sin control"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.active ? "Activo" : "Oculto"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ProductActions
+                          product={product}
+                          onEdit={() => {
+                            setEditing(product);
+                            setOpen(true);
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {view === "cards" &&
+              visibleProducts.map((p) => (
+                <article
+                  key={p.id}
+                  className={`card overflow-hidden ${!p.active ? "opacity-55" : ""}`}
+                >
+                  <div className="grid h-36 place-items-center bg-[#edece3]">
+                    {p.imageUrl ? (
+                      <img
+                        src={p.imageUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="text-[#a4a79f]" />
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <div className="flex justify-between gap-3">
+                      <div>
+                        <p className="font-black">{p.name}</p>
+                        <p className="mt-1 text-xs text-[#7c8078]">
+                          {p.category}
+                        </p>
+                      </div>
+                      <p className="money font-black text-[#235b45]">
+                        {formatClp(p.price)}{" "}
+                        {p.saleUnit === "kg" ? "/ kg" : "/ un."}
                       </p>
                     </div>
-                    <p className="money font-black text-[#235b45]">
-                      {formatClp(p.price)}{" "}
-                      {p.saleUnit === "kg" ? "/ kg" : "/ un."}
-                    </p>
-                  </div>
-                  {p.description && (
-                    <p className="mt-3 text-xs text-[#747970]">
-                      {p.description}
-                    </p>
-                  )}
-                  {p.trackDailyAvailability && (
-                    <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
-                      <PackageCheck size={14} /> Disponibilidad diaria activa
-                    </p>
-                  )}
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-[#ebeae2] pt-3">
-                    <button
-                      onClick={() => {
+                    {p.description && (
+                      <p className="mt-3 text-xs text-[#747970]">
+                        {p.description}
+                      </p>
+                    )}
+                    {p.trackDailyAvailability && (
+                      <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
+                        <PackageCheck size={14} /> Disponibilidad diaria activa
+                      </p>
+                    )}
+                    <ProductActions
+                      product={p}
+                      onEdit={() => {
                         setEditing(p);
                         setOpen(true);
                       }}
-                      className="flex items-center gap-1 rounded-lg bg-[#edf1e8] px-3 py-2 text-xs font-bold text-[#235b45]"
-                    >
-                      <Pencil size={13} /> Editar
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await toggleProductAction(p.id, !p.active);
-                        location.reload();
-                      }}
-                      className="rounded-lg px-3 py-2 text-xs font-bold text-[#62675f] hover:bg-[#eee]"
-                    >
-                      {p.active ? "Ocultar" : "Activar"}
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (
-                          !confirm(
-                            `¿Eliminar ${p.name}? Ya no aparecerá en el catálogo ni en caja.`,
-                          )
-                        )
-                          return;
-                        await deleteProductAction(p.id);
-                        location.reload();
-                      }}
-                      className="ml-auto flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-[#a24628] hover:bg-[#f7e8e2]"
-                    >
-                      <Trash2 size={13} /> Eliminar
-                    </button>
+                    />
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
           </div>
         ) : (
           <div className="card mt-5 p-10 text-center">
@@ -294,6 +345,48 @@ export function ProductsClient({ products }: { products: Product[] }) {
         </div>
       )}
     </main>
+  );
+}
+function ProductActions({
+  product,
+  onEdit,
+}: {
+  product: Product;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-2 border-t border-[#ebeae2] pt-3 text-xs font-bold">
+      <button
+        onClick={onEdit}
+        className="flex items-center gap-1 rounded-lg bg-[#edf1e8] px-3 py-2 text-[#235b45]"
+      >
+        <Pencil size={13} /> Editar
+      </button>
+      <button
+        onClick={async () => {
+          await toggleProductAction(product.id, !product.active);
+          location.reload();
+        }}
+        className="rounded-lg px-3 py-2 text-[#62675f] hover:bg-[#eee]"
+      >
+        {product.active ? "Ocultar" : "Activar"}
+      </button>
+      <button
+        onClick={async () => {
+          if (
+            !confirm(
+              `¿Eliminar ${product.name}? Ya no aparecerá en el catálogo ni en caja.`,
+            )
+          )
+            return;
+          await deleteProductAction(product.id);
+          location.reload();
+        }}
+        className="flex items-center gap-1 rounded-lg px-3 py-2 text-[#a24628] hover:bg-[#f7e8e2]"
+      >
+        <Trash2 size={13} /> Eliminar
+      </button>
+    </div>
   );
 }
 function Field({
