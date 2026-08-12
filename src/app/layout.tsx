@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ERP KUMERA — Apertura",
+  title: "ERP KUMERA",
   description: "Control simple y claro para abrir tu negocio",
 };
 

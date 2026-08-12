@@ -23,6 +23,7 @@ import {
   Settings,
   SlidersHorizontal,
   Sparkles,
+  LockKeyhole,
   X,
 } from "lucide-react";
 import { calculateTax, formatClp, type TaxMode } from "@/shared/money";
@@ -35,6 +36,7 @@ import {
 } from "./types";
 import {
   duplicateEntryAction,
+  closeOpeningLedgerAction,
   saveEntryAction,
   voidEntryAction,
 } from "./actions";
@@ -119,11 +121,19 @@ export function OpeningApp({
   initialCategories = defaultCategories,
   businessName = "Kumera Panadería",
   connected = false,
+  ledgerId,
+  ledgerStatus = "open",
+  closedAt,
+  recoverableInvestment,
 }: {
   initialEntries?: OpeningEntry[];
   initialCategories?: string[];
   businessName?: string;
   connected?: boolean;
+  ledgerId?: string;
+  ledgerStatus?: "open" | "closed";
+  closedAt?: string;
+  recoverableInvestment?: number;
 }) {
   const [entries, setEntries] = useState<OpeningEntry[]>(initialEntries);
   const [categories, setCategories] = useState(initialCategories);
@@ -137,6 +147,8 @@ export function OpeningApp({
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [showTax, setShowTax] = useState(true);
   const [ready, setReady] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const isClosed = ledgerStatus === "closed";
 
   useEffect(() => {
     if (connected) {
@@ -191,6 +203,7 @@ export function OpeningApp({
   );
 
   function openNew() {
+    if (isClosed) return;
     setEditing(undefined);
     setDraft({ ...emptyDraft, date: today });
     setDialog(true);
@@ -331,7 +344,9 @@ export function OpeningApp({
             </div>
             <div>
               <p className="text-sm font-bold">{businessName}</p>
-              <p className="text-[11px] text-[#777b72]">Etapa de apertura</p>
+              <p className="text-[11px] text-[#777b72]">
+                {isClosed ? "Puesta en marcha cerrada" : "Puesta en marcha"}
+              </p>
             </div>
           </div>
         </div>
@@ -346,7 +361,12 @@ export function OpeningApp({
             active={view === "ledger"}
             onClick={() => setView("ledger")}
             icon={<BookOpen size={17} />}
-            label="Libro de apertura"
+            label="Puesta en marcha"
+          />
+          <Nav
+            onClick={() => (location.href = "/operacion")}
+            icon={<FileText size={17} />}
+            label="Compras y gastos"
           />
           <Nav
             onClick={() => (location.href = "/ventas")}
@@ -393,7 +413,7 @@ export function OpeningApp({
                 {view === "dashboard"
                   ? "Resumen"
                   : view === "ledger"
-                    ? "Libro de apertura"
+                    ? "Puesta en marcha"
                     : "Costos"}
               </span>
             </p>
@@ -410,21 +430,55 @@ export function OpeningApp({
             </form>
             <button
               onClick={openNew}
+              disabled={isClosed}
               className="flex items-center gap-2 rounded-xl bg-[#235b45] px-3 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#194735] md:px-4"
             >
-              <Plus size={17} />
-              <span className="hidden sm:inline">Nuevo movimiento</span>
+              {isClosed ? <LockKeyhole size={17} /> : <Plus size={17} />}
+              <span className="hidden sm:inline">
+                {isClosed ? "Puesta en marcha cerrada" : "Nuevo movimiento"}
+              </span>
             </button>
           </div>
         </header>
         {view === "dashboard" && (
-          <Dashboard
-            summary={summary}
-            chart={chart}
-            entries={summary.active}
-            onSeeAll={() => setView("ledger")}
-            onNew={openNew}
-          />
+          <>
+            <div
+              className={`mx-5 mt-5 rounded-2xl border p-5 md:mx-8 ${isClosed ? "border-[#cdd9cc] bg-[#edf4ea]" : "border-[#ead7a4] bg-[#fff8df]"}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-[#6e746c]">
+                    Puesta en marcha
+                  </p>
+                  <h2 className="mt-1 text-lg font-black">
+                    {isClosed
+                      ? "Registro histórico cerrado"
+                      : "Etapa previa a la operación"}
+                  </h2>
+                  <p className="mt-1 text-sm text-[#6f756d]">
+                    {isClosed
+                      ? `Cerrado el ${new Date(closedAt!).toLocaleDateString("es-CL")}. Inversión por recuperar: ${formatClp(recoverableInvestment || 0)}.`
+                      : "Cuando termines los desembolsos iniciales, cierra esta etapa para congelar la inversión."}
+                  </p>
+                </div>
+                {!isClosed && connected && ledgerId && (
+                  <button
+                    onClick={() => setClosing(true)}
+                    className="rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
+                  >
+                    Cerrar puesta en marcha
+                  </button>
+                )}
+              </div>
+            </div>
+            <Dashboard
+              summary={summary}
+              chart={chart}
+              entries={summary.active}
+              onSeeAll={() => setView("ledger")}
+              onNew={openNew}
+            />
+          </>
         )}
         {view === "ledger" && (
           <Ledger
@@ -440,10 +494,68 @@ export function OpeningApp({
             onVoid={toggleVoid}
             onExport={exportCsv}
             onNew={openNew}
+            readOnly={isClosed}
           />
         )}
         {view === "costs" && <CostsSoon />}
       </main>
+      {closing && ledgerId && (
+        <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+          <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+            <div className="flex justify-between">
+              <div>
+                <p className="text-xs font-black uppercase text-[#777]">
+                  Cierre definitivo
+                </p>
+                <h2 className="mt-1 text-2xl font-black">
+                  Cerrar puesta en marcha
+                </h2>
+              </div>
+              <button onClick={() => setClosing(false)}>
+                <X />
+              </button>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#6f756d]">
+              El libro quedará de sólo lectura. La inversión sugerida incluye
+              gastos y activos, pero excluye depósitos recuperables.
+            </p>
+            <form
+              action={async (form) => {
+                await closeOpeningLedgerAction(
+                  ledgerId,
+                  Number(form.get("recoverable")),
+                  String(form.get("note") || ""),
+                );
+                location.reload();
+              }}
+              className="mt-5 space-y-4"
+            >
+              <label className="block text-xs font-bold">
+                Inversión por recuperar
+                <input
+                  name="recoverable"
+                  type="number"
+                  min="0"
+                  required
+                  defaultValue={summary.expenses + summary.assets}
+                  className="input mt-2"
+                />
+              </label>
+              <label className="block text-xs font-bold">
+                Nota de cierre
+                <textarea
+                  name="note"
+                  className="input mt-2 min-h-20 py-3"
+                  placeholder="Ej: Inicio de operaciones comerciales"
+                />
+              </label>
+              <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
+                Confirmar cierre
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
       <nav className="fixed bottom-3 left-3 right-3 z-30 flex justify-around rounded-2xl border border-[#dddcd2] bg-[#fffef9]/95 p-2 shadow-xl backdrop-blur lg:hidden">
         <Nav
           active={view === "dashboard"}
@@ -776,6 +888,7 @@ function Ledger({
   onVoid,
   onExport,
   onNew,
+  readOnly,
 }: {
   entries: OpeningEntry[];
   search: string;
@@ -789,18 +902,21 @@ function Ledger({
   onVoid: (id: string) => void;
   onExport: () => void;
   onNew: () => void;
+  readOnly: boolean;
 }) {
   return (
     <div className="mx-auto max-w-[1500px] p-5 pb-28 md:p-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6e746c]">
-          Apertura
+          Puesta en marcha
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-[-.04em]">
           Libro de movimientos
         </h1>
         <p className="mt-2 text-sm text-[#73776f]">
-          Todo lo que entra y sale, en un solo lugar.
+          {readOnly
+            ? "Registro histórico congelado al iniciar la operación del negocio."
+            : "Inversión y movimientos previos al inicio de la operación."}
         </p>
       </div>
       <div className="mt-7 flex flex-wrap gap-2">
@@ -866,7 +982,7 @@ function Ledger({
                 </td>
                 <td className="px-4 py-3">
                   <button
-                    onClick={() => onEdit(e)}
+                    onClick={() => !readOnly && onEdit(e)}
                     className="text-left text-sm font-bold hover:text-[#235b45]"
                   >
                     {e.description}
@@ -911,26 +1027,28 @@ function Ledger({
                   )}
                 </td>
                 <td className="px-3">
-                  <div className="flex opacity-0 transition group-hover:opacity-100">
-                    <button
-                      title="Duplicar"
-                      onClick={() => onDuplicate(e)}
-                      className="rounded-lg p-2 hover:bg-[#e8e9df]"
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      title="Anular"
-                      onClick={() =>
-                        confirm(
-                          "¿Anular este movimiento? Se conservará en el historial.",
-                        ) && onVoid(e.id)
-                      }
-                      className="rounded-lg p-2 hover:bg-[#f6e2dc]"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
+                  {!readOnly && (
+                    <div className="flex opacity-0 transition group-hover:opacity-100">
+                      <button
+                        title="Duplicar"
+                        onClick={() => onDuplicate(e)}
+                        className="rounded-lg p-2 hover:bg-[#e8e9df]"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        title="Anular"
+                        onClick={() =>
+                          confirm(
+                            "¿Anular este movimiento? Se conservará en el historial.",
+                          ) && onVoid(e.id)
+                        }
+                        className="rounded-lg p-2 hover:bg-[#f6e2dc]"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

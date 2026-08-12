@@ -43,7 +43,9 @@ export async function getOpeningData(userId: string) {
       .single(),
     supabase
       .from("opening_ledgers")
-      .select("id")
+      .select(
+        "id,status,closed_at,closing_note,recoverable_investment,snapshot_initial_capital,snapshot_other_income,snapshot_expenses,snapshot_assets,snapshot_deposits,snapshot_balance",
+      )
       .eq("business_id", membership.business_id)
       .single(),
     supabase
@@ -65,6 +67,13 @@ export async function getOpeningData(userId: string) {
   return {
     businessName: business.name,
     ledgerId: ledger.id,
+    ledgerStatus: ledger.status as "open" | "closed",
+    closedAt: ledger.closed_at || undefined,
+    closingNote: ledger.closing_note || undefined,
+    recoverableInvestment:
+      ledger.recoverable_investment == null
+        ? undefined
+        : Number(ledger.recoverable_investment),
     categories: (categoryRows || []).map((c) => c.name),
     entries: ((rows as unknown as DbEntry[]) || []).map(mapEntry),
   };

@@ -1,6 +1,6 @@
 # ERP KUMERA
 
-MVP para registrar capital, gastos, activos y depósitos durante la apertura de un pequeño negocio de alimentos.
+ERP para gestionar la puesta en marcha, ventas, caja, costos y operación diaria de un pequeño negocio de alimentos.
 
 ## Desarrollo local
 

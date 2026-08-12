@@ -126,16 +126,14 @@ export async function saveEntryAction(formData: FormData) {
         .select("id")
         .single();
   if (result.error) throw result.error;
-  const audit = await ctx.supabase
-    .from("entry_change_log")
-    .insert({
-      business_id: ctx.businessId,
-      entry_id: result.data.id,
-      actor_id: ctx.user.id,
-      before,
-      after: values,
-      action: id ? "updated" : "created",
-    });
+  const audit = await ctx.supabase.from("entry_change_log").insert({
+    business_id: ctx.businessId,
+    entry_id: result.data.id,
+    actor_id: ctx.user.id,
+    before,
+    after: values,
+    action: id ? "updated" : "created",
+  });
   if (audit.error) throw audit.error;
 
   const file = formData.get("receipt");
@@ -147,21 +145,37 @@ export async function saveEntryAction(formData: FormData) {
       .from("receipts")
       .upload(path, file, { contentType: file.type, upsert: false });
     if (upload.error) throw upload.error;
-    const attachment = await ctx.supabase
-      .from("attachments")
-      .insert({
-        business_id: ctx.businessId,
-        entry_id: result.data.id,
-        storage_path: path,
-        file_name: file.name,
-        mime_type: file.type || "application/octet-stream",
-        size: file.size,
-        created_by: ctx.user.id,
-      });
+    const attachment = await ctx.supabase.from("attachments").insert({
+      business_id: ctx.businessId,
+      entry_id: result.data.id,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type || "application/octet-stream",
+      size: file.size,
+      created_by: ctx.user.id,
+    });
     if (attachment.error) throw attachment.error;
   }
   revalidatePath("/");
   return { ok: true, id: result.data.id };
+}
+
+export async function closeOpeningLedgerAction(
+  ledgerId: string,
+  recoverableInvestment: number,
+  note = "",
+) {
+  const ctx = await context();
+  if (!Number.isInteger(recoverableInvestment) || recoverableInvestment < 0)
+    throw new Error("Inversión por recuperar inválida");
+  const { error } = await ctx.supabase.rpc("close_opening_ledger", {
+    p_ledger: ledgerId,
+    p_recoverable: recoverableInvestment,
+    p_note: note,
+  });
+  if (error) throw error;
+  revalidatePath("/");
+  revalidatePath("/operacion");
 }
 
 export async function duplicateEntryAction(id: string) {
@@ -196,15 +210,13 @@ export async function duplicateEntryAction(id: string) {
     .select("id")
     .single();
   if (created.error) throw created.error;
-  await ctx.supabase
-    .from("entry_change_log")
-    .insert({
-      business_id: ctx.businessId,
-      entry_id: created.data.id,
-      actor_id: ctx.user.id,
-      after: copy,
-      action: "duplicated",
-    });
+  await ctx.supabase.from("entry_change_log").insert({
+    business_id: ctx.businessId,
+    entry_id: created.data.id,
+    actor_id: ctx.user.id,
+    after: copy,
+    action: "duplicated",
+  });
   revalidatePath("/");
   return { ok: true };
 }
@@ -230,16 +242,14 @@ export async function voidEntryAction(id: string, restore = false) {
     .eq("id", id)
     .eq("business_id", ctx.businessId);
   if (updated.error) throw updated.error;
-  await ctx.supabase
-    .from("entry_change_log")
-    .insert({
-      business_id: ctx.businessId,
-      entry_id: id,
-      actor_id: ctx.user.id,
-      before: current.data,
-      after: values,
-      action: restore ? "restored" : "voided",
-    });
+  await ctx.supabase.from("entry_change_log").insert({
+    business_id: ctx.businessId,
+    entry_id: id,
+    actor_id: ctx.user.id,
+    before: current.data,
+    after: values,
+    action: restore ? "restored" : "voided",
+  });
   revalidatePath("/");
   return { ok: true };
 }

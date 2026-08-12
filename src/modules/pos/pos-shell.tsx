@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LineChart,
   ShoppingCart,
+  ReceiptText,
 } from "lucide-react";
 import { signOutAction } from "@/modules/auth/actions";
 export function PosShell({
@@ -13,7 +14,7 @@ export function PosShell({
   active,
 }: {
   children: React.ReactNode;
-  active: "sales" | "closures" | "pos" | "products" | "costs";
+  active: "sales" | "closures" | "pos" | "products" | "costs" | "operations";
 }) {
   return (
     <div className="min-h-screen bg-[#f7f6ee]">
@@ -25,7 +26,17 @@ export function PosShell({
           <span className="font-black text-[#235b45]">ERP KUMERA</span>
         </Link>
         <nav className="flex items-center gap-1 text-xs font-bold">
-          <Nav href="/" label="Apertura" icon={<BookOpen size={16} />} />
+          <Nav
+            href="/"
+            label="Puesta en marcha"
+            icon={<BookOpen size={16} />}
+          />
+          <Nav
+            href="/operacion"
+            label="Compras y gastos"
+            active={active === "operations"}
+            icon={<ReceiptText size={16} />}
+          />
           <Nav
             href="/ventas"
             label="Ventas"

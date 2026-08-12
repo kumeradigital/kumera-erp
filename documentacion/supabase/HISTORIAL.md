@@ -1,5 +1,16 @@
 # Historial del esquema Supabase
 
+## 2026-08-12.2 — Cierre de puesta en marcha y operación diaria
+
+- Migraciones: `0017_close_startup_and_add_operations.sql`, `0018_index_operational_foreign_keys.sql`.
+- El libro de puesta en marcha puede cerrarse y conserva una fotografía inmutable de sus totales.
+- El cierre fija la inversión recuperable y deja el libro en modo histórico de sólo lectura.
+- Nueva tabla aislada por RLS para compras, costos fijos, gastos, ingresos y movimientos del propietario.
+- Las compras pueden actualizar atómicamente el precio de una materia prima sin implementar inventario.
+- La recuperación se calcula con ventas y flujo operacional posteriores al cierre.
+- Aplicado en desarrollo: sí, mediante Supabase MCP (`0017`: `20260812141445`; `0018`: `20260812141757`).
+- Aplicado en producción: el mismo proyecto conectado a Vercel.
+
 ## 2026-08-12.1 — Clasificación y eliminación de recetas
 
 - Migración: `0016_classify_and_delete_recipes.sql`.

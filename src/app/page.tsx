@@ -32,6 +32,10 @@ export default async function Home() {
       initialEntries={data.entries}
       initialCategories={data.categories}
       businessName={data.businessName}
+      ledgerId={data.ledgerId}
+      ledgerStatus={data.ledgerStatus}
+      closedAt={data.closedAt}
+      recoverableInvestment={data.recoverableInvestment}
       connected
     />
   );
