@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   CircleDollarSign,
   FlaskConical,
+  Layers3,
   Plus,
   Settings,
   Target,
@@ -258,10 +259,39 @@ function RecipesView({
     <section className="mt-5">
       <SectionHeader
         title="Recetas y subrecetas"
-        subtitle="Una receta puede contener materias primas u otras recetas."
+        subtitle="Crea preparaciones base y luego combínalas en la receta final de cada producto."
         action={() => setCreating(true)}
         actionLabel="Receta"
       />
+      <div className="mt-4 rounded-2xl border border-[#d8e3d6] bg-[#eef4eb] p-5">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#235b45] text-white">
+            <Layers3 size={20} />
+          </span>
+          <div>
+            <h3 className="font-black text-[#235b45]">
+              Un producto compuesto usa una receta final
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-[#626b63]">
+              Crea por separado <b>Masa de empanada</b> y <b>Pino</b>. Después
+              crea <b>Empanada de pino</b> y agrega esas dos preparaciones como
+              subrecetas. Esa receta final es la única que se vincula al
+              producto de venta.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-black text-[#235b45]">
+              <span className="rounded-lg bg-white px-3 py-2">Masa</span>
+              <span>+</span>
+              <span className="rounded-lg bg-white px-3 py-2">Pino</span>
+              <span>+</span>
+              <span className="rounded-lg bg-white px-3 py-2">Envase</span>
+              <span>→</span>
+              <span className="rounded-lg bg-[#d8f070] px-3 py-2">
+                Empanada de pino
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="mt-4 space-y-3">
         {recipes.map((recipe) => {
           const cost = costs[recipe.id];
@@ -339,7 +369,7 @@ function RecipesView({
                   onClick={() => setAddingTo(recipe)}
                   className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
                 >
-                  <Plus size={14} /> Agregar componente
+                  <Plus size={14} /> Agregar materia prima o subreceta
                 </button>
                 <button
                   onClick={() => setEditing(recipe)}
@@ -936,7 +966,10 @@ function RecipeDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog title={recipe ? "Editar receta" : "Nueva receta"} onClose={onClose}>
+    <Dialog
+      title={recipe ? "Editar receta" : "Nueva receta o preparación"}
+      onClose={onClose}
+    >
       <AsyncForm action={saveRecipeAction}>
         {recipe && <input type="hidden" name="id" value={recipe.id} />}
         <Field label="Nombre *">
@@ -948,6 +981,10 @@ function RecipeDialog({
             placeholder="Ej: Masa de empanada"
           />
         </Field>
+        <p className="-mt-2 text-xs leading-5 text-[#777]">
+          Puede ser una preparación base, como “Masa de empanada”, o el armado
+          final de un producto, como “Empanada de pino”.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Rendimiento">
             <input
@@ -1016,7 +1053,7 @@ function RecipeItemDialog({
             ? [subrecipe.yieldUnit]
             : ["unit"];
   return (
-    <Dialog title={`Componente de ${recipe.name}`} onClose={onClose}>
+    <Dialog title={`Agregar a ${recipe.name}`} onClose={onClose}>
       <AsyncForm action={addRecipeItemAction}>
         <input type="hidden" name="recipeId" value={recipe.id} />
         <input type="hidden" name="componentType" value={kind} />
@@ -1045,6 +1082,11 @@ function RecipeItemDialog({
             </optgroup>
           </select>
         </Field>
+        <p className="-mt-2 rounded-xl bg-[#f3f4ed] p-3 text-xs leading-5 text-[#6d736c]">
+          <b>Materia prima:</b> harina, queso, mantequilla o envase.{" "}
+          <b>Subreceta:</b> una preparación creada previamente, como masa, pino
+          o relleno de chocolate.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Cantidad">
             <input
@@ -1084,7 +1126,7 @@ function ProductCostDialog({
     <Dialog title={`Costeo de ${product.name}`} onClose={onClose}>
       <AsyncForm action={configureProductCostAction}>
         <input type="hidden" name="productId" value={product.id} />
-        <Field label="Receta del producto">
+        <Field label="Receta final del producto">
           <select
             name="recipeId"
             defaultValue={product.recipeId || ""}
@@ -1099,6 +1141,10 @@ function ProductCostDialog({
             ))}
           </select>
         </Field>
+        <p className="-mt-2 text-xs leading-5 text-[#777]">
+          Si el producto tiene masa y relleno, selecciona aquí la receta final
+          que contiene ambas subrecetas; no selecciones solamente la masa.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Merma comercial %">
             <input

@@ -13,6 +13,14 @@ export function ProductsClient({ products }: { products: Product[] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
+  const [category, setCategory] = useState("Todos");
+  const categories = [
+    "Todos",
+    ...new Set(products.map((product) => product.category)),
+  ];
+  const visibleProducts = products.filter(
+    (product) => category === "Todos" || product.category === category,
+  );
   async function submit(form: FormData) {
     setBusy(true);
     try {
@@ -48,82 +56,118 @@ export function ProductsClient({ products }: { products: Product[] }) {
           Producto
         </button>
       </div>
-      {products.length ? (
-        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((p) => (
-            <article
-              key={p.id}
-              className={`card overflow-hidden ${!p.active ? "opacity-55" : ""}`}
-            >
-              <div className="grid h-36 place-items-center bg-[#edece3]">
-                {p.imageUrl ? (
-                  <img
-                    src={p.imageUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <ImageIcon className="text-[#a4a79f]" />
-                )}
-              </div>
-              <div className="p-4">
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <p className="font-black">{p.name}</p>
-                    <p className="mt-1 text-xs text-[#7c8078]">{p.category}</p>
-                  </div>
-                  <p className="money font-black text-[#235b45]">
-                    {formatClp(p.price)}{" "}
-                    {p.saleUnit === "kg" ? "/ kg" : "/ un."}
-                  </p>
-                </div>
-                {p.description && (
-                  <p className="mt-3 text-xs text-[#747970]">{p.description}</p>
-                )}
-                {p.trackDailyAvailability && (
-                  <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
-                    <PackageCheck size={14} /> Disponibilidad diaria activa
-                  </p>
-                )}
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-[#ebeae2] pt-3">
-                  <button
-                    onClick={() => {
-                      setEditing(p);
-                      setOpen(true);
-                    }}
-                    className="flex items-center gap-1 rounded-lg bg-[#edf1e8] px-3 py-2 text-xs font-bold text-[#235b45]"
-                  >
-                    <Pencil size={13} /> Editar
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await toggleProductAction(p.id, !p.active);
-                      location.reload();
-                    }}
-                    className="rounded-lg px-3 py-2 text-xs font-bold text-[#62675f] hover:bg-[#eee]"
-                  >
-                    {p.active ? "Ocultar" : "Activar"}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (
-                        !confirm(
-                          `¿Eliminar ${p.name}? Ya no aparecerá en el catálogo ni en caja.`,
-                        )
-                      )
-                        return;
-                      await deleteProductAction(p.id);
-                      location.reload();
-                    }}
-                    className="ml-auto flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-[#a24628] hover:bg-[#f7e8e2]"
-                  >
-                    <Trash2 size={13} /> Eliminar
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+      {products.length > 0 && (
+        <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((item) => {
+            const count =
+              item === "Todos"
+                ? products.length
+                : products.filter((product) => product.category === item)
+                    .length;
+            return (
+              <button
+                key={item}
+                onClick={() => setCategory(item)}
+                className={`shrink-0 rounded-full px-4 py-2 text-xs font-black ${category === item ? "bg-[#235b45] text-white" : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"}`}
+              >
+                {item} <span className="opacity-70">{count}</span>
+              </button>
+            );
+          })}
         </div>
+      )}
+      {products.length ? (
+        visibleProducts.length ? (
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleProducts.map((p) => (
+              <article
+                key={p.id}
+                className={`card overflow-hidden ${!p.active ? "opacity-55" : ""}`}
+              >
+                <div className="grid h-36 place-items-center bg-[#edece3]">
+                  {p.imageUrl ? (
+                    <img
+                      src={p.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="text-[#a4a79f]" />
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="font-black">{p.name}</p>
+                      <p className="mt-1 text-xs text-[#7c8078]">
+                        {p.category}
+                      </p>
+                    </div>
+                    <p className="money font-black text-[#235b45]">
+                      {formatClp(p.price)}{" "}
+                      {p.saleUnit === "kg" ? "/ kg" : "/ un."}
+                    </p>
+                  </div>
+                  {p.description && (
+                    <p className="mt-3 text-xs text-[#747970]">
+                      {p.description}
+                    </p>
+                  )}
+                  {p.trackDailyAvailability && (
+                    <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
+                      <PackageCheck size={14} /> Disponibilidad diaria activa
+                    </p>
+                  )}
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-[#ebeae2] pt-3">
+                    <button
+                      onClick={() => {
+                        setEditing(p);
+                        setOpen(true);
+                      }}
+                      className="flex items-center gap-1 rounded-lg bg-[#edf1e8] px-3 py-2 text-xs font-bold text-[#235b45]"
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await toggleProductAction(p.id, !p.active);
+                        location.reload();
+                      }}
+                      className="rounded-lg px-3 py-2 text-xs font-bold text-[#62675f] hover:bg-[#eee]"
+                    >
+                      {p.active ? "Ocultar" : "Activar"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (
+                          !confirm(
+                            `¿Eliminar ${p.name}? Ya no aparecerá en el catálogo ni en caja.`,
+                          )
+                        )
+                          return;
+                        await deleteProductAction(p.id);
+                        location.reload();
+                      }}
+                      className="ml-auto flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-[#a24628] hover:bg-[#f7e8e2]"
+                    >
+                      <Trash2 size={13} /> Eliminar
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="card mt-5 p-10 text-center">
+            <p className="font-bold">No hay productos en {category}</p>
+            <button
+              onClick={() => setCategory("Todos")}
+              className="mt-2 text-sm font-bold text-[#235b45] underline"
+            >
+              Ver todos los productos
+            </button>
+          </div>
+        )
       ) : (
         <div className="card mt-7 p-12 text-center">
           <p className="font-bold">Aún no hay productos</p>

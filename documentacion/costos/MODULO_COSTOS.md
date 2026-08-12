@@ -76,3 +76,22 @@ de la empanada de pino:
 6. Configurar merma y margen objetivo.
 7. Registrar costos fijos.
 8. Crear escenarios de venta diaria.
+
+## Recetas base y recetas finales
+
+Cada producto de venta se vincula a una sola receta final, pero esa receta puede
+contener todas las materias primas y subrecetas necesarias.
+
+```text
+Masa de empanada (receta base)
+Pino (receta base)
+
+Empanada de pino (receta final)
+  1 porción de Masa de empanada
+  1 porción de Pino
+  1 envase
+```
+
+El producto `Empanada de pino` se vincula a la receta final del mismo nombre, no
+solamente a la masa. Así una misma masa puede reutilizarse en distintas
+variedades y todos sus costos se actualizan cuando cambia esa preparación.
