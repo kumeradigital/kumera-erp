@@ -34,6 +34,10 @@ export type CashSession = {
 };
 export type SaleSummary = {
   total: number;
+  commissionNet: number;
+  commissionTax: number;
+  commissionTotal: number;
+  netReceivable: number;
   count: number;
   average: number;
   byPayment: { method: PaymentMethod; total: number }[];

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
+import { calculateCardFee, type CardFeeSettings } from "./fees";
 import {
   closeCashSessionAction,
   adjustAvailabilityAction,
@@ -33,12 +34,14 @@ export function PosClient({
   cashSales,
   latestSession,
   availability,
+  cardFeeSettings,
 }: {
   products: Product[];
   session: CashSession | null;
   cashSales: number;
   latestSession: CashSession | null;
   availability: DailyAvailability[];
+  cardFeeSettings: CardFeeSettings;
 }) {
   const [cart, setCart] = useState<Cart>({});
   const [paying, setPaying] = useState(false);
@@ -259,6 +262,7 @@ export function PosClient({
         <PaymentDialog
           total={total}
           busy={busy}
+          cardFeeSettings={cardFeeSettings}
           onClose={() => setPaying(false)}
           onPay={async (method, cash) => {
             setBusy(true);
@@ -790,15 +794,18 @@ function PaymentDialog({
   busy,
   onClose,
   onPay,
+  cardFeeSettings,
 }: {
   total: number;
   busy: boolean;
   onClose: () => void;
   onPay: (m: PaymentMethod, c: number | null) => void;
+  cardFeeSettings: CardFeeSettings;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [cash, setCash] = useState(String(total));
   const received = Number(cash) || 0;
+  const fee = calculateCardFee(total, method, cardFeeSettings);
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
       <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
@@ -840,6 +847,27 @@ function PaymentDialog({
               <b className="money text-xl">
                 {formatClp(Math.max(0, received - total))}
               </b>
+            </div>
+          </div>
+        )}
+        {(method === "debit" || method === "credit") && (
+          <div className="mt-5 rounded-xl bg-[#eff0e8] p-4 text-sm">
+            <div className="flex justify-between">
+              <span>
+                Comisión {cardFeeSettings.percentage}% +{" "}
+                {formatClp(cardFeeSettings.fixedAmount)}
+              </span>
+              <b className="money">{formatClp(fee.net)}</b>
+            </div>
+            <div className="mt-2 flex justify-between text-[#6f746c]">
+              <span>IVA de la comisión</span>
+              <b className="money">{formatClp(fee.tax)}</b>
+            </div>
+            <div className="mt-3 flex justify-between border-t border-[#d8ddd4] pt-3 font-black text-[#235b45]">
+              <span>
+                Abono esperado en {cardFeeSettings.settlementDays} día
+              </span>
+              <b className="money">{formatClp(fee.deposit)}</b>
             </div>
           </div>
         )}

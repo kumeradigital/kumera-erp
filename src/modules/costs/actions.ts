@@ -312,8 +312,7 @@ export async function saveCostSettingsAction(form: FormData) {
     expected_transfer_percentage: Number(
       form.get("expectedTransferPercentage"),
     ),
-    debit_fee_percentage: Number(form.get("debitFeePercentage")),
-    credit_fee_percentage: Number(form.get("creditFeePercentage")),
+    expected_ticket_amount: Number(form.get("expectedTicketAmount")),
     target_monthly_profit: Number(form.get("targetMonthlyProfit") || 0),
     updated_at: new Date().toISOString(),
   };
@@ -324,6 +323,8 @@ export async function saveCostSettingsAction(form: FormData) {
     values.expected_transfer_percentage;
   if (Math.abs(mix - 100) > 0.001)
     throw new Error("La mezcla de medios de pago debe sumar 100%");
+  if (values.expected_ticket_amount <= 0)
+    throw new Error("El ticket promedio esperado debe ser mayor que cero");
   const { error } = await ctx.supabase
     .from("cost_settings")
     .update(values)

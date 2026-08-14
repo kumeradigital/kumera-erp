@@ -1,5 +1,16 @@
 # Historial del esquema Supabase
 
+## 2026-08-13.1 — Comisión mixta automática en ventas con tarjeta
+
+- Migración: `0019_add_mixed_card_fees.sql`.
+- Configuración vigente: 0,79% + $65 netos por venta con débito o crédito, más 19% de IVA.
+- El efectivo y las transferencias no generan comisión.
+- Cada venta conserva la tarifa, comisión neta, IVA, abono esperado y plazo utilizados.
+- El resumen de ventas muestra comisiones y cobro neto esperado.
+- Rentabilidad distribuye el cargo fijo usando el ticket promedio esperado, evitando cargar $65 a cada producto.
+- Aplicado en desarrollo: sí, mediante Supabase MCP (versión remota `20260814002835`).
+- Aplicado en producción: el mismo proyecto conectado a Vercel.
+
 ## 2026-08-12.2 — Cierre de puesta en marcha y operación diaria
 
 - Migraciones: `0017_close_startup_and_add_operations.sql`, `0018_index_operational_foreign_keys.sql`.

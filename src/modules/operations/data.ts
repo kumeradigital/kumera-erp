@@ -21,7 +21,7 @@ export async function getOperationsData() {
   if (ledger.error) throw ledger.error;
   let salesQuery = supabase
     .from("sales")
-    .select("total")
+    .select("total,expected_deposit_amount")
     .eq("business_id", m.business_id)
     .eq("status", "completed");
   if (ledger.data.closed_at)
@@ -63,7 +63,7 @@ export async function getOperationsData() {
     };
   });
   const salesTotal = (sales.data || []).reduce(
-    (s, r) => s + Number(r.total),
+    (s, r) => s + Number(r.expected_deposit_amount),
     0,
   );
   const operatingIncome = operations

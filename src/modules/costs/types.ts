@@ -61,6 +61,12 @@ export type CostSettings = {
   expectedTransferPercentage: number;
   debitFeePercentage: number;
   creditFeePercentage: number;
+  cardFeeModel: "none" | "percentage" | "mixed";
+  cardFeePercentage: number;
+  cardFeeFixedAmount: number;
+  cardFeeVatRate: number;
+  cardSettlementDays: number;
+  expectedTicketAmount: number;
   targetMonthlyProfit: number;
 };
 

@@ -187,6 +187,12 @@ export async function getCostingData() {
     ),
     debitFeePercentage: Number(rawSettings.debit_fee_percentage),
     creditFeePercentage: Number(rawSettings.credit_fee_percentage),
+    cardFeeModel: rawSettings.card_fee_model,
+    cardFeePercentage: Number(rawSettings.card_fee_percentage),
+    cardFeeFixedAmount: Number(rawSettings.card_fee_fixed_amount),
+    cardFeeVatRate: Number(rawSettings.card_fee_vat_rate),
+    cardSettlementDays: rawSettings.card_settlement_days,
+    expectedTicketAmount: Number(rawSettings.expected_ticket_amount),
     targetMonthlyProfit: Number(rawSettings.target_monthly_profit),
   };
 

@@ -36,6 +36,12 @@ const settings: CostSettings = {
   expectedTransferPercentage: 0,
   debitFeePercentage: 2.0825,
   creditFeePercentage: 2.35,
+  cardFeeModel: "mixed",
+  cardFeePercentage: 0.79,
+  cardFeeFixedAmount: 65,
+  cardFeeVatRate: 19,
+  cardSettlementDays: 1,
+  expectedTicketAmount: 6000,
   targetMonthlyProfit: 0,
 };
 
@@ -110,9 +116,9 @@ describe("motor de costos", () => {
       costs,
       settings,
     );
-    expect(Math.round(analysis.variableCost)).toBe(1059);
-    expect(Math.round(analysis.contribution)).toBe(1630);
-    expect(analysis.contributionPercentage).toBeCloseTo(60.6, 1);
+    expect(Math.round(analysis.variableCost)).toBe(1054);
+    expect(Math.round(analysis.contribution)).toBe(1635);
+    expect(analysis.contributionPercentage).toBeCloseTo(60.8, 1);
   });
 
   it("prorratea costos fijos según periodicidad", () => {

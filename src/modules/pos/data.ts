@@ -6,6 +6,7 @@ import type {
   Product,
   SaleSummary,
 } from "./types";
+import type { CardFeeSettings } from "./fees";
 
 async function businessContext() {
   const supabase = await createClient();
@@ -116,6 +117,25 @@ export async function getOpenCashSession(): Promise<CashSession | null> {
         autoClosed: data.auto_closed,
       }
     : null;
+}
+
+export async function getCardFeeSettings(): Promise<CardFeeSettings> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cost_settings")
+    .select(
+      "card_fee_model,card_fee_percentage,card_fee_fixed_amount,card_fee_vat_rate,card_settlement_days",
+    )
+    .eq("business_id", businessId)
+    .single();
+  if (error) throw error;
+  return {
+    model: data.card_fee_model as CardFeeSettings["model"],
+    percentage: Number(data.card_fee_percentage),
+    fixedAmount: Number(data.card_fee_fixed_amount),
+    vatRate: Number(data.card_fee_vat_rate),
+    settlementDays: data.card_settlement_days,
+  };
 }
 
 export async function getLatestCashSession(): Promise<CashSession | null> {
@@ -253,7 +273,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const { data: sales, error } = await ctx.supabase
     .from("sales")
     .select(
-      "id,total,payment_method,created_at,sale_items(product_name,quantity,sale_unit)",
+      "id,total,payment_method,commission_net_amount,commission_tax_amount,expected_deposit_amount,created_at,sale_items(product_name,quantity,sale_unit)",
     )
     .eq("business_id", ctx.businessId)
     .eq("status", "completed")
@@ -263,6 +283,18 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   if (error) throw error;
   const rows = sales || [];
   const total = rows.reduce((s, r) => s + Number(r.total), 0);
+  const commissionNet = rows.reduce(
+    (s, r) => s + Number(r.commission_net_amount),
+    0,
+  );
+  const commissionTax = rows.reduce(
+    (s, r) => s + Number(r.commission_tax_amount),
+    0,
+  );
+  const netReceivable = rows.reduce(
+    (s, r) => s + Number(r.expected_deposit_amount),
+    0,
+  );
   const payments = new Map<PaymentMethod, number>();
   const products = new Map<
     string,
@@ -288,6 +320,10 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   return {
     summary: {
       total,
+      commissionNet,
+      commissionTax,
+      commissionTotal: commissionNet + commissionTax,
+      netReceivable,
       count: rows.length,
       average: rows.length ? Math.round(total / rows.length) : 0,
       byPayment: [...payments]

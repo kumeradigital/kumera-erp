@@ -1,5 +1,6 @@
 import {
   getCashSalesTotal,
+  getCardFeeSettings,
   getDailyAvailability,
   getLatestCashSession,
   getOpenCashSession,
@@ -8,11 +9,14 @@ import {
 import { PosShell } from "@/modules/pos/pos-shell";
 import { PosClient } from "@/modules/pos/pos-client";
 export default async function PosPage() {
-  const [products, session, latestSession] = await Promise.all([
-    getProducts(),
-    getOpenCashSession(),
-    getLatestCashSession(),
-  ]);
+  const [products, session, latestSession, cardFeeSettings] = await Promise.all(
+    [
+      getProducts(),
+      getOpenCashSession(),
+      getLatestCashSession(),
+      getCardFeeSettings(),
+    ],
+  );
   const cashSales = session ? await getCashSalesTotal(session.id) : 0;
   const availability = session ? await getDailyAvailability(session.id) : [];
   const productsWithAvailability = products.map((product) => ({
@@ -27,6 +31,7 @@ export default async function PosPage() {
         session={session}
         cashSales={cashSales}
         latestSession={latestSession}
+        cardFeeSettings={cardFeeSettings}
       />
     </PosShell>
   );

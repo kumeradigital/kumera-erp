@@ -1664,26 +1664,24 @@ function SettingsDialog({
             />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Comisión débito %">
-            <input
-              name="debitFeePercentage"
-              type="number"
-              step="0.0001"
-              defaultValue={settings.debitFeePercentage}
-              className="input"
-            />
-          </Field>
-          <Field label="Comisión crédito %">
-            <input
-              name="creditFeePercentage"
-              type="number"
-              step="0.0001"
-              defaultValue={settings.creditFeePercentage}
-              className="input"
-            />
-          </Field>
+        <div className="rounded-xl bg-[#eff0e8] p-4 text-sm">
+          <p className="font-black">Comisión de tarjetas vigente</p>
+          <p className="mt-1 text-[#666c64]">
+            Modelo mixto: {settings.cardFeePercentage}% +{" "}
+            {formatClp(settings.cardFeeFixedAmount)} netos por transacción, más{" "}
+            {settings.cardFeeVatRate}% de IVA. Abono en{" "}
+            {settings.cardSettlementDays} día.
+          </p>
         </div>
+        <Field label="Ticket promedio esperado para proyectar comisiones">
+          <input
+            name="expectedTicketAmount"
+            type="number"
+            min="1"
+            defaultValue={settings.expectedTicketAmount}
+            className="input"
+          />
+        </Field>
         <Field label="Utilidad mensual objetivo">
           <input
             name="targetMonthlyProfit"

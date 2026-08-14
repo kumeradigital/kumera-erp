@@ -1,4 +1,4 @@
-import { Clock, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { Clock, CreditCard, Receipt, TrendingUp, Wallet } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { SalesFilters, type SalesPeriodView } from "./sales-filters";
 import { paymentLabels, type PaymentMethod, type SaleSummary } from "./types";
@@ -31,7 +31,7 @@ export function SalesDashboard({
 
       <SalesFilters period={period} />
 
-      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Stat
           label="Ventas"
           value={formatClp(summary.total)}
@@ -56,7 +56,23 @@ export function SalesDashboard({
           }
           icon={<Clock />}
         />
+        <Stat
+          label="Comisiones tarjetas"
+          value={formatClp(summary.commissionTotal)}
+          icon={<CreditCard />}
+        />
+        <Stat
+          label="Ingreso después de comisión"
+          value={formatClp(summary.netReceivable)}
+          icon={<Wallet />}
+        />
       </section>
+      {summary.commissionTotal > 0 && (
+        <p className="mt-3 text-xs text-[#70756d]">
+          Las comisiones incluyen {formatClp(summary.commissionNet)} netos y{" "}
+          {formatClp(summary.commissionTax)} de IVA crédito estimado.
+        </p>
+      )}
       <section className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
           <h2 className="font-black">Medios de pago</h2>
