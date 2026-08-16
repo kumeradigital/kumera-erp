@@ -223,10 +223,17 @@ export async function registerSaleAction(
   items: { product_id: string; quantity: number }[],
 ) {
   const ctx = await context();
+  const normalizedCash =
+    cashReceived == null ? null : Math.round(Number(cashReceived));
+  if (
+    normalizedCash != null &&
+    (!Number.isFinite(normalizedCash) || normalizedCash < 0)
+  )
+    throw new Error("Efectivo recibido inválido");
   const { data, error } = await ctx.supabase.rpc("register_sale", {
     p_session: sessionId,
     p_payment: payment,
-    p_cash_received: cashReceived,
+    p_cash_received: normalizedCash,
     p_items: items,
   });
   if (error) throw error;

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
+import { calculateCartTotal, calculateLineTotal } from "./cart";
 import { calculateCardFee, type CardFeeSettings } from "./fees";
 import {
   closeCashSessionAction,
@@ -54,7 +55,7 @@ export function PosClient({
   const lines = products
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
-  const total = lines.reduce((s, l) => s + l.price * l.quantity, 0);
+  const total = calculateCartTotal(lines);
   function add(id: string) {
     const product = products.find((item) => item.id === id);
     if (product?.saleUnit === "kg") {
@@ -192,7 +193,7 @@ export function PosClient({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{l.name}</p>
                 <p className="money text-xs text-[#777]">
-                  {formatClp(l.price * l.quantity)}
+                  {formatClp(calculateLineTotal(l))}
                 </p>
                 {l.saleUnit === "kg" && (
                   <p className="text-[11px] text-[#777]">
