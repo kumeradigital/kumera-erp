@@ -25,6 +25,10 @@ async function businessContext() {
   return { supabase, businessId: membership.business_id };
 }
 
+function oneRelation<T>(value: T | T[] | null | undefined): T | undefined {
+  return Array.isArray(value) ? value[0] : value || undefined;
+}
+
 export async function getProducts(includeInactive = false): Promise<Product[]> {
   const { businessId, supabase } = await businessContext();
   let query = supabase
@@ -274,7 +278,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
           sum + Number(sale.total),
         0,
       );
-    const reconciliation = row.cash_session_reconciliations?.[0];
+    const reconciliation = oneRelation(row.cash_session_reconciliations);
     const reconciledCash = reconciliation
       ? Number(reconciliation.actual_cash_sales)
       : cashSales;
@@ -373,7 +377,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   if (reconciliationError) throw reconciliationError;
   const reconciliations = new Map(
     (reconciledSessions || []).flatMap((session) => {
-      const value = session.cash_session_reconciliations?.[0];
+      const value = oneRelation(session.cash_session_reconciliations);
       return value ? [[session.id, value] as const] : [];
     }),
   );
