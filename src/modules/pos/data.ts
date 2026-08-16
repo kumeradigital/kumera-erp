@@ -206,10 +206,18 @@ export async function getSessionClosingSummary(
     credit: 0,
     transfer: 0,
   };
+  const transactionsByPayment: SessionClosingSummary["transactionsByPayment"] =
+    {
+      cash: 0,
+      debit: 0,
+      credit: 0,
+      transfer: 0,
+    };
   const products = new Map<string, SessionClosingSummary["products"][number]>();
   for (const sale of data || []) {
     const method = sale.payment_method as PaymentMethod;
     byPayment[method] += Number(sale.total);
+    transactionsByPayment[method] += 1;
     for (const item of sale.sale_items || []) {
       const current = products.get(item.product_name);
       products.set(item.product_name, {
@@ -222,6 +230,7 @@ export async function getSessionClosingSummary(
   }
   return {
     byPayment,
+    transactionsByPayment,
     products: [...products.values()].sort((a, b) => b.total - a.total),
   };
 }
@@ -369,7 +378,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     await ctx.supabase
       .from("cash_sessions")
       .select(
-        "id,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+        "id,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,actual_cash_transactions,actual_debit_transactions,actual_credit_transactions,actual_transfer_transactions,commission_net_amount,commission_tax_amount)",
       )
       .eq("business_id", ctx.businessId)
       .gte("opened_at", range.from)
@@ -393,18 +402,37 @@ export async function getSalesSummary(range: SalesRange): Promise<{
       Number(value.actual_transfer_sales) -
       recorded;
   }
-  const commissionNet = rows.reduce(
+  let commissionNet = rows.reduce(
     (s, r) => s + Number(r.commission_net_amount),
     0,
   );
-  const commissionTax = rows.reduce(
+  let commissionTax = rows.reduce(
     (s, r) => s + Number(r.commission_tax_amount),
     0,
   );
-  const netReceivable = rows.reduce(
-    (s, r) => s + Number(r.expected_deposit_amount),
-    0,
-  );
+  let transactionCount = rows.length;
+  for (const [sessionId, value] of reconciliations) {
+    const sessionRows = rows.filter((row) => row.cash_session_id === sessionId);
+    commissionNet +=
+      Number(value.commission_net_amount) -
+      sessionRows.reduce(
+        (sum, row) => sum + Number(row.commission_net_amount),
+        0,
+      );
+    commissionTax +=
+      Number(value.commission_tax_amount) -
+      sessionRows.reduce(
+        (sum, row) => sum + Number(row.commission_tax_amount),
+        0,
+      );
+    transactionCount +=
+      Number(value.actual_cash_transactions) +
+      Number(value.actual_debit_transactions) +
+      Number(value.actual_credit_transactions) +
+      Number(value.actual_transfer_transactions) -
+      sessionRows.length;
+  }
+  const netReceivable = total - commissionNet - commissionTax;
   const payments = new Map<PaymentMethod, number>();
   const products = new Map<
     string,
@@ -461,8 +489,8 @@ export async function getSalesSummary(range: SalesRange): Promise<{
       commissionTax,
       commissionTotal: commissionNet + commissionTax,
       netReceivable,
-      count: rows.length,
-      average: rows.length ? Math.round(total / rows.length) : 0,
+      count: transactionCount,
+      average: transactionCount ? Math.round(total / transactionCount) : 0,
       byPayment: [...payments]
         .map(([method, value]) => ({ method, total: value }))
         .sort((a, b) => b.total - a.total),

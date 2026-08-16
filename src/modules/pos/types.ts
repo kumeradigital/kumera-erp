@@ -53,6 +53,7 @@ export type SaleSummary = {
 
 export type SessionClosingSummary = {
   byPayment: Record<PaymentMethod, number>;
+  transactionsByPayment: Record<PaymentMethod, number>;
   products: {
     name: string;
     quantity: number;

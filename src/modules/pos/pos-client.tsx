@@ -633,6 +633,12 @@ function CloseSessionDialog({
                   credit: Number(form.get("actual_credit")),
                   transfer: Number(form.get("actual_transfer")),
                 },
+                transactions: {
+                  cash: Number(form.get("transactions_cash")),
+                  debit: Number(form.get("transactions_debit")),
+                  credit: Number(form.get("transactions_credit")),
+                  transfer: Number(form.get("transactions_transfer")),
+                },
                 waste: waste
                   .filter((item) => Number(item.quantity) > 0)
                   .map((item) => ({
@@ -666,6 +672,17 @@ function CloseSessionDialog({
                     inputMode="numeric"
                     defaultValue={summary.byPayment[method]}
                     className="input mt-2"
+                  />
+                  <span className="mt-2 block text-[10px] text-[#777]">
+                    Cantidad de transacciones
+                  </span>
+                  <input
+                    name={`transactions_${method}`}
+                    required
+                    min={0}
+                    inputMode="numeric"
+                    defaultValue={summary.transactionsByPayment[method]}
+                    className="input mt-1"
                   />
                 </label>
               ),

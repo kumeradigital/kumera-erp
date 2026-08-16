@@ -180,6 +180,7 @@ export async function closeCashSessionAction(
     note: string;
     reason: string;
     actual: Record<PaymentMethod, number>;
+    transactions: Record<PaymentMethod, number>;
     waste: {
       product_id?: string;
       product_name: string;
@@ -193,6 +194,7 @@ export async function closeCashSessionAction(
   if (!Number.isInteger(countedCash) || countedCash < 0)
     throw new Error("Efectivo contado inválido");
   const actual = details.actual;
+  const transactions = details.transactions;
   if (
     Object.values(actual).some((value) => !Number.isInteger(value) || value < 0)
   )
@@ -211,6 +213,10 @@ export async function closeCashSessionAction(
     p_actual_debit: actual.debit,
     p_actual_credit: actual.credit,
     p_actual_transfer: actual.transfer,
+    p_cash_transactions: transactions.cash,
+    p_debit_transactions: transactions.debit,
+    p_credit_transactions: transactions.credit,
+    p_transfer_transactions: transactions.transfer,
     p_reason: details.reason,
     p_waste: details.waste,
   });
