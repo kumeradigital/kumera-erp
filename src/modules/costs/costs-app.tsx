@@ -46,7 +46,8 @@ import type {
   Scenario,
 } from "./types";
 
-type Tab = "ingredients" | "recipes" | "products" | "fixed" | "projections";
+export type CostTab =
+  "ingredients" | "recipes" | "products" | "fixed" | "projections";
 
 export function CostsApp({
   ingredients,
@@ -57,6 +58,7 @@ export function CostsApp({
   fixedCosts,
   monthlyFixedCosts,
   scenarios,
+  initialTab = "ingredients",
 }: {
   ingredients: Ingredient[];
   recipes: Recipe[];
@@ -66,9 +68,10 @@ export function CostsApp({
   fixedCosts: FixedCost[];
   monthlyFixedCosts: number;
   scenarios: Scenario[];
+  initialTab?: CostTab;
 }) {
-  const [tab, setTab] = useState<Tab>("ingredients");
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const [tab, setTab] = useState<CostTab>(initialTab);
+  const tabs: { id: CostTab; label: string; icon: React.ReactNode }[] = [
     { id: "ingredients", label: "Materias primas", icon: <Beaker size={16} /> },
     { id: "recipes", label: "Recetas", icon: <FlaskConical size={16} /> },
     {
@@ -106,7 +109,12 @@ export function CostsApp({
         {tabs.map((item) => (
           <button
             key={item.id}
-            onClick={() => setTab(item.id)}
+            onClick={() => {
+              setTab(item.id);
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", item.id);
+              window.history.replaceState(null, "", url);
+            }}
             className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-xs font-bold ${tab === item.id ? "bg-[#235b45] text-white" : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"}`}
           >
             {item.icon}
