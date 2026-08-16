@@ -34,6 +34,8 @@ export type CashSession = {
 };
 export type SaleSummary = {
   total: number;
+  recordedTotal: number;
+  unallocatedDifference: number;
   commissionNet: number;
   commissionTax: number;
   commissionTotal: number;
@@ -41,7 +43,22 @@ export type SaleSummary = {
   count: number;
   average: number;
   byPayment: { method: PaymentMethod; total: number }[];
-  topProducts: { name: string; quantity: number; saleUnit: SaleUnit }[];
+  topProducts: {
+    name: string;
+    quantity: number;
+    saleUnit: SaleUnit;
+    total: number;
+  }[];
+};
+
+export type SessionClosingSummary = {
+  byPayment: Record<PaymentMethod, number>;
+  products: {
+    name: string;
+    quantity: number;
+    saleUnit: SaleUnit;
+    total: number;
+  }[];
 };
 export const paymentLabels: Record<PaymentMethod, string> = {
   cash: "Efectivo",

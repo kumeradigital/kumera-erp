@@ -5,6 +5,7 @@ import type {
   PaymentMethod,
   Product,
   SaleSummary,
+  SessionClosingSummary,
 } from "./types";
 import type { CardFeeSettings } from "./fees";
 
@@ -182,6 +183,45 @@ export async function getCashSalesTotal(sessionId: string): Promise<number> {
   return (data || []).reduce((sum, sale) => sum + Number(sale.total), 0);
 }
 
+export async function getSessionClosingSummary(
+  sessionId: string,
+): Promise<SessionClosingSummary> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("sales")
+    .select(
+      "total,payment_method,sale_items(product_name,quantity,sale_unit,line_total)",
+    )
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .eq("status", "completed");
+  if (error) throw error;
+  const byPayment: SessionClosingSummary["byPayment"] = {
+    cash: 0,
+    debit: 0,
+    credit: 0,
+    transfer: 0,
+  };
+  const products = new Map<string, SessionClosingSummary["products"][number]>();
+  for (const sale of data || []) {
+    const method = sale.payment_method as PaymentMethod;
+    byPayment[method] += Number(sale.total);
+    for (const item of sale.sale_items || []) {
+      const current = products.get(item.product_name);
+      products.set(item.product_name, {
+        name: item.product_name,
+        quantity: (current?.quantity || 0) + Number(item.quantity),
+        saleUnit: item.sale_unit,
+        total: (current?.total || 0) + Number(item.line_total),
+      });
+    }
+  }
+  return {
+    byPayment,
+    products: [...products.values()].sort((a, b) => b.total - a.total),
+  };
+}
+
 export type CashClosure = {
   id: string;
   openedAt: string;
@@ -193,6 +233,16 @@ export type CashClosure = {
   countedCash: number | null;
   difference: number | null;
   note: string | null;
+  reconciliation: {
+    byPayment: Record<PaymentMethod, number>;
+    reason: string;
+  } | null;
+  waste: {
+    name: string;
+    quantity: number;
+    saleUnit: "unit" | "kg";
+    note: string | null;
+  }[];
   adjustments: {
     previous: number | null;
     next: number;
@@ -206,7 +256,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
   const { data, error } = await supabase
     .from("cash_sessions")
     .select(
-      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,payment_method,status),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at)",
+      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,payment_method,status),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
     )
     .eq("business_id", businessId)
     .eq("status", "closed")
@@ -224,7 +274,11 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
           sum + Number(sale.total),
         0,
       );
-    const expectedCash = Number(row.opening_cash) + cashSales;
+    const reconciliation = row.cash_session_reconciliations?.[0];
+    const reconciledCash = reconciliation
+      ? Number(reconciliation.actual_cash_sales)
+      : cashSales;
+    const expectedCash = Number(row.opening_cash) + reconciledCash;
     const countedCash =
       row.counted_cash == null ? null : Number(row.counted_cash);
     return {
@@ -233,11 +287,35 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
       closedAt: row.closed_at,
       autoClosed: row.auto_closed,
       openingCash: Number(row.opening_cash),
-      cashSales,
+      cashSales: reconciledCash,
       expectedCash,
       countedCash,
       difference: countedCash == null ? null : countedCash - expectedCash,
       note: row.closing_note,
+      reconciliation: reconciliation
+        ? {
+            byPayment: {
+              cash: Number(reconciliation.actual_cash_sales),
+              debit: Number(reconciliation.actual_debit_sales),
+              credit: Number(reconciliation.actual_credit_sales),
+              transfer: Number(reconciliation.actual_transfer_sales),
+            },
+            reason: reconciliation.reason,
+          }
+        : null,
+      waste: (row.cash_session_product_waste || []).map(
+        (item: {
+          product_name: string;
+          quantity: number | string;
+          sale_unit: "unit" | "kg";
+          note: string | null;
+        }) => ({
+          name: item.product_name,
+          quantity: Number(item.quantity),
+          saleUnit: item.sale_unit,
+          note: item.note,
+        }),
+      ),
       adjustments: (row.cash_session_adjustments || [])
         .map(
           (adjustment: {
@@ -273,7 +351,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const { data: sales, error } = await ctx.supabase
     .from("sales")
     .select(
-      "id,total,payment_method,commission_net_amount,commission_tax_amount,expected_deposit_amount,created_at,sale_items(product_name,quantity,sale_unit)",
+      "id,cash_session_id,total,payment_method,commission_net_amount,commission_tax_amount,expected_deposit_amount,created_at,sale_items(product_name,quantity,sale_unit,line_total)",
     )
     .eq("business_id", ctx.businessId)
     .eq("status", "completed")
@@ -282,7 +360,35 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     .order("created_at", { ascending: false });
   if (error) throw error;
   const rows = sales || [];
-  const total = rows.reduce((s, r) => s + Number(r.total), 0);
+  const recordedTotal = rows.reduce((s, r) => s + Number(r.total), 0);
+  const { data: reconciledSessions, error: reconciliationError } =
+    await ctx.supabase
+      .from("cash_sessions")
+      .select(
+        "id,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+      )
+      .eq("business_id", ctx.businessId)
+      .gte("opened_at", range.from)
+      .lt("opened_at", range.to);
+  if (reconciliationError) throw reconciliationError;
+  const reconciliations = new Map(
+    (reconciledSessions || []).flatMap((session) => {
+      const value = session.cash_session_reconciliations?.[0];
+      return value ? [[session.id, value] as const] : [];
+    }),
+  );
+  let total = recordedTotal;
+  for (const [sessionId, value] of reconciliations) {
+    const recorded = rows
+      .filter((row) => row.cash_session_id === sessionId)
+      .reduce((sum, row) => sum + Number(row.total), 0);
+    total +=
+      Number(value.actual_cash_sales) +
+      Number(value.actual_debit_sales) +
+      Number(value.actual_credit_sales) +
+      Number(value.actual_transfer_sales) -
+      recorded;
+  }
   const commissionNet = rows.reduce(
     (s, r) => s + Number(r.commission_net_amount),
     0,
@@ -298,7 +404,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const payments = new Map<PaymentMethod, number>();
   const products = new Map<
     string,
-    { quantity: number; saleUnit: "unit" | "kg" }
+    { quantity: number; saleUnit: "unit" | "kg"; total: number }
   >();
   rows.forEach((r) => {
     const method = r.payment_method as PaymentMethod;
@@ -308,18 +414,45 @@ export async function getSalesSummary(range: SalesRange): Promise<{
         product_name: string;
         quantity: number | string;
         sale_unit: "unit" | "kg";
+        line_total: number | string;
       }) => {
         const previous = products.get(item.product_name);
         products.set(item.product_name, {
           quantity: (previous?.quantity || 0) + Number(item.quantity),
           saleUnit: item.sale_unit,
+          total: (previous?.total || 0) + Number(item.line_total),
         });
       },
     );
   });
+  for (const [sessionId, value] of reconciliations) {
+    const recorded = new Map<PaymentMethod, number>();
+    rows
+      .filter((row) => row.cash_session_id === sessionId)
+      .forEach((row) => {
+        const method = row.payment_method as PaymentMethod;
+        recorded.set(method, (recorded.get(method) || 0) + Number(row.total));
+      });
+    const actual: Record<PaymentMethod, number> = {
+      cash: Number(value.actual_cash_sales),
+      debit: Number(value.actual_debit_sales),
+      credit: Number(value.actual_credit_sales),
+      transfer: Number(value.actual_transfer_sales),
+    };
+    (Object.keys(actual) as PaymentMethod[]).forEach((method) =>
+      payments.set(
+        method,
+        (payments.get(method) || 0) +
+          actual[method] -
+          (recorded.get(method) || 0),
+      ),
+    );
+  }
   return {
     summary: {
       total,
+      recordedTotal,
+      unallocatedDifference: total - recordedTotal,
       commissionNet,
       commissionTax,
       commissionTotal: commissionNet + commissionTax,

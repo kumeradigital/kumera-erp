@@ -5,6 +5,7 @@ import {
   getLatestCashSession,
   getOpenCashSession,
   getProducts,
+  getSessionClosingSummary,
 } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { PosClient } from "@/modules/pos/pos-client";
@@ -18,6 +19,9 @@ export default async function PosPage() {
     ],
   );
   const cashSales = session ? await getCashSalesTotal(session.id) : 0;
+  const closingSummary = session
+    ? await getSessionClosingSummary(session.id)
+    : null;
   const availability = session ? await getDailyAvailability(session.id) : [];
   const productsWithAvailability = products.map((product) => ({
     ...product,
@@ -32,6 +36,7 @@ export default async function PosPage() {
         cashSales={cashSales}
         latestSession={latestSession}
         cardFeeSettings={cardFeeSettings}
+        closingSummary={closingSummary}
       />
     </PosShell>
   );

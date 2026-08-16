@@ -73,6 +73,16 @@ export function SalesDashboard({
           {formatClp(summary.commissionTax)} de IVA crédito estimado.
         </p>
       )}
+      {summary.unallocatedDifference !== 0 && (
+        <div className="mt-4 rounded-xl border border-[#e7d8a5] bg-[#fff8dc] p-4 text-sm text-[#6f5b17]">
+          <b>
+            {formatClp(summary.unallocatedDifference)} conciliados sin desglose
+            de producto.
+          </b>{" "}
+          El total de medios de pago fue corregido con los comprobantes del
+          cierre; el detalle de productos conserva solo lo registrado en caja.
+        </div>
+      )}
       <section className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
           <h2 className="font-black">Medios de pago</h2>
@@ -110,6 +120,41 @@ export function SalesDashboard({
             {!summary.topProducts.length && <Empty />}
           </div>
         </div>
+      </section>
+      <section className="card mt-4 overflow-hidden">
+        <div className="border-b border-[#e6e5dd] p-5">
+          <h2 className="font-black">Detalle de productos vendidos</h2>
+          <p className="mt-1 text-xs text-[#777]">
+            Todos los productos registrados durante el periodo seleccionado.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead className="bg-[#f2f2ea] text-[10px] uppercase text-[#777]">
+              <tr>
+                <th className="px-5 py-3">Producto</th>
+                <th className="px-5 py-3">Cantidad</th>
+                <th className="px-5 py-3 text-right">Venta registrada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.topProducts.map((product) => (
+                <tr key={product.name} className="border-t border-[#eeede6]">
+                  <td className="px-5 py-3 font-bold">{product.name}</td>
+                  <td className="px-5 py-3">
+                    {product.saleUnit === "kg"
+                      ? `${product.quantity.toLocaleString("es-CL", { maximumFractionDigits: 3 })} kg`
+                      : `${product.quantity} un.`}
+                  </td>
+                  <td className="money px-5 py-3 text-right font-bold">
+                    {formatClp(product.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!summary.topProducts.length && <Empty />}
       </section>
       <section className="card mt-4 overflow-hidden">
         <div className="border-b border-[#e6e5dd] p-5">

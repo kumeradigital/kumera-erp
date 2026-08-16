@@ -176,23 +176,44 @@ export async function adjustAvailabilityAction(
 export async function closeCashSessionAction(
   sessionId: string,
   countedCash: number,
-  note = "",
+  details: {
+    note: string;
+    reason: string;
+    actual: Record<PaymentMethod, number>;
+    waste: {
+      product_id?: string;
+      product_name: string;
+      quantity: number;
+      sale_unit: SaleUnit;
+      note?: string;
+    }[];
+  },
 ) {
   const ctx = await context();
   if (!Number.isInteger(countedCash) || countedCash < 0)
     throw new Error("Efectivo contado inválido");
-  const { error } = await ctx.supabase
-    .from("cash_sessions")
-    .update({
-      status: "closed",
-      counted_cash: countedCash,
-      closing_note: note || null,
-      closed_by: ctx.user.id,
-      closed_at: new Date().toISOString(),
-    })
-    .eq("id", sessionId)
-    .eq("business_id", ctx.businessId)
-    .eq("status", "open");
+  const actual = details.actual;
+  if (
+    Object.values(actual).some((value) => !Number.isInteger(value) || value < 0)
+  )
+    throw new Error("Totales del cierre inválidos");
+  if (
+    details.waste.some(
+      (item) => !Number.isFinite(item.quantity) || item.quantity <= 0,
+    )
+  )
+    throw new Error("Merma inválida");
+  const { error } = await ctx.supabase.rpc("close_cash_session_with_details", {
+    p_session: sessionId,
+    p_counted_cash: countedCash,
+    p_note: details.note,
+    p_actual_cash: actual.cash,
+    p_actual_debit: actual.debit,
+    p_actual_credit: actual.credit,
+    p_actual_transfer: actual.transfer,
+    p_reason: details.reason,
+    p_waste: details.waste,
+  });
   if (error) throw error;
   revalidatePath("/caja");
   revalidatePath("/ventas");

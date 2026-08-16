@@ -27,6 +27,7 @@ import {
   type DailyAvailability,
   type PaymentMethod,
   type Product,
+  type SessionClosingSummary,
 } from "./types";
 type Cart = Record<string, number>;
 export function PosClient({
@@ -36,6 +37,7 @@ export function PosClient({
   latestSession,
   availability,
   cardFeeSettings,
+  closingSummary,
 }: {
   products: Product[];
   session: CashSession | null;
@@ -43,6 +45,7 @@ export function PosClient({
   latestSession: CashSession | null;
   availability: DailyAvailability[];
   cardFeeSettings: CardFeeSettings;
+  closingSummary: SessionClosingSummary | null;
 }) {
   const [cart, setCart] = useState<Cart>({});
   const [paying, setPaying] = useState(false);
@@ -306,6 +309,8 @@ export function PosClient({
           expectedCash={session.openingCash + cashSales}
           onClose={() => setClosing(false)}
           availability={availability}
+          products={products}
+          summary={closingSummary!}
         />
       )}
       {managingAvailability && (
@@ -532,13 +537,26 @@ function CloseSessionDialog({
   expectedCash,
   onClose,
   availability,
+  products,
+  summary,
 }: {
   session: CashSession;
   expectedCash: number;
   onClose: () => void;
   availability: DailyAvailability[];
+  products: Product[];
+  summary: SessionClosingSummary;
 }) {
   const [busy, setBusy] = useState(false);
+  const [waste, setWaste] = useState<
+    {
+      product_id?: string;
+      product_name: string;
+      quantity: string;
+      sale_unit: "unit" | "kg";
+      note?: string;
+    }[]
+  >([]);
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
       <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl">
@@ -580,13 +598,48 @@ function CloseSessionDialog({
             </div>
           </div>
         )}
+        <div className="mt-4 rounded-xl border border-[#e1e1d7] p-4">
+          <p className="text-xs font-black uppercase tracking-wider text-[#777]">
+            Ventas registradas
+          </p>
+          <div className="mt-3 space-y-2 text-xs">
+            {summary.products.map((item) => (
+              <div key={item.name} className="flex justify-between gap-3">
+                <span>
+                  {item.name} ·{" "}
+                  {item.saleUnit === "kg"
+                    ? `${item.quantity.toLocaleString("es-CL", { maximumFractionDigits: 3 })} kg`
+                    : `${item.quantity} un.`}
+                </span>
+                <b>{formatClp(item.total)}</b>
+              </div>
+            ))}
+          </div>
+        </div>
         <form
           action={async (form) => {
             setBusy(true);
             await closeCashSessionAction(
               session.id,
               Number(form.get("countedCash")),
-              String(form.get("note") || ""),
+              {
+                note: String(form.get("note") || ""),
+                reason: String(
+                  form.get("reason") || "Totales verificados al cierre",
+                ),
+                actual: {
+                  cash: Number(form.get("actual_cash")),
+                  debit: Number(form.get("actual_debit")),
+                  credit: Number(form.get("actual_credit")),
+                  transfer: Number(form.get("actual_transfer")),
+                },
+                waste: waste
+                  .filter((item) => Number(item.quantity) > 0)
+                  .map((item) => ({
+                    ...item,
+                    quantity: Number(item.quantity),
+                  })),
+              },
             );
             location.reload();
           }}
@@ -602,6 +655,118 @@ function CloseSessionDialog({
               className="input mt-2"
             />
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            {(["cash", "debit", "credit", "transfer"] as PaymentMethod[]).map(
+              (method) => (
+                <label key={method} className="block text-xs font-bold">
+                  {paymentLabels[method]}
+                  <input
+                    name={`actual_${method}`}
+                    required
+                    inputMode="numeric"
+                    defaultValue={summary.byPayment[method]}
+                    className="input mt-2"
+                  />
+                </label>
+              ),
+            )}
+          </div>
+          <label className="block text-xs font-bold">
+            Fuente de los totales
+            <input
+              name="reason"
+              required
+              defaultValue="Totales verificados al cierre"
+              className="input mt-2"
+            />
+          </label>
+          <div className="rounded-xl border border-[#e1e1d7] p-4">
+            <div className="flex items-center justify-between">
+              <b className="text-sm">Mermas del día</b>
+              <button
+                type="button"
+                onClick={() =>
+                  setWaste((items) => [
+                    ...items,
+                    { product_name: "", quantity: "", sale_unit: "unit" },
+                  ])
+                }
+                className="text-xs font-bold text-[#235b45]"
+              >
+                + Agregar merma
+              </button>
+            </div>
+            {waste.map((item, index) => (
+              <div
+                key={index}
+                className="mt-3 grid grid-cols-[1fr_90px_70px] gap-2"
+              >
+                <select
+                  value={item.product_id || ""}
+                  onChange={(event) => {
+                    const product = products.find(
+                      (p) => p.id === event.target.value,
+                    );
+                    setWaste((items) =>
+                      items.map((row, i) =>
+                        i === index
+                          ? {
+                              ...row,
+                              product_id: product?.id,
+                              product_name: product?.name || "",
+                              sale_unit: product?.saleUnit || "unit",
+                            }
+                          : row,
+                      ),
+                    );
+                  }}
+                  className="input"
+                >
+                  <option value="">Producto / descripción</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  aria-label="Cantidad de merma"
+                  inputMode="decimal"
+                  placeholder="Cantidad"
+                  value={item.quantity}
+                  onChange={(event) =>
+                    setWaste((items) =>
+                      items.map((row, i) =>
+                        i === index
+                          ? { ...row, quantity: event.target.value }
+                          : row,
+                      ),
+                    )
+                  }
+                  className="input"
+                />
+                <select
+                  value={item.sale_unit}
+                  onChange={(event) =>
+                    setWaste((items) =>
+                      items.map((row, i) =>
+                        i === index
+                          ? {
+                              ...row,
+                              sale_unit: event.target.value as "unit" | "kg",
+                            }
+                          : row,
+                      ),
+                    )
+                  }
+                  className="input"
+                >
+                  <option value="unit">un.</option>
+                  <option value="kg">kg</option>
+                </select>
+              </div>
+            ))}
+          </div>
           <label className="block text-xs font-bold">
             Nota opcional
             <input name="note" className="input mt-2" />

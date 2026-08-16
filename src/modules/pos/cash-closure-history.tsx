@@ -76,6 +76,58 @@ export function CashClosureHistory({ closures }: { closures: CashClosure[] }) {
                 difference
               />
             </div>
+            {closure.reconciliation && (
+              <details className="mt-4 rounded-xl bg-[#f2f2ea] p-4">
+                <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
+                  Ver totales conciliados y mermas
+                </summary>
+                <div className="mt-3 grid gap-2 text-xs sm:grid-cols-4">
+                  {(
+                    Object.entries(closure.reconciliation.byPayment) as [
+                      keyof typeof closure.reconciliation.byPayment,
+                      number,
+                    ][]
+                  ).map(([method, total]) => (
+                    <div
+                      key={method}
+                      className="flex justify-between rounded-lg bg-white p-3"
+                    >
+                      <span>
+                        {
+                          {
+                            cash: "Efectivo",
+                            debit: "Débito",
+                            credit: "Crédito",
+                            transfer: "Transferencia",
+                          }[method]
+                        }
+                      </span>
+                      <b>{formatClp(total)}</b>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-[#666]">
+                  {closure.reconciliation.reason}
+                </p>
+                {closure.waste.length > 0 && (
+                  <div className="mt-4 border-t border-[#deddd4] pt-3">
+                    <b className="text-xs">Mermas</b>
+                    {closure.waste.map((item, index) => (
+                      <p key={`${item.name}-${index}`} className="mt-2 text-xs">
+                        {item.name}:{" "}
+                        <b>
+                          {item.quantity.toLocaleString("es-CL", {
+                            maximumFractionDigits: 3,
+                          })}{" "}
+                          {item.saleUnit === "kg" ? "kg" : "un."}
+                        </b>
+                        {item.note ? ` · ${item.note}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </details>
+            )}
             {closure.adjustments.length > 0 && (
               <details className="mt-4 border-t border-[#ebeae2] pt-3">
                 <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
