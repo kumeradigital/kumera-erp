@@ -1156,49 +1156,142 @@ function ProjectionsView({
   return (
     <section className="mt-5">
       <SectionHeader
-        title="Proyección de mezcla"
-        subtitle="Combina empanadas, kilos de pan y bollería según una venta diaria viable."
+        title="Simulador de ventas y utilidad"
+        subtitle="Prueba cuánto necesitas vender diariamente para cubrir la operación y alcanzar una utilidad mensual."
       />
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_380px]">
-        <div className="card p-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Nombre">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input"
-              />
-            </Field>
-            <Field label="Días abiertos">
-              <input
-                value={days}
-                onChange={(e) => setDays(Number(e.target.value))}
-                type="number"
-                min="1"
-                max="31"
-                className="input"
-              />
-            </Field>
-            <Field label="Utilidad objetivo">
-              <input
-                value={target}
-                onChange={(e) => setTarget(Number(e.target.value))}
-                type="number"
-                className="input"
-              />
-            </Field>
+
+      <div className="mt-4 rounded-2xl border border-[#d4dfce] bg-[#edf4e9] p-5">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#235b45] text-white">
+            <Target size={19} />
+          </span>
+          <div>
+            <h3 className="font-black text-[#235b45]">
+              Cómo usar esta proyección
+            </h3>
+            <div className="mt-3 grid gap-3 text-xs leading-5 text-[#5f6d63] md:grid-cols-3">
+              <p>
+                <b>1. Define el mes.</b>
+                <br />
+                Indica cuántos días abrirás y cuánto quieres ganar después de
+                pagar costos fijos.
+              </p>
+              <p>
+                <b>2. Escribe una venta diaria posible.</b>
+                <br />
+                Ingresa unidades o kilos que crees vender de cada producto en un
+                día normal.
+              </p>
+              <p>
+                <b>3. Revisa el resultado.</b>
+                <br />
+                La mezcla diaria se multiplica por los días abiertos para
+                calcular el resultado mensual.
+              </p>
+            </div>
           </div>
-          <h3 className="mt-6 font-black">Venta diaria esperada</h3>
-          <div className="mt-3 divide-y divide-[#ecebe3]">
-            {complete.map((product) => (
-              <label key={product.id} className="flex items-center gap-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <b className="text-sm">{product.name}</b>
-                  <p className="text-xs text-[#777]">
-                    Aporta {formatClp(Math.round(product.contribution))} por{" "}
-                    {product.saleUnit === "kg" ? "kg" : "unidad"}
-                  </p>
-                </div>
+        </div>
+      </div>
+
+      <div className="card mt-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+              Paso 1
+            </p>
+            <h3 className="mt-1 font-black">Supuestos del escenario</h3>
+          </div>
+          <span className="rounded-full bg-[#f0f1e9] px-3 py-1.5 text-[10px] font-bold text-[#667067]">
+            Costos fijos: {formatClp(Math.round(fixedCosts))}/mes
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Field label="Nombre">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input"
+            />
+          </Field>
+          <Field label="Días abiertos">
+            <input
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              type="number"
+              min="1"
+              max="31"
+              className="input"
+            />
+          </Field>
+          <Field label="Utilidad objetivo">
+            <input
+              value={target}
+              onChange={(e) => setTarget(Number(e.target.value))}
+              type="number"
+              className="input"
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Result label="Ventas brutas mensuales" value={result.grossSales} />
+        <Result label="Margen de contribución" value={result.contribution} />
+        <Result label="Costos fijos mensuales" value={fixedCosts} />
+        <div
+          className={`card p-5 ${result.profit >= target ? "border-[#b9d0b8] bg-[#e8f0e6]" : "border-[#ead8a6] bg-[#fff4d4]"}`}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#777]">
+            Resultado operacional
+          </p>
+          <p
+            className={`money mt-2 text-2xl font-black ${result.profit >= 0 ? "text-[#235b45]" : "text-[#9a3f22]"}`}
+          >
+            {formatClp(Math.round(result.profit))}
+          </p>
+          <p className="mt-2 text-[11px] leading-4 text-[#666]">
+            {result.profit >= target
+              ? `Cumple la utilidad objetivo de ${formatClp(target)}.`
+              : `Faltan ${formatClp(Math.max(0, Math.round(result.targetContribution - result.contribution)))} de contribución mensual.`}
+          </p>
+        </div>
+      </div>
+
+      <div className="card mt-4 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e7e6de] p-5">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+              Paso 2
+            </p>
+            <h3 className="mt-1 font-black">
+              Venta diaria esperada por producto
+            </h3>
+            <p className="mt-1 text-xs text-[#777]">
+              Ingresa cantidades de un día normal, no el total mensual.
+            </p>
+          </div>
+          <button
+            onClick={() => setQuantities({})}
+            className="rounded-lg border border-[#d7d7ce] px-3 py-2 text-xs font-bold text-[#666]"
+          >
+            Limpiar cantidades
+          </button>
+        </div>
+        <div className="divide-y divide-[#ecebe3]">
+          {complete.map((product) => (
+            <label
+              key={product.id}
+              className="grid items-center gap-3 px-5 py-4 hover:bg-[#fafaf4] sm:grid-cols-[minmax(0,1fr)_160px_150px]"
+            >
+              <div className="min-w-0">
+                <b className="text-sm">{product.name}</b>
+                <p className="mt-1 text-[11px] text-[#777]">
+                  Precio {formatClp(product.price)} · contribuye{" "}
+                  {formatClp(Math.round(product.contribution))} por{" "}
+                  {product.saleUnit === "kg" ? "kg" : "unidad"}
+                </p>
+              </div>
+              <div className="relative">
                 <input
                   type="number"
                   min="0"
@@ -1210,21 +1303,37 @@ function ProjectionsView({
                       [product.id]: Number(e.target.value),
                     }))
                   }
-                  className="input w-28 text-right"
+                  className="input pr-12 text-right font-black"
                   placeholder="0"
                 />
-                <span className="w-8 text-xs text-[#777]">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#777]">
                   {product.saleUnit === "kg" ? "kg" : "un."}
                 </span>
-              </label>
-            ))}
-            {!complete.length && (
-              <p className="py-8 text-center text-sm text-[#888]">
-                Completa al menos un producto para proyectar.
-              </p>
-            )}
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-[10px] font-bold uppercase text-[#888]">
+                  Venta diaria
+                </p>
+                <b className="money mt-1 block text-sm text-[#235b45]">
+                  {formatClp(
+                    Math.round(product.price * (quantities[product.id] || 0)),
+                  )}
+                </b>
+              </div>
+            </label>
+          ))}
+          {!complete.length && (
+            <p className="py-8 text-center text-sm text-[#888]">
+              Completa al menos un producto para proyectar.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 border-t border-[#e7e6de] bg-[#fafaf5] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-xl text-[11px] leading-5 text-[#777]">
+            “Ajustar al objetivo” conserva la proporción ingresada y escala toda
+            la mezcla hasta cubrir costos fijos y utilidad objetivo.
+          </p>
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={adjustMixToGoal}
               className="rounded-xl border border-[#235b45] px-5 py-3 text-xs font-bold text-[#235b45]"
@@ -1247,31 +1356,7 @@ function ProjectionsView({
               Guardar escenario
             </button>
           </div>
-          <p className="mt-3 text-[11px] text-[#777]">
-            “Ajustar mezcla” conserva la proporción ingresada y la escala hasta
-            cubrir costos fijos y utilidad objetivo.
-          </p>
         </div>
-        <aside className="space-y-3">
-          <Result label="Ventas brutas mensuales" value={result.grossSales} />
-          <Result label="Margen de contribución" value={result.contribution} />
-          <Result label="Costos fijos" value={fixedCosts} />
-          <div
-            className={`card p-5 ${result.profit >= target ? "bg-[#e8f0e6]" : "bg-[#fff4d4]"}`}
-          >
-            <p className="text-xs font-bold uppercase text-[#777]">
-              Resultado operacional
-            </p>
-            <p className="money mt-2 text-3xl font-black">
-              {formatClp(Math.round(result.profit))}
-            </p>
-            <p className="mt-2 text-xs text-[#666]">
-              {result.profit >= target
-                ? `El escenario supera la utilidad objetivo de ${formatClp(target)}.`
-                : `Faltan ${formatClp(Math.max(0, Math.round(result.targetContribution - result.contribution)))} de contribución mensual para el objetivo.`}
-            </p>
-          </div>
-        </aside>
       </div>
     </section>
   );
