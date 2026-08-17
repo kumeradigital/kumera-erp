@@ -219,6 +219,24 @@ export async function deleteRecipeItemAction(id: string) {
   revalidatePath("/costos");
 }
 
+export async function updateRecipeItemAction(form: FormData) {
+  const ctx = await context();
+  const id = text(form, "id");
+  const quantity = positive(form, "quantity");
+  const unit = text(form, "unit") as CostUnit;
+  if (!("g kg ml l unit".split(" ") as CostUnit[]).includes(unit))
+    throw new Error("Unidad inválida");
+  const { data, error } = await ctx.supabase
+    .from("recipe_items")
+    .update({ quantity, unit })
+    .eq("id", id)
+    .eq("business_id", ctx.businessId)
+    .select("id")
+    .single();
+  if (error || !data) throw new Error("No se pudo actualizar el componente");
+  revalidatePath("/costos");
+}
+
 export async function configureProductCostAction(form: FormData) {
   const ctx = await context();
   const productId = text(form, "productId");

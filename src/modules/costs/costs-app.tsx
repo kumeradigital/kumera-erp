@@ -13,6 +13,8 @@ import {
   Layers3,
   Plus,
   Settings,
+  Eye,
+  Pencil,
   Target,
   Trash2,
   X,
@@ -34,6 +36,7 @@ import {
   saveRecipeAction,
   saveScenarioAction,
   toggleFixedCostAction,
+  updateRecipeItemAction,
 } from "./actions";
 import type {
   CostSettings,
@@ -360,6 +363,11 @@ function RecipesView({
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState("all");
   const [view, setView] = useCollectionView("recipes");
+  const [viewing, setViewing] = useState<Recipe | null>(null);
+  const [editingItem, setEditingItem] = useState<{
+    recipe: Recipe;
+    item: Recipe["items"][number];
+  } | null>(null);
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
   const recipeMap = new Map(recipes.map((item) => [item.id, item]));
   const visible = recipes.filter(
@@ -501,6 +509,12 @@ function RecipesView({
                       <div className="flex justify-end gap-3 whitespace-nowrap text-xs font-bold">
                         <button
                           className="text-[#235b45]"
+                          onClick={() => setViewing(recipe)}
+                        >
+                          Ver detalle
+                        </button>
+                        <button
+                          className="text-[#235b45]"
                           onClick={() => setAddingTo(recipe)}
                         >
                           Agregar componente
@@ -576,17 +590,26 @@ function RecipesView({
                             {subrecipe ? "· subreceta" : ""}
                           </p>
                         </div>
-                        <button
-                          onClick={async () => {
-                            if (confirm("¿Quitar este componente?")) {
-                              await deleteRecipeItemAction(item.id);
-                              location.reload();
-                            }
-                          }}
-                          className="text-[#a24628]"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setEditingItem({ recipe, item })}
+                            className="text-[#235b45]"
+                            aria-label="Editar componente"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm("¿Quitar este componente?")) {
+                                await deleteRecipeItemAction(item.id);
+                                location.reload();
+                              }
+                            }}
+                            className="text-[#a24628]"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -602,6 +625,12 @@ function RecipesView({
                   </p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-4">
+                  <button
+                    onClick={() => setViewing(recipe)}
+                    className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
+                  >
+                    <Eye size={14} /> Ver detalle
+                  </button>
                   <button
                     onClick={() => setAddingTo(recipe)}
                     className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
@@ -651,6 +680,25 @@ function RecipesView({
           ingredients={ingredients}
           recipes={recipes}
           onClose={() => setAddingTo(null)}
+        />
+      )}
+      {viewing && (
+        <RecipeDetailDialog
+          recipe={viewing}
+          ingredients={ingredients}
+          recipes={recipes}
+          costs={costs}
+          onEdit={(item) => setEditingItem({ recipe: viewing, item })}
+          onClose={() => setViewing(null)}
+        />
+      )}
+      {editingItem && (
+        <RecipeItemEditDialog
+          recipe={editingItem.recipe}
+          item={editingItem.item}
+          ingredients={ingredients}
+          recipes={recipes}
+          onClose={() => setEditingItem(null)}
         />
       )}
     </section>
@@ -1477,6 +1525,177 @@ function RecipeItemDialog({
       </AsyncForm>
     </Dialog>
   );
+}
+
+function RecipeDetailDialog({
+  recipe,
+  ingredients,
+  recipes,
+  costs,
+  onEdit,
+  onClose,
+}: {
+  recipe: Recipe;
+  ingredients: Ingredient[];
+  recipes: Recipe[];
+  costs: Record<string, RecipeCost>;
+  onEdit: (item: Recipe["items"][number]) => void;
+  onClose: () => void;
+}) {
+  const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
+  const recipeMap = new Map(recipes.map((item) => [item.id, item]));
+  return (
+    <Dialog title={`Detalle · ${recipe.name}`} onClose={onClose}>
+      <div className="mt-5 rounded-xl bg-[#eef2e9] p-4 text-sm">
+        <div className="flex justify-between gap-4">
+          <span>Rendimiento</span>
+          <b>
+            {recipe.yieldQuantity} {recipe.yieldUnit === "kg" ? "kg" : "un."}
+          </b>
+        </div>
+        <div className="mt-2 flex justify-between gap-4">
+          <span>Costo total del lote</span>
+          <b>{formatClp(Math.round(costs[recipe.id]?.total || 0))}</b>
+        </div>
+      </div>
+      <div className="mt-4 divide-y divide-[#ecebe3] rounded-xl border border-[#e4e3da]">
+        {recipe.items.map((item) => {
+          const ingredient = item.ingredientId
+            ? ingredientMap.get(item.ingredientId)
+            : undefined;
+          const subrecipe = item.subrecipeId
+            ? recipeMap.get(item.subrecipeId)
+            : undefined;
+          const contribution = recipeItemCost(
+            item,
+            ingredient,
+            subrecipe,
+            costs,
+          );
+          return (
+            <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <b className="block truncate text-sm">
+                  {ingredient?.name ||
+                    subrecipe?.name ||
+                    "Componente eliminado"}
+                </b>
+                <p className="mt-1 text-xs text-[#777]">
+                  {item.quantity} {unitLabel(item.unit)}
+                  {subrecipe ? " · subreceta" : ""}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase text-[#777]">Aporta</p>
+                <b className="money text-sm">
+                  {contribution == null
+                    ? "Sin precio"
+                    : formatClp(Math.round(contribution))}
+                </b>
+              </div>
+              <button
+                onClick={() => onEdit(item)}
+                className="grid size-9 place-items-center rounded-lg bg-[#e8eee6] text-[#235b45]"
+                aria-label="Editar componente"
+              >
+                <Pencil size={15} />
+              </button>
+            </div>
+          );
+        })}
+        {!recipe.items.length && (
+          <p className="p-5 text-center text-xs text-[#888]">
+            Receta todavía vacía
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function RecipeItemEditDialog({
+  recipe,
+  item,
+  ingredients,
+  recipes,
+  onClose,
+}: {
+  recipe: Recipe;
+  item: Recipe["items"][number];
+  ingredients: Ingredient[];
+  recipes: Recipe[];
+  onClose: () => void;
+}) {
+  const ingredient = ingredients.find(
+    (value) => value.id === item.ingredientId,
+  );
+  const subrecipe = recipes.find((value) => value.id === item.subrecipeId);
+  const allowedUnits =
+    ingredient?.baseUnit === "g"
+      ? ["g", "kg"]
+      : ingredient?.baseUnit === "ml"
+        ? ["ml", "l"]
+        : ingredient
+          ? ["unit"]
+          : subrecipe
+            ? [subrecipe.yieldUnit]
+            : [item.unit];
+  return (
+    <Dialog
+      title={`Editar · ${ingredient?.name || subrecipe?.name || "componente"}`}
+      onClose={onClose}
+    >
+      <p className="mt-3 text-xs text-[#777]">Receta: {recipe.name}</p>
+      <AsyncForm action={updateRecipeItemAction}>
+        <input type="hidden" name="id" value={item.id} />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Cantidad">
+            <input
+              name="quantity"
+              required
+              type="number"
+              min="0.001"
+              step="0.001"
+              defaultValue={item.quantity}
+              className="input"
+            />
+          </Field>
+          <Field label="Unidad">
+            <select name="unit" defaultValue={item.unit} className="input">
+              {allowedUnits.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unitLabel(unit)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <Submit>Guardar componente</Submit>
+      </AsyncForm>
+    </Dialog>
+  );
+}
+
+function recipeItemCost(
+  item: Recipe["items"][number],
+  ingredient: Ingredient | undefined,
+  subrecipe: Recipe | undefined,
+  costs: Record<string, RecipeCost>,
+) {
+  if (ingredient) {
+    const unitMultiplier = item.unit === "kg" || item.unit === "l" ? 1000 : 1;
+    return ingredient.latestPrice
+      ? ingredient.latestPrice.costPerBase * item.quantity * unitMultiplier
+      : null;
+  }
+  if (subrecipe) {
+    const unitMultiplier =
+      item.unit === "kg" && subrecipe.yieldUnit !== "kg" ? 1000 : 1;
+    return (
+      (costs[subrecipe.id]?.perYieldUnit || 0) * item.quantity * unitMultiplier
+    );
+  }
+  return null;
 }
 
 function ProductCostDialog({
