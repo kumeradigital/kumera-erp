@@ -213,6 +213,7 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                 <th className="px-4 py-3">Categoría</th>
                 <th className="px-4 py-3">Unidad base</th>
                 <th className="px-4 py-3">Costo vigente</th>
+                <th className="px-4 py-3">Rendimiento</th>
                 <th className="px-4 py-3">Última compra</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
@@ -231,6 +232,16 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                     {ingredient.latestPrice
                       ? `${formatDecimalMoney(ingredient.latestPrice.costPerBase)} / ${unitLabel(ingredient.baseUnit)}`
                       : "Sin precio"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <b>{ingredient.usableYieldPercentage || 100}%</b>
+                    <span
+                      className={`ml-2 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${ingredient.yieldStatus === "estimated" ? "bg-[#fff0c2] text-[#775d12]" : "bg-[#e5f0e5] text-[#235b45]"}`}
+                    >
+                      {ingredient.yieldStatus === "estimated"
+                        ? "Estimado"
+                        : "Confirmado"}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-[#70756d]">
                     {ingredient.latestPrice
@@ -283,6 +294,28 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                     {formatDecimalMoney(ingredient.latestPrice.costPerBase)} /{" "}
                     {unitLabel(ingredient.baseUnit)}
                   </p>
+                  {(ingredient.usableYieldPercentage || 100) < 100 && (
+                    <div className="mt-3 border-t border-[#d9dbd1] pt-3">
+                      <p className="text-[10px] font-bold uppercase text-[#777]">
+                        Costo efectivo utilizable ·{" "}
+                        {ingredient.usableYieldPercentage || 100}%
+                      </p>
+                      <p className="money mt-1 font-black text-[#a15b22]">
+                        {formatDecimalMoney(
+                          (ingredient.latestPrice.costPerBase * 100) /
+                            (ingredient.usableYieldPercentage || 100),
+                        )}{" "}
+                        / {unitLabel(ingredient.baseUnit)}
+                      </p>
+                      <p className="mt-1 text-[10px] font-bold text-[#8a671b]">
+                        Rendimiento{" "}
+                        {ingredient.yieldStatus === "estimated"
+                          ? "estimado"
+                          : "confirmado"}{" "}
+                        · {yieldLossLabel(ingredient.yieldLossType || "none")}
+                      </p>
+                    </div>
+                  )}
                   <p className="mt-1 text-[11px] text-[#777]">
                     {ingredient.latestPrice.purchaseQuantity}{" "}
                     {unitLabel(ingredient.latestPrice.purchaseUnit)} por{" "}
@@ -1262,6 +1295,53 @@ function IngredientDialog({
             className="input min-h-20 py-3"
           />
         </Field>
+        <div className="rounded-xl border border-[#e4d9b8] bg-[#fff9e8] p-4">
+          <p className="text-xs font-black text-[#6e5717]">
+            Rendimiento aprovechable
+          </p>
+          <p className="mt-1 text-[11px] leading-5 text-[#756b50]">
+            Se usa para huesos, piel, grasa, limpieza o reducción por cocción.
+            El costo de las recetas aumentará automáticamente según la parte
+            realmente utilizable.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Rendimiento %">
+              <input
+                name="usableYieldPercentage"
+                type="number"
+                min="0.001"
+                max="100"
+                step="0.001"
+                required
+                defaultValue={ingredient?.usableYieldPercentage ?? 100}
+                className="input"
+              />
+            </Field>
+            <Field label="Tipo de pérdida">
+              <select
+                name="yieldLossType"
+                defaultValue={ingredient?.yieldLossType || "none"}
+                className="input"
+              >
+                <option value="none">Sin pérdida</option>
+                <option value="cleaning">Limpieza / grasa</option>
+                <option value="cooking">Cocción</option>
+                <option value="bone_skin">Hueso y piel</option>
+                <option value="combined">Combinada</option>
+              </select>
+            </Field>
+            <Field label="Estado">
+              <select
+                name="yieldStatus"
+                defaultValue={ingredient?.yieldStatus || "confirmed"}
+                className="input"
+              >
+                <option value="estimated">Estimado</option>
+                <option value="confirmed">Confirmado</option>
+              </select>
+            </Field>
+          </div>
+        </div>
         <Submit>Guardar materia prima</Submit>
       </AsyncForm>
     </Dialog>
@@ -1685,7 +1765,11 @@ function recipeItemCost(
   if (ingredient) {
     const unitMultiplier = item.unit === "kg" || item.unit === "l" ? 1000 : 1;
     return ingredient.latestPrice
-      ? ingredient.latestPrice.costPerBase * item.quantity * unitMultiplier
+      ? (ingredient.latestPrice.costPerBase *
+          item.quantity *
+          unitMultiplier *
+          100) /
+          (ingredient.usableYieldPercentage || 100)
       : null;
   }
   if (subrecipe) {
@@ -2082,6 +2166,17 @@ function unitLabel(unit: string) {
       >
     )[unit] || unit
   );
+}
+function yieldLossLabel(value: NonNullable<Ingredient["yieldLossType"]>) {
+  return (
+    {
+      none: "sin pérdida",
+      cleaning: "limpieza / grasa",
+      cooking: "reducción por cocción",
+      bone_skin: "hueso y piel",
+      combined: "limpieza y cocción",
+    } as const
+  )[value];
 }
 function periodLabel(period: string) {
   return (

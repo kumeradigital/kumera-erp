@@ -23,6 +23,9 @@ export type Ingredient = {
   category: string;
   baseUnit: "g" | "ml" | "unit";
   notes?: string;
+  usableYieldPercentage?: number;
+  yieldLossType?: "none" | "cleaning" | "cooking" | "bone_skin" | "combined";
+  yieldStatus?: "estimated" | "confirmed";
   latestPrice?: IngredientPrice;
   prices: IngredientPrice[];
 };

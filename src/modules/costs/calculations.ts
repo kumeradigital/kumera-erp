@@ -66,7 +66,9 @@ export function calculateRecipeCosts(
             item.unit,
             ingredient.baseUnit,
           );
-          total += baseQuantity * ingredient.latestPrice.costPerBase;
+          total +=
+            (baseQuantity * ingredient.latestPrice.costPerBase * 100) /
+            (ingredient.usableYieldPercentage || 100);
         } catch {
           missing.push(`${ingredient.name}: unidad incompatible`);
         }

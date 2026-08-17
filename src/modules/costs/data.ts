@@ -45,7 +45,9 @@ export async function getCostingData() {
   ] = await Promise.all([
     supabase
       .from("ingredients")
-      .select("id,name,category,base_unit,notes")
+      .select(
+        "id,name,category,base_unit,notes,usable_yield_percentage,yield_loss_type,yield_status",
+      )
       .eq("business_id", businessId)
       .is("deleted_at", null)
       .order("name"),
@@ -138,6 +140,9 @@ export async function getCostingData() {
       category: row.category,
       baseUnit: row.base_unit,
       notes: row.notes || undefined,
+      usableYieldPercentage: Number(row.usable_yield_percentage),
+      yieldLossType: row.yield_loss_type,
+      yieldStatus: row.yield_status,
       latestPrice: prices[0],
       prices,
     };

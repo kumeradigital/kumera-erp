@@ -39,15 +39,37 @@ export async function saveIngredientAction(form: FormData) {
   const category = text(form, "category") || "Otros";
   const baseUnit = text(form, "baseUnit") as "g" | "ml" | "unit";
   const notes = text(form, "notes");
+  const usableYieldPercentage = Number(
+    form.get("usableYieldPercentage") || 100,
+  );
+  const yieldLossType = text(form, "yieldLossType") || "none";
+  const yieldStatus = text(form, "yieldStatus") || "confirmed";
   if (!name || name.length > 100) throw new Error("Nombre inválido");
   if (!(["g", "ml", "unit"] as const).includes(baseUnit))
     throw new Error("Unidad base inválida");
+  if (
+    !Number.isFinite(usableYieldPercentage) ||
+    usableYieldPercentage <= 0 ||
+    usableYieldPercentage > 100
+  )
+    throw new Error("El rendimiento debe estar entre 0 y 100%");
+  if (
+    !"none cleaning cooking bone_skin combined"
+      .split(" ")
+      .includes(yieldLossType)
+  )
+    throw new Error("Tipo de pérdida inválido");
+  if (!"estimated confirmed".split(" ").includes(yieldStatus))
+    throw new Error("Estado del rendimiento inválido");
   const values = {
     business_id: ctx.businessId,
     name,
     category,
     base_unit: baseUnit,
     notes: notes || null,
+    usable_yield_percentage: usableYieldPercentage,
+    yield_loss_type: yieldLossType,
+    yield_status: yieldStatus,
     updated_at: new Date().toISOString(),
   };
   const result = id
