@@ -749,6 +749,17 @@ function ProductsCostView({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [view, setView] = useCollectionView("product-costs");
+  const costedProducts = analyses.filter((product) => product.complete);
+  const averageMargin = costedProducts.length
+    ? costedProducts.reduce(
+        (sum, product) => sum + product.contributionPercentage,
+        0,
+      ) / costedProducts.length
+    : 0;
+  const averageContribution = costedProducts.length
+    ? costedProducts.reduce((sum, product) => sum + product.contribution, 0) /
+      costedProducts.length
+    : 0;
   const visible = analyses.filter(
     (product) =>
       (status === "all" ||
@@ -763,6 +774,36 @@ function ProductsCostView({
         title="Rentabilidad por producto"
         subtitle="Costo, margen y precio sugerido desde la receta vinculada."
       />
+      <div className="mt-4 rounded-2xl border border-[#cfdcc9] bg-[#eaf2e7] p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[.14em] text-[#66766c]">
+              Margen de contribución promedio
+            </p>
+            <p className="mt-2 text-4xl font-black text-[#235b45]">
+              {costedProducts.length ? `${averageMargin.toFixed(1)}%` : "—"}
+            </p>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-[#66766c]">
+              Promedio simple con los precios actuales de los productos que
+              tienen costeo completo. No está ponderado por cantidad vendida.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:min-w-72">
+            <Mini
+              label="Contribución promedio"
+              value={
+                costedProducts.length
+                  ? formatClp(Math.round(averageContribution))
+                  : "—"
+              }
+            />
+            <Mini
+              label="Productos incluidos"
+              value={`${costedProducts.length} de ${analyses.length}`}
+            />
+          </div>
+        </div>
+      </div>
       <CollectionToolbar
         view={view}
         onViewChange={setView}
