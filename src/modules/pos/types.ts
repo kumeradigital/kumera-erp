@@ -32,6 +32,12 @@ export type CashSession = {
   closedAt?: string;
   autoClosed?: boolean;
 };
+export type CashWithdrawal = {
+  id: string;
+  amount: number;
+  reason: string;
+  createdAt: string;
+};
 export type SalesSessionPeriod = {
   id: string;
   status: "open" | "closed";

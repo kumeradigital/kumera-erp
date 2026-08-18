@@ -6,6 +6,7 @@ import {
   Check,
   ClipboardList,
   Clock,
+  HandCoins,
   Minus,
   Plus,
   ShoppingBag,
@@ -18,6 +19,7 @@ import {
   closeCashSessionAction,
   adjustAvailabilityAction,
   openCashSessionAction,
+  registerCashWithdrawalAction,
   reconcileCashSessionAction,
   registerSaleAction,
 } from "./actions";
@@ -25,6 +27,7 @@ import {
   paymentLabels,
   type AvailabilityMovementType,
   type CashSession,
+  type CashWithdrawal,
   type DailyAvailability,
   type PaymentMethod,
   type Product,
@@ -35,6 +38,7 @@ export function PosClient({
   products,
   session,
   cashSales,
+  withdrawals,
   latestSession,
   availability,
   cardFeeSettings,
@@ -43,6 +47,7 @@ export function PosClient({
   products: Product[];
   session: CashSession | null;
   cashSales: number;
+  withdrawals: CashWithdrawal[];
   latestSession: CashSession | null;
   availability: DailyAvailability[];
   cardFeeSettings: CardFeeSettings;
@@ -55,11 +60,16 @@ export function PosClient({
   const [closing, setClosing] = useState(false);
   const [weighing, setWeighing] = useState<Product | null>(null);
   const [managingAvailability, setManagingAvailability] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const lines = products
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
   const total = calculateCartTotal(lines);
+  const withdrawalTotal = withdrawals.reduce(
+    (sum, withdrawal) => sum + withdrawal.amount,
+    0,
+  );
   function add(id: string) {
     const product = products.find((item) => item.id === id);
     if (product?.saleUnit === "kg") {
@@ -260,6 +270,28 @@ export function PosClient({
           )}
         </div>
         <div className="mt-5 border-t-2 border-[#222] pt-4">
+          <div className="mb-4 rounded-xl bg-[#f2f2ea] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#777]">
+                  Retiros de caja
+                </p>
+                <b className="money text-sm">{formatClp(withdrawalTotal)}</b>
+              </div>
+              <button
+                onClick={() => setWithdrawing(true)}
+                className="flex items-center gap-2 rounded-lg border border-[#d0d0c7] bg-white px-3 py-2 text-xs font-bold text-[#235b45]"
+              >
+                <HandCoins size={15} /> Anotar retiro
+              </button>
+            </div>
+            {withdrawals[0] && (
+              <p className="mt-2 truncate text-[11px] text-[#777]">
+                Último: {formatClp(withdrawals[0].amount)} ·{" "}
+                {withdrawals[0].reason}
+              </p>
+            )}
+          </div>
           <div className="flex items-end justify-between">
             <span className="font-bold">Total</span>
             <span className="money text-3xl font-black">
@@ -325,7 +357,7 @@ export function PosClient({
       {closing && (
         <CloseSessionDialog
           session={session}
-          expectedCash={session.openingCash + cashSales}
+          expectedCash={session.openingCash + cashSales - withdrawalTotal}
           onClose={() => setClosing(false)}
           availability={availability}
           products={products}
@@ -339,7 +371,93 @@ export function PosClient({
           onClose={() => setManagingAvailability(false)}
         />
       )}
+      {withdrawing && (
+        <CashWithdrawalDialog
+          sessionId={session.id}
+          onClose={() => setWithdrawing(false)}
+        />
+      )}
     </main>
+  );
+}
+
+function CashWithdrawalDialog({
+  sessionId,
+  onClose,
+}: {
+  sessionId: string;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <form
+        className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setBusy(true);
+          try {
+            await registerCashWithdrawalAction(
+              sessionId,
+              Math.round(Number(amount)),
+              reason,
+            );
+            location.reload();
+          } catch (error) {
+            alert(
+              error instanceof Error
+                ? error.message
+                : "No se pudo registrar el retiro",
+            );
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              Caja activa
+            </p>
+            <h2 className="mt-1 text-xl font-black">Anotar retiro</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <label className="mt-5 block text-xs font-bold">Monto retirado</label>
+        <input
+          autoFocus
+          type="number"
+          min="1"
+          step="1"
+          required
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          className="input mt-2"
+          placeholder="Ej. 3500"
+        />
+        <label className="mt-4 block text-xs font-bold">Motivo</label>
+        <input
+          required
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="input mt-2"
+          placeholder="Ej. Compra de agua y bebida"
+        />
+        <p className="mt-3 text-[11px] leading-5 text-[#777]">
+          El retiro disminuirá el efectivo esperado al cerrar la caja. Si fue
+          una compra del negocio, regístrala también en Compras y gastos.
+        </p>
+        <button
+          disabled={busy || !amount || !reason.trim()}
+          className="mt-5 h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-40"
+        >
+          {busy ? "Registrando…" : "Registrar retiro"}
+        </button>
+      </form>
+    </div>
   );
 }
 

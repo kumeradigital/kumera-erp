@@ -173,6 +173,27 @@ export async function adjustAvailabilityAction(
   if (error) throw error;
   revalidatePath("/caja");
 }
+export async function registerCashWithdrawalAction(
+  sessionId: string,
+  amount: number,
+  reason: string,
+) {
+  const ctx = await context();
+  const normalizedReason = reason.trim();
+  if (!sessionId || !Number.isInteger(amount) || amount <= 0)
+    throw new Error("Monto de retiro inválido");
+  if (!normalizedReason) throw new Error("Debes indicar el motivo del retiro");
+  const { error } = await ctx.supabase.from("cash_session_withdrawals").insert({
+    business_id: ctx.businessId,
+    cash_session_id: sessionId,
+    amount,
+    reason: normalizedReason,
+    created_by: ctx.user.id,
+  });
+  if (error) throw error;
+  revalidatePath("/caja");
+  revalidatePath("/cierres");
+}
 export async function closeCashSessionAction(
   sessionId: string,
   countedCash: number,

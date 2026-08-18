@@ -1,6 +1,7 @@
 import { createClient } from "@/server/supabase/server";
 import type {
   CashSession,
+  CashWithdrawal,
   DailyAvailability,
   PaymentMethod,
   Product,
@@ -188,6 +189,25 @@ export async function getCashSalesTotal(sessionId: string): Promise<number> {
   return (data || []).reduce((sum, sale) => sum + Number(sale.total), 0);
 }
 
+export async function getCashWithdrawals(
+  sessionId: string,
+): Promise<CashWithdrawal[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cash_session_withdrawals")
+    .select("id,amount,reason,created_at")
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((item) => ({
+    id: item.id,
+    amount: Number(item.amount),
+    reason: item.reason,
+    createdAt: item.created_at,
+  }));
+}
+
 export async function getSessionClosingSummary(
   sessionId: string,
 ): Promise<SessionClosingSummary> {
@@ -243,6 +263,8 @@ export type CashClosure = {
   autoClosed: boolean;
   openingCash: number;
   cashSales: number;
+  withdrawals: CashWithdrawal[];
+  withdrawalTotal: number;
   expectedCash: number;
   countedCash: number | null;
   difference: number | null;
@@ -270,7 +292,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
   const { data, error } = await supabase
     .from("cash_sessions")
     .select(
-      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,payment_method,status),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
+      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,payment_method,status),cash_session_withdrawals(id,amount,reason,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
     )
     .eq("business_id", businessId)
     .eq("status", "closed")
@@ -292,7 +314,27 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
     const reconciledCash = reconciliation
       ? Number(reconciliation.actual_cash_sales)
       : cashSales;
-    const expectedCash = Number(row.opening_cash) + reconciledCash;
+    const withdrawals = (row.cash_session_withdrawals || [])
+      .map(
+        (item: {
+          id: string;
+          amount: number | string;
+          reason: string;
+          created_at: string;
+        }) => ({
+          id: item.id,
+          amount: Number(item.amount),
+          reason: item.reason,
+          createdAt: item.created_at,
+        }),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const withdrawalTotal = withdrawals.reduce(
+      (sum, item) => sum + item.amount,
+      0,
+    );
+    const expectedCash =
+      Number(row.opening_cash) + reconciledCash - withdrawalTotal;
     const countedCash =
       row.counted_cash == null ? null : Number(row.counted_cash);
     return {
@@ -302,6 +344,8 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
       autoClosed: row.auto_closed,
       openingCash: Number(row.opening_cash),
       cashSales: reconciledCash,
+      withdrawals,
+      withdrawalTotal,
       expectedCash,
       countedCash,
       difference: countedCash == null ? null : countedCash - expectedCash,

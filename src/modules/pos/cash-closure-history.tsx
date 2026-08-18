@@ -61,9 +61,10 @@ export function CashClosureHistory({ closures }: { closures: CashClosure[] }) {
                   : "Corregir conteo"}
               </button>
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <Amount label="Efectivo inicial" value={closure.openingCash} />
               <Amount label="Ventas en efectivo" value={closure.cashSales} />
+              <Amount label="Retiros" value={closure.withdrawalTotal} />
               <Amount
                 label="Efectivo esperado"
                 value={closure.expectedCash}
@@ -126,6 +127,33 @@ export function CashClosureHistory({ closures }: { closures: CashClosure[] }) {
                     ))}
                   </div>
                 )}
+              </details>
+            )}
+            {closure.withdrawals.length > 0 && (
+              <details className="mt-3 rounded-xl bg-[#f2f2ea] p-4">
+                <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
+                  Ver {closure.withdrawals.length}{" "}
+                  {closure.withdrawals.length === 1 ? "retiro" : "retiros"} de
+                  caja
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {closure.withdrawals.map((withdrawal) => (
+                    <div
+                      key={withdrawal.id}
+                      className="flex items-center justify-between gap-4 rounded-lg bg-white p-3 text-xs"
+                    >
+                      <div>
+                        <b>{withdrawal.reason}</b>
+                        <p className="mt-1 text-[#777]">
+                          {formatDate(withdrawal.createdAt)}
+                        </p>
+                      </div>
+                      <b className="money text-[#a24628]">
+                        −{formatClp(withdrawal.amount)}
+                      </b>
+                    </div>
+                  ))}
+                </div>
               </details>
             )}
             {closure.adjustments.length > 0 && (

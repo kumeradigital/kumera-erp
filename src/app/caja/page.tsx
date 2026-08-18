@@ -1,5 +1,6 @@
 import {
   getCashSalesTotal,
+  getCashWithdrawals,
   getCardFeeSettings,
   getDailyAvailability,
   getLatestCashSession,
@@ -19,6 +20,7 @@ export default async function PosPage() {
     ],
   );
   const cashSales = session ? await getCashSalesTotal(session.id) : 0;
+  const withdrawals = session ? await getCashWithdrawals(session.id) : [];
   const closingSummary = session
     ? await getSessionClosingSummary(session.id)
     : null;
@@ -34,6 +36,7 @@ export default async function PosPage() {
         availability={availability}
         session={session}
         cashSales={cashSales}
+        withdrawals={withdrawals}
         latestSession={latestSession}
         cardFeeSettings={cardFeeSettings}
         closingSummary={closingSummary}
