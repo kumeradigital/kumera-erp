@@ -42,6 +42,12 @@ export type SaleSummary = {
   netReceivable: number;
   count: number;
   average: number;
+  hourlySales: {
+    hour: number;
+    total: number;
+    count: number;
+    average: number;
+  }[];
   byPayment: { method: PaymentMethod; total: number }[];
   topProducts: {
     name: string;

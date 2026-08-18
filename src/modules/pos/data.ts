@@ -434,6 +434,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   }
   const netReceivable = total - commissionNet - commissionTax;
   const payments = new Map<PaymentMethod, number>();
+  const hourlySales = new Map<number, { total: number; count: number }>();
   const products = new Map<
     string,
     { quantity: number; saleUnit: "unit" | "kg"; total: number }
@@ -441,6 +442,18 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   rows.forEach((r) => {
     const method = r.payment_method as PaymentMethod;
     payments.set(method, (payments.get(method) || 0) + Number(r.total));
+    const hour = Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Santiago",
+        hour: "2-digit",
+        hourCycle: "h23",
+      }).format(new Date(r.created_at)),
+    );
+    const hourly = hourlySales.get(hour) || { total: 0, count: 0 };
+    hourlySales.set(hour, {
+      total: hourly.total + Number(r.total),
+      count: hourly.count + 1,
+    });
     (r.sale_items || []).forEach(
       (item: {
         product_name: string;
@@ -491,6 +504,13 @@ export async function getSalesSummary(range: SalesRange): Promise<{
       netReceivable,
       count: transactionCount,
       average: transactionCount ? Math.round(total / transactionCount) : 0,
+      hourlySales: [...hourlySales]
+        .map(([hour, value]) => ({
+          hour,
+          ...value,
+          average: value.count ? Math.round(value.total / value.count) : 0,
+        }))
+        .sort((a, b) => a.hour - b.hour),
       byPayment: [...payments]
         .map(([method, value]) => ({ method, total: value }))
         .sort((a, b) => b.total - a.total),

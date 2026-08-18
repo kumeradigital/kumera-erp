@@ -1,4 +1,11 @@
-import { Clock, CreditCard, Receipt, TrendingUp, Wallet } from "lucide-react";
+import {
+  BarChart3,
+  Clock,
+  CreditCard,
+  Receipt,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { SalesFilters, type SalesPeriodView } from "./sales-filters";
 import { paymentLabels, type PaymentMethod, type SaleSummary } from "./types";
@@ -17,6 +24,14 @@ export function SalesDashboard({
   }[];
   period: SalesPeriodView;
 }) {
+  const peakHour = [...summary.hourlySales].sort(
+    (a, b) => b.total - a.total,
+  )[0];
+  const maxHourlySales = Math.max(
+    1,
+    ...summary.hourlySales.map((item) => item.total),
+  );
+
   return (
     <main className="mx-auto max-w-6xl p-5 md:p-8">
       <div>
@@ -83,6 +98,75 @@ export function SalesDashboard({
           cierre; el detalle de productos conserva solo lo registrado en caja.
         </div>
       )}
+      <section className="card mt-4 overflow-hidden">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e6e5dd] p-5">
+          <div>
+            <div className="flex items-center gap-2 text-[#235b45]">
+              <BarChart3 size={19} />
+              <h2 className="font-black text-[#20231f]">Ventas por horario</h2>
+            </div>
+            <p className="mt-1 text-xs text-[#777]">
+              Compara los tickets registrados según la hora chilena en el
+              periodo seleccionado.
+            </p>
+          </div>
+          {peakHour && (
+            <div className="rounded-xl bg-[#edf4e9] px-4 py-3 text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6f786e]">
+                Hora con más ventas
+              </p>
+              <p className="mt-1 text-lg font-black text-[#235b45]">
+                {formatHourRange(peakHour.hour)}
+              </p>
+              <p className="text-[11px] text-[#6f786e]">
+                {formatClp(peakHour.total)} · {peakHour.count}{" "}
+                {peakHour.count === 1 ? "ticket" : "tickets"}
+              </p>
+            </div>
+          )}
+        </div>
+        {summary.hourlySales.length ? (
+          <div className="divide-y divide-[#eeede6] px-5">
+            {summary.hourlySales.map((item) => (
+              <div
+                key={item.hour}
+                className="grid items-center gap-3 py-3 sm:grid-cols-[100px_minmax(150px,1fr)_110px_110px]"
+              >
+                <b className="text-sm">{formatHourRange(item.hour)}</b>
+                <div className="h-3 overflow-hidden rounded-full bg-[#eceee6]">
+                  <div
+                    className="h-full min-w-1 rounded-full bg-[#6d925d]"
+                    style={{ width: `${(item.total / maxHourlySales) * 100}%` }}
+                  />
+                </div>
+                <div className="text-left sm:text-right">
+                  <b className="money text-sm">{formatClp(item.total)}</b>
+                  <p className="text-[10px] text-[#777]">
+                    {item.count} {item.count === 1 ? "ticket" : "tickets"}
+                  </p>
+                </div>
+                <div className="text-left sm:text-right">
+                  <p className="text-[10px] font-bold uppercase text-[#888]">
+                    Ticket promedio
+                  </p>
+                  <b className="money text-sm text-[#235b45]">
+                    {formatClp(item.average)}
+                  </b>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty />
+        )}
+        {summary.unallocatedDifference !== 0 && (
+          <p className="border-t border-[#e6e5dd] bg-[#fafaf5] px-5 py-3 text-[11px] leading-5 text-[#777]">
+            Este análisis utiliza solamente los tickets registrados en caja. La
+            conciliación manual del cierre no se asigna a una hora porque no
+            existe un horario verificable para esa diferencia.
+          </p>
+        )}
+      </section>
       <section className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
           <h2 className="font-black">Medios de pago</h2>
@@ -185,6 +269,11 @@ export function SalesDashboard({
       </section>
     </main>
   );
+}
+
+function formatHourRange(hour: number) {
+  const next = (hour + 1) % 24;
+  return `${String(hour).padStart(2, "0")}:00–${String(next).padStart(2, "0")}:00`;
 }
 
 function Stat({
