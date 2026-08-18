@@ -32,6 +32,14 @@ export type CashSession = {
   closedAt?: string;
   autoClosed?: boolean;
 };
+export type SalesSessionPeriod = {
+  id: string;
+  status: "open" | "closed";
+  openedAt: string;
+  closedAt?: string;
+  openingCash: number;
+  autoClosed: boolean;
+};
 export type SaleSummary = {
   total: number;
   recordedTotal: number;

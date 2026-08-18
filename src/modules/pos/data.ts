@@ -5,6 +5,7 @@ import type {
   PaymentMethod,
   Product,
   SaleSummary,
+  SalesSessionPeriod,
   SessionClosingSummary,
 } from "./types";
 import type { CardFeeSettings } from "./fees";
@@ -353,6 +354,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
 
 export async function getSalesSummary(range: SalesRange): Promise<{
   summary: SaleSummary;
+  sessions: SalesSessionPeriod[];
   recent: {
     id: string;
     total: number;
@@ -378,11 +380,12 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     await ctx.supabase
       .from("cash_sessions")
       .select(
-        "id,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,actual_cash_transactions,actual_debit_transactions,actual_credit_transactions,actual_transfer_transactions,commission_net_amount,commission_tax_amount)",
+        "id,status,opening_cash,opened_at,closed_at,auto_closed,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,actual_cash_transactions,actual_debit_transactions,actual_credit_transactions,actual_transfer_transactions,commission_net_amount,commission_tax_amount)",
       )
       .eq("business_id", ctx.businessId)
       .gte("opened_at", range.from)
-      .lt("opened_at", range.to);
+      .lt("opened_at", range.to)
+      .order("opened_at", { ascending: false });
   if (reconciliationError) throw reconciliationError;
   const reconciliations = new Map(
     (reconciledSessions || []).flatMap((session) => {
@@ -494,6 +497,14 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     );
   }
   return {
+    sessions: (reconciledSessions || []).map((session) => ({
+      id: session.id,
+      status: session.status as "open" | "closed",
+      openedAt: session.opened_at,
+      closedAt: session.closed_at || undefined,
+      openingCash: Number(session.opening_cash),
+      autoClosed: Boolean(session.auto_closed),
+    })),
     summary: {
       total,
       recordedTotal,

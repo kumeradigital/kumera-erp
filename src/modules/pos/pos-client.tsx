@@ -5,6 +5,7 @@ import {
   Banknote,
   Check,
   ClipboardList,
+  Clock,
   Minus,
   Plus,
   ShoppingBag,
@@ -84,6 +85,24 @@ export function PosClient({
   return (
     <main className="grid min-h-[calc(100vh-64px)] lg:grid-cols-[1fr_390px]">
       <section className="p-4 md:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#cbdcc6] bg-[#edf4e9] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="grid size-9 place-items-center rounded-xl bg-[#235b45] text-white">
+              <Clock size={17} />
+            </span>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#687467]">
+                Caja activa
+              </p>
+              <p className="mt-0.5 text-sm font-black text-[#235b45]">
+                Iniciada {formatSessionDateTime(session.openedAt)}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-[#687467]">
+            Efectivo inicial: <b>{formatClp(session.openingCash)}</b>
+          </p>
+        </div>
         <div className="flex items-start justify-between gap-3 pb-4">
           <div className="flex gap-2 overflow-x-auto">
             {categories.map((c) => (
@@ -322,6 +341,17 @@ export function PosClient({
       )}
     </main>
   );
+}
+
+function formatSessionDateTime(value: string) {
+  return new Date(value).toLocaleString("es-CL", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Santiago",
+  });
 }
 
 function AvailabilityDialog({

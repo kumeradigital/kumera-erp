@@ -8,14 +8,21 @@ import {
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { SalesFilters, type SalesPeriodView } from "./sales-filters";
-import { paymentLabels, type PaymentMethod, type SaleSummary } from "./types";
+import {
+  paymentLabels,
+  type PaymentMethod,
+  type SalesSessionPeriod,
+  type SaleSummary,
+} from "./types";
 
 export function SalesDashboard({
   summary,
+  sessions,
   recent,
   period,
 }: {
   summary: SaleSummary;
+  sessions: SalesSessionPeriod[];
   recent: {
     id: string;
     total: number;
@@ -45,6 +52,74 @@ export function SalesDashboard({
       </div>
 
       <SalesFilters period={period} />
+
+      <section className="card mt-4 overflow-hidden">
+        <div className="border-b border-[#e6e5dd] p-5">
+          <div className="flex items-center gap-2">
+            <Clock size={18} className="text-[#235b45]" />
+            <h2 className="font-black">Jornadas de caja del período</h2>
+          </div>
+          <p className="mt-1 text-xs text-[#777]">
+            Horario real de apertura y cierre de cada caja consultada.
+          </p>
+        </div>
+        {sessions.length ? (
+          <div className="divide-y divide-[#eeede6]">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <b className="text-sm">
+                      Caja del {formatSessionDate(session.openedAt)}
+                    </b>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${session.status === "open" ? "bg-[#e3f0df] text-[#235b45]" : "bg-[#f0f0e8] text-[#666]"}`}
+                    >
+                      {session.status === "open"
+                        ? "Activa"
+                        : session.autoClosed
+                          ? "Cierre automático"
+                          : "Cerrada"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#777]">
+                    Apertura: <b>{formatSessionTime(session.openedAt)}</b>
+                    {session.closedAt && (
+                      <>
+                        {" "}
+                        · Cierre: <b>{formatSessionTime(session.closedAt)}</b>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="text-xs text-[#777] sm:text-right">
+                  <p>Efectivo inicial</p>
+                  <b className="money text-sm text-[#20231f]">
+                    {formatClp(session.openingCash)}
+                  </b>
+                </div>
+                <div className="text-xs text-[#777] sm:min-w-28 sm:text-right">
+                  <p>Duración</p>
+                  <b className="text-sm text-[#20231f]">
+                    {formatSessionDuration(
+                      session.openedAt,
+                      session.closedAt || new Date().toISOString(),
+                    )}
+                    {session.status === "open" ? " hasta ahora" : ""}
+                  </b>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-8 text-center text-sm text-[#888]">
+            No hay jornadas iniciadas en este período
+          </p>
+        )}
+      </section>
 
       <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Stat
@@ -274,6 +349,33 @@ export function SalesDashboard({
 function formatHourRange(hour: number) {
   const next = (hour + 1) % 24;
   return `${String(hour).padStart(2, "0")}:00–${String(next).padStart(2, "0")}:00`;
+}
+
+function formatSessionDate(value: string) {
+  return new Date(value).toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  });
+}
+
+function formatSessionTime(value: string) {
+  return new Date(value).toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Santiago",
+  });
+}
+
+function formatSessionDuration(from: string, to: string) {
+  const minutes = Math.max(
+    0,
+    Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60_000),
+  );
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return hours ? `${hours} h ${remainder} min` : `${remainder} min`;
 }
 
 function Stat({
