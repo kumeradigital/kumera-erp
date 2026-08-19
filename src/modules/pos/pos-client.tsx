@@ -41,7 +41,6 @@ type Cart = Record<string, number>;
 type ProductTile = {
   key: string;
   category: string;
-  price: number;
   saleUnit: "unit" | "kg";
   products: Product[];
 };
@@ -206,7 +205,7 @@ export function PosClient({
                     </div>
                     <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
                       <p className="text-sm font-black leading-5 sm:min-h-10">
-                        {tile.category} · {formatClp(tile.price)}
+                        {tile.category}
                       </p>
                       <p className="money mt-2 text-base font-black text-[#235b45]">
                         Elegir variedad {tile.saleUnit === "kg" ? "/ kg" : ""}
@@ -518,14 +517,13 @@ export function PosClient({
 function groupProductsForSale(products: Product[]) {
   const groups = new Map<string, ProductTile>();
   for (const product of products) {
-    const key = `${product.category}::${product.saleUnit}::${product.price}`;
+    const key = `${product.category}::${product.saleUnit}`;
     const current = groups.get(key);
     if (current) current.products.push(product);
     else
       groups.set(key, {
         key,
         category: product.category,
-        price: product.price,
         saleUnit: product.saleUnit,
         products: [product],
       });
@@ -550,8 +548,8 @@ function ProductGroupDialog({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
-              {group.category} · {formatClp(group.price)}
-              {group.saleUnit === "kg" ? " por kg" : ""}
+              {group.category}
+              {group.saleUnit === "kg" ? " · venta por kg" : ""}
             </p>
             <h2 className="mt-1 text-2xl font-black">Elige la variedad</h2>
           </div>
@@ -564,8 +562,8 @@ function ProductGroupDialog({
           </button>
         </div>
         <p className="mt-3 text-xs leading-5 text-[#6f746c]">
-          Aunque compartan precio, cada variedad conserva su receta, costo y
-          margen de contribución.
+          Cada variedad conserva su propio precio, receta, costo y margen de
+          contribución.
         </p>
         <div className="mt-5 grid grid-cols-2 gap-2">
           {group.products.map((product) => {
