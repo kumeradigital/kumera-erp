@@ -11,3 +11,13 @@ export function calculateLineTotal(item: PricedQuantity) {
 export function calculateCartTotal(items: PricedQuantity[]) {
   return items.reduce((total, item) => total + calculateLineTotal(item), 0);
 }
+
+export function calculateCashPayable(total: number) {
+  const lastDigit = ((total % 10) + 10) % 10;
+  if (lastDigit === 0) return total;
+  return lastDigit <= 5 ? total - lastDigit : total + (10 - lastDigit);
+}
+
+export function calculateCashRounding(total: number) {
+  return calculateCashPayable(total) - total;
+}

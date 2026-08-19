@@ -14,7 +14,12 @@ import {
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
-import { calculateCartTotal, calculateLineTotal } from "./cart";
+import {
+  calculateCashPayable,
+  calculateCashRounding,
+  calculateCartTotal,
+  calculateLineTotal,
+} from "./cart";
 import { calculateCardFee, type CardFeeSettings } from "./fees";
 import {
   closeCashSessionAction,
@@ -1624,7 +1629,9 @@ function PaymentDialog({
   cardFeeSettings: CardFeeSettings;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [cash, setCash] = useState(String(total));
+  const cashPayable = calculateCashPayable(total);
+  const cashRounding = calculateCashRounding(total);
+  const [cash, setCash] = useState(String(cashPayable));
   const received = Number(cash) || 0;
   const fee = calculateCardFee(total, method, cardFeeSettings);
   return (
@@ -1633,9 +1640,13 @@ function PaymentDialog({
         <div className="flex justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
-              Total a pagar
+              {method === "cash"
+                ? "Total a pagar en efectivo"
+                : "Total a pagar"}
             </p>
-            <p className="money mt-1 text-4xl font-black">{formatClp(total)}</p>
+            <p className="money mt-1 text-4xl font-black">
+              {formatClp(method === "cash" ? cashPayable : total)}
+            </p>
           </div>
           <button onClick={onClose}>
             <X />
@@ -1654,6 +1665,16 @@ function PaymentDialog({
         </div>
         {method === "cash" && (
           <div className="mt-5">
+            {cashRounding !== 0 && (
+              <div className="mb-4 rounded-xl border border-[#dfe4da] bg-[#f3f6ef] p-3 text-xs text-[#59645a]">
+                Total de la venta: <b>{formatClp(total)}</b> · Redondeo legal de
+                efectivo:{" "}
+                <b>
+                  {cashRounding > 0 ? "+" : ""}
+                  {formatClp(cashRounding)}
+                </b>
+              </div>
+            )}
             <label className="text-xs font-bold">
               Efectivo recibido
               <input
@@ -1666,7 +1687,7 @@ function PaymentDialog({
             <div className="mt-3 flex justify-between rounded-xl bg-[#eff0e8] p-4">
               <span className="font-bold">Vuelto</span>
               <b className="money text-xl">
-                {formatClp(Math.max(0, received - total))}
+                {formatClp(Math.max(0, received - cashPayable))}
               </b>
             </div>
           </div>
@@ -1693,7 +1714,7 @@ function PaymentDialog({
           </div>
         )}
         <button
-          disabled={busy || (method === "cash" && received < total)}
+          disabled={busy || (method === "cash" && received < cashPayable)}
           onClick={() => onPay(method, method === "cash" ? received : null)}
           className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#235b45] text-lg font-black text-white disabled:opacity-40"
         >

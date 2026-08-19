@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
 import { getCostingData } from "@/modules/costs/data";
-import { calculateLineTotal } from "./cart";
+import { calculateCashPayable, calculateLineTotal } from "./cart";
 import type {
   AvailabilityMovementType,
   PaymentMethod,
@@ -436,10 +436,11 @@ export async function registerSaleAction(
       })
     );
   }, 0);
-  if (payment === "cash" && (normalizedCash ?? 0) < currentTotal)
+  const cashPayable = calculateCashPayable(currentTotal);
+  if (payment === "cash" && (normalizedCash ?? 0) < cashPayable)
     return {
       ok: false as const,
-      error: `El total vigente es $${currentTotal.toLocaleString("es-CL")}. Ingresa al menos ese monto en efectivo o actualiza la caja.`,
+      error: `El total a pagar en efectivo es $${cashPayable.toLocaleString("es-CL")} después del redondeo legal.`,
     };
   const { data, error } = await ctx.supabase.rpc("register_sale", {
     p_session: sessionId,

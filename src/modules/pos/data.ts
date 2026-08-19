@@ -226,13 +226,17 @@ export async function getCashSalesTotal(sessionId: string): Promise<number> {
   const { businessId, supabase } = await businessContext();
   const { data, error } = await supabase
     .from("sales")
-    .select("total")
+    .select("total,cash_rounding_amount")
     .eq("business_id", businessId)
     .eq("cash_session_id", sessionId)
     .eq("payment_method", "cash")
     .eq("status", "completed");
   if (error) throw error;
-  return (data || []).reduce((sum, sale) => sum + Number(sale.total), 0);
+  return (data || []).reduce(
+    (sum, sale) =>
+      sum + Number(sale.total) + Number(sale.cash_rounding_amount || 0),
+    0,
+  );
 }
 
 export async function getCashWithdrawals(
@@ -261,7 +265,7 @@ export async function getSessionClosingSummary(
   const { data, error } = await supabase
     .from("sales")
     .select(
-      "total,payment_method,sale_items(product_id,product_name,quantity,sale_unit,line_total)",
+      "total,cash_rounding_amount,payment_method,sale_items(product_id,product_name,quantity,sale_unit,line_total)",
     )
     .eq("business_id", businessId)
     .eq("cash_session_id", sessionId)
@@ -283,7 +287,9 @@ export async function getSessionClosingSummary(
   const products = new Map<string, SessionClosingSummary["products"][number]>();
   for (const sale of data || []) {
     const method = sale.payment_method as PaymentMethod;
-    byPayment[method] += Number(sale.total);
+    byPayment[method] +=
+      Number(sale.total) +
+      (method === "cash" ? Number(sale.cash_rounding_amount || 0) : 0);
     transactionsByPayment[method] += 1;
     for (const item of sale.sale_items || []) {
       const current = products.get(item.product_name);
@@ -339,7 +345,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
   const { data, error } = await supabase
     .from("cash_sessions")
     .select(
-      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,payment_method,status),cash_session_withdrawals(id,amount,reason,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
+      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,cash_rounding_amount,payment_method,status),cash_session_withdrawals(id,amount,reason,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
     )
     .eq("business_id", businessId)
     .eq("status", "closed")
@@ -353,8 +359,13 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
           sale.payment_method === "cash" && sale.status === "completed",
       )
       .reduce(
-        (sum: number, sale: { total: number | string }) =>
-          sum + Number(sale.total),
+        (
+          sum: number,
+          sale: {
+            total: number | string;
+            cash_rounding_amount: number | string;
+          },
+        ) => sum + Number(sale.total) + Number(sale.cash_rounding_amount || 0),
         0,
       );
     const reconciliation = oneRelation(row.cash_session_reconciliations);
