@@ -301,6 +301,68 @@ export async function registerProductionBatchAction(
   revalidatePath("/ventas");
   return { ok: true, costingPending };
 }
+export async function updateProductionBatchAction(
+  batchId: string,
+  sessionId: string,
+  familyProductId: string,
+  componentProductId: string,
+  quantity: number,
+  note = "",
+) {
+  const ctx = await context();
+  const normalizedQuantity = Number(quantity.toFixed(3));
+  if (
+    !batchId ||
+    !sessionId ||
+    !familyProductId ||
+    !componentProductId ||
+    !Number.isFinite(normalizedQuantity) ||
+    normalizedQuantity <= 0
+  )
+    throw new Error("Producción inválida");
+
+  const { data: component, error: componentError } = await ctx.supabase
+    .from("products")
+    .select("id,family_product_id")
+    .eq("id", componentProductId)
+    .eq("business_id", ctx.businessId)
+    .eq("family_product_id", familyProductId)
+    .single();
+  if (componentError || !component)
+    throw new Error("La variedad no pertenece a esta familia");
+
+  const costing = await getCostingData();
+  const analysis = costing.analyses.find(
+    (item) => item.id === componentProductId,
+  );
+  const costingPending = !analysis?.complete;
+  const unitCost = analysis?.complete
+    ? analysis.physicalCost + analysis.wasteCost
+    : 0;
+  const { error } = await ctx.supabase
+    .from("cash_session_production_batches")
+    .update({
+      family_product_id: familyProductId,
+      component_product_id: componentProductId,
+      quantity: normalizedQuantity,
+      unit_cost: unitCost,
+      note: note.trim() || null,
+      updated_by: ctx.user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", batchId)
+    .eq("cash_session_id", sessionId)
+    .eq("business_id", ctx.businessId)
+    .select("id")
+    .single();
+  if (error)
+    throw new Error(
+      "No se pudo editar la producción. Comprueba que la caja siga abierta.",
+    );
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
+  return { ok: true, costingPending };
+}
 export async function closeCashSessionAction(
   sessionId: string,
   countedCash: number,

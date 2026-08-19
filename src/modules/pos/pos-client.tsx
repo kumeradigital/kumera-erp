@@ -26,6 +26,7 @@ import {
   adjustAvailabilityAction,
   openCashSessionAction,
   registerProductionBatchAction,
+  updateProductionBatchAction,
   registerCashWithdrawalAction,
   reconcileCashSessionAction,
   registerSaleAction,
@@ -635,6 +636,7 @@ function ProductionDialog({
   );
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
+  const [editing, setEditing] = useState<ProductionBatch | null>(null);
   const [busy, setBusy] = useState(false);
   const familyBatches = batches.filter(
     (batch) => batch.familyProductId === familyId,
@@ -655,7 +657,9 @@ function ProductionDialog({
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
               Caja activa
             </p>
-            <h2 className="mt-1 text-2xl font-black">Registrar producción</h2>
+            <h2 className="mt-1 text-2xl font-black">
+              {editing ? "Editar producción" : "Registrar producción"}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -671,16 +675,26 @@ function ProductionDialog({
             event.preventDefault();
             setBusy(true);
             try {
-              const result = await registerProductionBatchAction(
-                sessionId,
-                familyId,
-                componentId,
-                Number(quantity),
-                note,
-              );
+              const quantityInKg = Number(quantity) / 1000;
+              const result = editing
+                ? await updateProductionBatchAction(
+                    editing.id,
+                    sessionId,
+                    familyId,
+                    componentId,
+                    quantityInKg,
+                    note,
+                  )
+                : await registerProductionBatchAction(
+                    sessionId,
+                    familyId,
+                    componentId,
+                    quantityInKg,
+                    note,
+                  );
               if (result.costingPending) {
                 alert(
-                  "Producción registrada. Esta variedad todavía no tiene una receta de costos completa; podrás completarla después sin perder los kilos ingresados.",
+                  "Producción guardada. Esta variedad todavía no tiene una receta de costos completa; podrás completarla después sin perder los kilos ingresados.",
                 );
               }
               location.reload();
@@ -688,7 +702,7 @@ function ProductionDialog({
               alert(
                 error instanceof Error
                   ? error.message
-                  : "No se pudo registrar la producción",
+                  : "No se pudo guardar la producción",
               );
               setBusy(false);
             }
@@ -732,19 +746,29 @@ function ProductionDialog({
             </select>
           </label>
           <label className="block text-xs font-bold">
-            Peso total producido (kg)
+            Peso total producido (gramos)
             <input
               autoFocus
               required
               type="number"
-              min="0.001"
-              step="0.001"
-              inputMode="decimal"
+              min="1"
+              step="1"
+              inputMode="numeric"
               value={quantity}
               onChange={(event) => setQuantity(event.target.value)}
               className="input mt-2 text-xl font-black"
-              placeholder="Ej. 12,5"
+              placeholder="Ej. 1567"
             />
+            {Number(quantity) > 0 && (
+              <span className="mt-2 block text-[11px] font-medium text-[#697067]">
+                Equivale a{" "}
+                {(Number(quantity) / 1000).toLocaleString("es-CL", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}{" "}
+                kg
+              </span>
+            )}
           </label>
           <label className="block text-xs font-bold">
             Nota opcional
@@ -759,8 +783,25 @@ function ProductionDialog({
             disabled={busy || !componentId || Number(quantity) <= 0}
             className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-40"
           >
-            {busy ? "Registrando…" : "Registrar hornada"}
+            {busy
+              ? "Guardando…"
+              : editing
+                ? "Guardar corrección"
+                : "Registrar hornada"}
           </button>
+          {editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null);
+                setQuantity("");
+                setNote("");
+              }}
+              className="h-11 w-full rounded-xl border border-[#d8d8cf] font-bold text-[#62675f]"
+            >
+              Cancelar edición
+            </button>
+          )}
         </form>
         <div className="mt-5 rounded-xl bg-[#f0f2e9] p-4">
           <div className="flex justify-between text-xs">
@@ -780,9 +821,9 @@ function ProductionDialog({
             {familyBatches.slice(0, 8).map((batch) => (
               <div
                 key={batch.id}
-                className="flex justify-between rounded-lg border border-[#e3e3da] p-3 text-xs"
+                className="flex items-center justify-between gap-3 rounded-lg border border-[#e3e3da] p-3 text-xs"
               >
-                <span>
+                <span className="min-w-0 flex-1">
                   <b>{batch.componentName}</b>
                   <br />
                   {new Date(batch.createdAt).toLocaleTimeString("es-CL", {
@@ -791,7 +832,22 @@ function ProductionDialog({
                     timeZone: "America/Santiago",
                   })}
                 </span>
-                <b>{batch.quantity.toLocaleString("es-CL")} kg</b>
+                <span className="shrink-0 text-right">
+                  <b>{batch.quantity.toLocaleString("es-CL")} kg</b>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(batch);
+                      setFamilyId(batch.familyProductId);
+                      setComponentId(batch.componentProductId);
+                      setQuantity(String(Math.round(batch.quantity * 1000)));
+                      setNote(batch.note || "");
+                    }}
+                    className="ml-3 rounded-lg border border-[#cfd5ca] px-2.5 py-1.5 font-black text-[#235b45]"
+                  >
+                    Editar
+                  </button>
+                </span>
               </div>
             ))}
           </div>
