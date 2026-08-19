@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Clock,
   HandCoins,
+  Layers3,
   Minus,
   Plus,
   ShoppingBag,
@@ -34,6 +35,13 @@ import {
   type SessionClosingSummary,
 } from "./types";
 type Cart = Record<string, number>;
+type ProductTile = {
+  key: string;
+  category: string;
+  price: number;
+  saleUnit: "unit" | "kg";
+  products: Product[];
+};
 export function PosClient({
   products,
   session,
@@ -62,7 +70,14 @@ export function PosClient({
   const [managingAvailability, setManagingAvailability] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [selectingGroup, setSelectingGroup] = useState<ProductTile | null>(
+    null,
+  );
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
+  const visibleProducts = products.filter(
+    (product) => category === "Todos" || product.category === category,
+  );
+  const productTiles = [...groupProductsForSale(visibleProducts).values()];
   const lines = products
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
@@ -138,60 +153,101 @@ export function PosClient({
         </div>
         {products.length ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
-            {products
-              .filter((p) => category === "Todos" || p.category === category)
-              .map((p) => {
-                const remaining = p.trackDailyAvailability
-                  ? Math.max(
-                      0,
-                      (p.availability?.availableQuantity || 0) -
-                        (cart[p.id] || 0),
-                    )
-                  : null;
-                const soldOut = remaining === 0;
+            {productTiles.map((tile) => {
+              if (tile.products.length > 1) {
+                const selectedQuantity = tile.products.reduce(
+                  (sum, product) => sum + (cart[product.id] || 0),
+                  0,
+                );
+                const availableProducts = tile.products.filter(
+                  (product) =>
+                    !product.trackDailyAvailability ||
+                    (product.availability?.availableQuantity || 0) >
+                      (cart[product.id] || 0),
+                );
                 return (
                   <button
-                    key={p.id}
-                    onClick={() => add(p.id)}
-                    disabled={soldOut}
+                    key={tile.key}
+                    onClick={() => setSelectingGroup(tile)}
+                    disabled={!availableProducts.length}
                     className="card relative min-h-[104px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55 sm:min-h-0"
                   >
-                    {!!cart[p.id] && (
+                    {selectedQuantity > 0 && (
                       <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
-                        {p.saleUnit === "kg"
-                          ? `${Math.round(cart[p.id] * 1000)}g`
-                          : cart[p.id]}
+                        {tile.saleUnit === "kg"
+                          ? `${Math.round(selectedQuantity * 1000)}g`
+                          : selectedQuantity}
                       </span>
                     )}
-                    {remaining !== null && (
-                      <span
-                        className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm sm:px-2.5 sm:text-[11px] ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
-                      >
-                        {remaining === 0 ? "Agotado" : `${remaining} disp.`}
-                      </span>
-                    )}
-                    <div className="hidden h-28 place-items-center bg-[#eaeae1] sm:grid">
-                      {p.imageUrl ? (
-                        <img
-                          src={p.imageUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <ShoppingBag className="text-[#9da198]" />
-                      )}
+                    <span className="absolute right-2 top-2 z-10 rounded-full bg-[#235b45] px-2 py-1 text-[9px] font-black text-white shadow-sm sm:px-2.5 sm:text-[11px]">
+                      {tile.products.length} variedades
+                    </span>
+                    <div className="hidden h-28 place-items-center bg-[#e5eee2] text-[#235b45] sm:grid">
+                      <Layers3 size={32} />
                     </div>
                     <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
                       <p className="text-sm font-black leading-5 sm:min-h-10">
-                        {p.name}
+                        {tile.category} · {formatClp(tile.price)}
                       </p>
                       <p className="money mt-2 text-base font-black text-[#235b45]">
-                        {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
+                        Elegir variedad {tile.saleUnit === "kg" ? "/ kg" : ""}
                       </p>
                     </div>
                   </button>
                 );
-              })}
+              }
+              const p = tile.products[0];
+              const remaining = p.trackDailyAvailability
+                ? Math.max(
+                    0,
+                    (p.availability?.availableQuantity || 0) -
+                      (cart[p.id] || 0),
+                  )
+                : null;
+              const soldOut = remaining === 0;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => add(p.id)}
+                  disabled={soldOut}
+                  className="card relative min-h-[104px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55 sm:min-h-0"
+                >
+                  {!!cart[p.id] && (
+                    <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
+                      {p.saleUnit === "kg"
+                        ? `${Math.round(cart[p.id] * 1000)}g`
+                        : cart[p.id]}
+                    </span>
+                  )}
+                  {remaining !== null && (
+                    <span
+                      className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm sm:px-2.5 sm:text-[11px] ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
+                    >
+                      {remaining === 0 ? "Agotado" : `${remaining} disp.`}
+                    </span>
+                  )}
+                  <div className="hidden h-28 place-items-center bg-[#eaeae1] sm:grid">
+                    {p.imageUrl ? (
+                      <img
+                        src={p.imageUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ShoppingBag className="text-[#9da198]" />
+                    )}
+                  </div>
+                  <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
+                    <p className="text-sm font-black leading-5 sm:min-h-10">
+                      {p.name}
+                    </p>
+                    <p className="money mt-2 text-base font-black text-[#235b45]">
+                      {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="card p-12 text-center">
@@ -415,7 +471,112 @@ export function PosClient({
           onClose={() => setWithdrawing(false)}
         />
       )}
+      {selectingGroup && (
+        <ProductGroupDialog
+          group={selectingGroup}
+          cart={cart}
+          onClose={() => setSelectingGroup(null)}
+          onSelect={(product) => {
+            setSelectingGroup(null);
+            add(product.id);
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function groupProductsForSale(products: Product[]) {
+  const groups = new Map<string, ProductTile>();
+  for (const product of products) {
+    const key = `${product.category}::${product.saleUnit}::${product.price}`;
+    const current = groups.get(key);
+    if (current) current.products.push(product);
+    else
+      groups.set(key, {
+        key,
+        category: product.category,
+        price: product.price,
+        saleUnit: product.saleUnit,
+        products: [product],
+      });
+  }
+  return groups;
+}
+
+function ProductGroupDialog({
+  group,
+  cart,
+  onClose,
+  onSelect,
+}: {
+  group: ProductTile;
+  cart: Cart;
+  onClose: () => void;
+  onSelect: (product: Product) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              {group.category} · {formatClp(group.price)}
+              {group.saleUnit === "kg" ? " por kg" : ""}
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Elige la variedad</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-[#f0f0e8]"
+            aria-label="Cerrar"
+          >
+            <X size={19} />
+          </button>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[#6f746c]">
+          Aunque compartan precio, cada variedad conserva su receta, costo y
+          margen de contribución.
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          {group.products.map((product) => {
+            const remaining = product.trackDailyAvailability
+              ? Math.max(
+                  0,
+                  (product.availability?.availableQuantity || 0) -
+                    (cart[product.id] || 0),
+                )
+              : null;
+            return (
+              <button
+                key={product.id}
+                onClick={() => onSelect(product)}
+                disabled={remaining === 0}
+                className="relative min-h-24 rounded-2xl border border-[#dcdcd3] bg-white p-4 text-left active:scale-[.98] disabled:opacity-45"
+              >
+                <b className="block pr-2 text-sm leading-5">{product.name}</b>
+                <span className="money mt-3 block text-sm font-black text-[#235b45]">
+                  {formatClp(product.price)}
+                  {product.saleUnit === "kg" ? "/kg" : ""}
+                </span>
+                {remaining !== null && (
+                  <span className="mt-1 block text-[10px] font-bold text-[#777]">
+                    {remaining ? `${remaining} disponibles` : "Agotado"}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {group.saleUnit === "kg" && (
+          <div className="mt-4 rounded-xl border border-[#ead8a6] bg-[#fff7d9] p-4 text-[11px] leading-5 text-[#6f5b17]">
+            <b>¿La bolsa lleva panes mezclados?</b> Registra y pesa cada
+            variedad por separado. Así el sistema no inventará un costo promedio
+            y los márgenes seguirán siendo confiables.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
