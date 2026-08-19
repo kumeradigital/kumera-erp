@@ -18,14 +18,16 @@ export function PosShell({
 }) {
   return (
     <div className="min-h-screen bg-[#f7f6ee]">
-      <header className="flex h-16 items-center justify-between border-b border-[#dfdfd5] bg-[#fffef9] px-4 md:px-7">
-        <Link href="/" className="flex items-center gap-2">
+      <header className="flex h-16 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="grid size-9 place-items-center rounded-xl bg-[#d8f070] font-black text-[#235b45]">
             K
           </span>
-          <span className="font-black text-[#235b45]">ERP KUMERA</span>
+          <span className="hidden font-black text-[#235b45] md:inline">
+            ERP KUMERA
+          </span>
         </Link>
-        <nav className="flex items-center gap-1 text-xs font-bold">
+        <nav className="scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs font-bold md:justify-center">
           <Nav
             href="/"
             label="Puesta en marcha"
@@ -68,7 +70,7 @@ export function PosShell({
             icon={<LineChart size={16} />}
           />
         </nav>
-        <form action={signOutAction}>
+        <form action={signOutAction} className="shrink-0">
           <button className="text-xs font-bold text-[#777] hover:text-[#a33d20]">
             Salir
           </button>
@@ -92,7 +94,8 @@ function Nav({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 ${active ? "bg-[#235b45] text-white" : "text-[#62675f] hover:bg-[#eeeFe6]"}`}
+      aria-label={label}
+      className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 ${active ? "bg-[#235b45] text-white" : "text-[#62675f] hover:bg-[#eeeFe6]"}`}
     >
       {icon}
       <span className="hidden xl:inline">{label}</span>

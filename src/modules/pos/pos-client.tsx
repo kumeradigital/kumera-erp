@@ -61,6 +61,7 @@ export function PosClient({
   const [weighing, setWeighing] = useState<Product | null>(null);
   const [managingAvailability, setManagingAvailability] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const lines = products
     .filter((p) => cart[p.id])
@@ -94,7 +95,7 @@ export function PosClient({
     return <OpenSession latestSession={latestSession} products={products} />;
   return (
     <main className="grid min-h-[calc(100vh-64px)] lg:grid-cols-[1fr_390px]">
-      <section className="p-4 md:p-6">
+      <section className="p-3 pb-28 sm:p-4 sm:pb-28 md:p-6 lg:pb-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#cbdcc6] bg-[#edf4e9] px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="grid size-9 place-items-center rounded-xl bg-[#235b45] text-white">
@@ -136,7 +137,7 @@ export function PosClient({
           )}
         </div>
         {products.length ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
             {products
               .filter((p) => category === "Todos" || p.category === category)
               .map((p) => {
@@ -153,18 +154,23 @@ export function PosClient({
                     key={p.id}
                     onClick={() => add(p.id)}
                     disabled={soldOut}
-                    className="card relative overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
+                    className="card relative min-h-[104px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55 sm:min-h-0"
                   >
-                    {remaining !== null && (
-                      <span
-                        className={`absolute right-2 top-2 z-10 rounded-full px-2.5 py-1 text-[11px] font-black shadow-sm ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
-                      >
-                        {remaining === 0
-                          ? "Agotado"
-                          : `${remaining} disponibles`}
+                    {!!cart[p.id] && (
+                      <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
+                        {p.saleUnit === "kg"
+                          ? `${Math.round(cart[p.id] * 1000)}g`
+                          : cart[p.id]}
                       </span>
                     )}
-                    <div className="grid h-28 place-items-center bg-[#eaeae1]">
+                    {remaining !== null && (
+                      <span
+                        className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm sm:px-2.5 sm:text-[11px] ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
+                      >
+                        {remaining === 0 ? "Agotado" : `${remaining} disp.`}
+                      </span>
+                    )}
+                    <div className="hidden h-28 place-items-center bg-[#eaeae1] sm:grid">
                       {p.imageUrl ? (
                         <img
                           src={p.imageUrl}
@@ -175,8 +181,8 @@ export function PosClient({
                         <ShoppingBag className="text-[#9da198]" />
                       )}
                     </div>
-                    <div className="p-3">
-                      <p className="min-h-10 text-sm font-black leading-5">
+                    <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
+                      <p className="text-sm font-black leading-5 sm:min-h-10">
                         {p.name}
                       </p>
                       <p className="money mt-2 text-base font-black text-[#235b45]">
@@ -199,7 +205,16 @@ export function PosClient({
           </div>
         )}
       </section>
-      <aside className="border-l border-[#dfdfd5] bg-[#fffef9] p-5">
+      {mobileCartOpen && (
+        <button
+          aria-label="Cerrar carro"
+          onClick={() => setMobileCartOpen(false)}
+          className="fixed inset-0 z-30 bg-black/45 lg:hidden"
+        />
+      )}
+      <aside
+        className={`border-l border-[#dfdfd5] bg-[#fffef9] p-5 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[88dvh] max-lg:overflow-y-auto max-lg:rounded-t-3xl max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-lg:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-lg:block" : "max-lg:hidden"}`}
+      >
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
@@ -207,14 +222,23 @@ export function PosClient({
             </p>
             <h2 className="mt-1 text-xl font-black">Carro</h2>
           </div>
-          {lines.length > 0 && (
+          <div className="flex items-center gap-3">
+            {lines.length > 0 && (
+              <button
+                onClick={() => setCart({})}
+                className="text-xs font-bold text-[#a24628]"
+              >
+                Limpiar
+              </button>
+            )}
             <button
-              onClick={() => setCart({})}
-              className="text-xs font-bold text-[#a24628]"
+              onClick={() => setMobileCartOpen(false)}
+              className="grid size-9 place-items-center rounded-full bg-[#f0f0e8] lg:hidden"
+              aria-label="Cerrar carro"
             >
-              Limpiar
+              <X size={18} />
             </button>
-          )}
+          </div>
         </div>
         <div className="mt-5 space-y-3">
           {lines.map((l) => (
@@ -313,6 +337,20 @@ export function PosClient({
           </button>
         </div>
       </aside>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#d8d8cf] bg-[#fffef9]/95 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-lg lg:hidden">
+        <button
+          onClick={() => setMobileCartOpen(true)}
+          className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#235b45] px-5 text-white shadow-lg"
+        >
+          <span className="flex items-center gap-2 text-sm font-black">
+            <ShoppingBag size={18} />
+            {lines.length
+              ? `${lines.length} ${lines.length === 1 ? "producto" : "productos"}`
+              : "Abrir carro y gestión"}
+          </span>
+          <span className="money text-lg font-black">{formatClp(total)}</span>
+        </button>
+      </div>
       {paying && (
         <PaymentDialog
           total={total}
@@ -1142,8 +1180,8 @@ function PaymentDialog({
   const received = Number(cash) || 0;
   const fee = calculateCardFee(total, method, cardFeeSettings);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
-      <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+    <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto overscroll-contain bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[100dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-h-[calc(100dvh-2rem)] md:max-w-lg md:rounded-3xl">
         <div className="flex justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
