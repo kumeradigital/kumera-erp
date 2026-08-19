@@ -14,17 +14,23 @@ import {
 } from "./actions";
 import type { Product } from "./types";
 export function ProductsClient({ products }: { products: Product[] }) {
+  const [section, setSection] = useState<"products" | "families">("products");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
   const [search, setSearch] = useState("");
   const [view, setView] = useCollectionView("products");
+  const sectionProducts = products.filter((product) =>
+    section === "families" ? product.isSalesFamily : !product.isSalesFamily,
+  );
+  const isFamilyForm =
+    editing?.isSalesFamily || (!editing && section === "families");
   const categories = [
     "Todos",
-    ...new Set(products.map((product) => product.category)),
+    ...new Set(sectionProducts.map((product) => product.category)),
   ];
-  const visibleProducts = products.filter(
+  const visibleProducts = sectionProducts.filter(
     (product) =>
       (category === "Todos" || product.category === category) &&
       `${product.name} ${product.description || ""}`
@@ -43,7 +49,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
   }
   return (
     <main className="mx-auto max-w-6xl p-5 md:p-8">
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6e746c]">
             Catálogo
@@ -52,7 +58,9 @@ export function ProductsClient({ products }: { products: Product[] }) {
             Productos de venta
           </h1>
           <p className="mt-2 text-sm text-[#747970]">
-            Lo que aparecerá en la pantalla de caja.
+            {section === "products"
+              ? "Crea primero cada producto o variedad con su receta y costo."
+              : "Agrupa productos existentes bajo un único producto de venta en caja."}
           </p>
         </div>
         <button
@@ -63,16 +71,41 @@ export function ProductsClient({ products }: { products: Product[] }) {
           className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
         >
           <Plus size={17} />
-          Producto
+          {section === "products" ? "Producto" : "Familia"}
         </button>
       </div>
-      {products.length > 0 && (
+      <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#ecece3] p-1.5">
+        {(
+          [
+            ["products", "Productos individuales"],
+            ["families", "Familias de productos"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => {
+              setSection(value);
+              setCategory("Todos");
+              setSearch("");
+            }}
+            className={`rounded-xl px-3 py-3 text-xs font-black sm:text-sm ${section === value ? "bg-[#235b45] text-white shadow-sm" : "text-[#656b63]"}`}
+          >
+            {label}{" "}
+            <span className="opacity-70">
+              {value === "products"
+                ? products.filter((p) => !p.isSalesFamily).length
+                : products.filter((p) => p.isSalesFamily).length}
+            </span>
+          </button>
+        ))}
+      </div>
+      {sectionProducts.length > 0 && (
         <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
           {categories.map((item) => {
             const count =
               item === "Todos"
-                ? products.length
-                : products.filter((product) => product.category === item)
+                ? sectionProducts.length
+                : sectionProducts.filter((product) => product.category === item)
                     .length;
             return (
               <button
@@ -86,7 +119,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
           })}
         </div>
       )}
-      {products.length > 0 && (
+      {sectionProducts.length > 0 && (
         <CollectionToolbar
           view={view}
           onViewChange={setView}
@@ -95,7 +128,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
           placeholder="Buscar producto..."
         />
       )}
-      {products.length ? (
+      {sectionProducts.length ? (
         visibleProducts.length ? (
           <div
             className={
@@ -141,10 +174,10 @@ export function ProductsClient({ products }: { products: Product[] }) {
                           : "Sin control"}
                       </td>
                       <td className="px-4 py-3">
-                        {product.familyProductId
-                          ? "Variedad interna"
-                          : product.isSalesFamily
-                            ? "Familia de caja"
+                        {section === "families"
+                          ? `${products.filter((item) => item.familyProductId === product.id).length} variedades`
+                          : product.familyProductId
+                            ? "Variedad interna"
                             : product.active
                               ? "Activo"
                               : "Oculto"}
@@ -204,9 +237,22 @@ export function ProductsClient({ products }: { products: Product[] }) {
                       </p>
                     )}
                     {p.isSalesFamily && (
-                      <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
-                        Familia comercial para caja
-                      </p>
+                      <div className="mt-3 rounded-xl bg-[#edf4e9] p-3 text-xs text-[#235b45]">
+                        <b className="block">
+                          {
+                            products.filter(
+                              (item) => item.familyProductId === p.id,
+                            ).length
+                          }{" "}
+                          variedades vinculadas
+                        </b>
+                        <span className="mt-1 block leading-5">
+                          {products
+                            .filter((item) => item.familyProductId === p.id)
+                            .map((item) => item.name)
+                            .join(", ") || "Aún sin variedades"}
+                        </span>
+                      </div>
                     )}
                     {p.familyProductId && (
                       <p className="mt-3 text-xs font-bold text-[#7a650e]">
@@ -226,7 +272,10 @@ export function ProductsClient({ products }: { products: Product[] }) {
           </div>
         ) : (
           <div className="card mt-5 p-10 text-center">
-            <p className="font-bold">No hay productos en {category}</p>
+            <p className="font-bold">
+              No hay {section === "products" ? "productos" : "familias"} en{" "}
+              {category}
+            </p>
             <button
               onClick={() => setCategory("Todos")}
               className="mt-2 text-sm font-bold text-[#235b45] underline"
@@ -237,9 +286,13 @@ export function ProductsClient({ products }: { products: Product[] }) {
         )
       ) : (
         <div className="card mt-7 p-12 text-center">
-          <p className="font-bold">Aún no hay productos</p>
+          <p className="font-bold">
+            Aún no hay {section === "products" ? "productos" : "familias"}
+          </p>
           <p className="mt-2 text-sm text-[#777]">
-            Crea el primero para comenzar a vender.
+            {section === "products"
+              ? "Crea el primero antes de formar familias."
+              : "Crea una familia y selecciona los productos que la componen."}
           </p>
         </div>
       )}
@@ -252,7 +305,13 @@ export function ProductsClient({ products }: { products: Product[] }) {
                   {editing ? "Editar" : "Nuevo"}
                 </p>
                 <h2 className="mt-1 text-2xl font-black">
-                  {editing ? "Editar producto" : "Agregar producto"}
+                  {editing
+                    ? isFamilyForm
+                      ? "Editar familia"
+                      : "Editar producto"
+                    : isFamilyForm
+                      ? "Agregar familia"
+                      : "Agregar producto"}
                 </h2>
               </div>
               <button onClick={() => setOpen(false)}>
@@ -261,6 +320,9 @@ export function ProductsClient({ products }: { products: Product[] }) {
             </div>
             <form action={submit} className="mt-6 space-y-4">
               {editing && <input type="hidden" name="id" value={editing.id} />}
+              {isFamilyForm && (
+                <input type="hidden" name="isSalesFamily" value="on" />
+              )}
               <Field label="Nombre *">
                 <input
                   name="name"
@@ -315,71 +377,59 @@ export function ProductsClient({ products }: { products: Product[] }) {
                   className="input min-h-20 py-3"
                 />
               </Field>
-              <label className="flex items-start gap-3 rounded-xl border border-[#dfe4da] bg-[#f3f6ef] p-4 text-sm">
-                <input
-                  name="trackDailyAvailability"
-                  type="checkbox"
-                  defaultChecked={editing?.trackDailyAvailability}
-                  className="mt-0.5 size-4 accent-[#235b45]"
-                />
-                <span>
-                  <b className="block text-[#235b45]">
-                    Controlar disponibilidad diaria
-                  </b>
-                  <span className="mt-1 block text-xs font-normal leading-5 text-[#6f756d]">
-                    Para productos vendidos por unidad, como empanadas. La
-                    cantidad se solicitará al abrir caja y bajará con cada
-                    venta.
+              {!isFamilyForm && (
+                <label className="flex items-start gap-3 rounded-xl border border-[#dfe4da] bg-[#f3f6ef] p-4 text-sm">
+                  <input
+                    name="trackDailyAvailability"
+                    type="checkbox"
+                    defaultChecked={editing?.trackDailyAvailability}
+                    className="mt-0.5 size-4 accent-[#235b45]"
+                  />
+                  <span>
+                    <b className="block text-[#235b45]">
+                      Controlar disponibilidad diaria
+                    </b>
+                    <span className="mt-1 block text-xs font-normal leading-5 text-[#6f756d]">
+                      Para productos vendidos por unidad, como empanadas. La
+                      cantidad se solicitará al abrir caja y bajará con cada
+                      venta.
+                    </span>
                   </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-3 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] p-4 text-sm">
-                <input
-                  name="isSalesFamily"
-                  type="checkbox"
-                  defaultChecked={editing?.isSalesFamily}
-                  className="mt-0.5 size-4 accent-[#235b45]"
-                />
-                <span>
-                  <b className="block text-[#235b45]">
-                    Es una familia comercial
-                  </b>
-                  <span className="mt-1 block text-xs font-normal leading-5 text-[#6f756d]">
-                    Ejemplo: Pan. Será el único producto vendido en caja y sus
-                    variedades se usarán para registrar producción y costos.
-                  </span>
-                </span>
-              </label>
-              <fieldset className="rounded-xl border border-[#dfe4da] p-4">
-                <legend className="px-2 text-xs font-black text-[#235b45]">
-                  Variedades internas de esta familia
-                </legend>
-                <p className="mb-3 text-[11px] leading-5 text-[#777]">
-                  Marca hallulla, marraqueta, amasado u otros productos con
-                  receta propia. No aparecerán directamente en caja.
-                </p>
-                <div className="grid max-h-44 gap-2 overflow-y-auto sm:grid-cols-2">
-                  {products
-                    .filter((product) => product.id !== editing?.id)
-                    .map((product) => (
-                      <label
-                        key={product.id}
-                        className="flex items-center gap-2 rounded-lg bg-[#f5f5ee] p-2 text-xs font-bold"
-                      >
-                        <input
-                          type="checkbox"
-                          name="familyMembers"
-                          value={product.id}
-                          defaultChecked={
-                            product.familyProductId === editing?.id
-                          }
-                          className="accent-[#235b45]"
-                        />
-                        <span className="truncate">{product.name}</span>
-                      </label>
-                    ))}
-                </div>
-              </fieldset>
+                </label>
+              )}
+              {isFamilyForm && (
+                <fieldset className="rounded-xl border border-[#dfe4da] p-4">
+                  <legend className="px-2 text-xs font-black text-[#235b45]">
+                    Productos que pertenecen a esta familia
+                  </legend>
+                  <p className="mb-3 text-[11px] leading-5 text-[#777]">
+                    Selecciona productos individuales ya creados. Conservarán
+                    sus recetas y costos, pero se venderán en caja bajo esta
+                    familia.
+                  </p>
+                  <div className="grid max-h-44 gap-2 overflow-y-auto sm:grid-cols-2">
+                    {products
+                      .filter((product) => !product.isSalesFamily)
+                      .map((product) => (
+                        <label
+                          key={product.id}
+                          className="flex items-center gap-2 rounded-lg bg-[#f5f5ee] p-2 text-xs font-bold"
+                        >
+                          <input
+                            type="checkbox"
+                            name="familyMembers"
+                            value={product.id}
+                            defaultChecked={
+                              product.familyProductId === editing?.id
+                            }
+                            className="accent-[#235b45]"
+                          />
+                          <span className="truncate">{product.name}</span>
+                        </label>
+                      ))}
+                  </div>
+                </fieldset>
+              )}
               <Field label="Imagen opcional">
                 <input
                   name="image"
@@ -401,7 +451,9 @@ export function ProductsClient({ products }: { products: Product[] }) {
                   ? "Guardando..."
                   : editing
                     ? "Guardar cambios"
-                    : "Guardar producto"}
+                    : isFamilyForm
+                      ? "Guardar familia"
+                      : "Guardar producto"}
               </button>
             </form>
           </div>
