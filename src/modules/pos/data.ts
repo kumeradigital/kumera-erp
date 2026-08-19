@@ -5,6 +5,8 @@ import type {
   DailyAvailability,
   PaymentMethod,
   Product,
+  ProductionBatch,
+  ProductionFamily,
   SaleSummary,
   SalesSessionPeriod,
   SessionClosingSummary,
@@ -36,13 +38,14 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
   let query = supabase
     .from("products")
     .select(
-      "id,name,description,price,sale_unit,image_path,active,track_daily_availability,product_categories(name)",
+      "id,name,description,price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,product_categories(name)",
     )
     .eq("business_id", businessId)
     .is("deleted_at", null)
     .order("position")
     .order("name");
-  if (!includeInactive) query = query.eq("active", true);
+  if (!includeInactive)
+    query = query.eq("active", true).is("family_product_id", null);
   const { data, error } = await query;
   if (error) throw error;
   return Promise.all(
@@ -67,9 +70,52 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
         imageUrl,
         active: row.active,
         trackDailyAvailability: row.track_daily_availability,
+        isSalesFamily: row.is_sales_family,
+        familyProductId: row.family_product_id || undefined,
       };
     }),
   );
+}
+
+export async function getProductionFamilies(): Promise<ProductionFamily[]> {
+  const products = await getProducts(true);
+  return products
+    .filter((product) => product.isSalesFamily && product.active)
+    .map((product) => ({
+      product,
+      members: products.filter(
+        (candidate) => candidate.familyProductId === product.id,
+      ),
+    }))
+    .filter((family) => family.members.length > 0);
+}
+
+export async function getProductionBatches(
+  sessionId: string,
+): Promise<ProductionBatch[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cash_session_production_batches")
+    .select(
+      "id,family_product_id,component_product_id,quantity,unit_cost,note,created_at,products!cash_session_production_batches_component_product_id_fkey(name)",
+    )
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row) => {
+    const component = oneRelation(row.products);
+    return {
+      id: row.id,
+      familyProductId: row.family_product_id,
+      componentProductId: row.component_product_id,
+      componentName: component?.name || "Producto",
+      quantity: Number(row.quantity),
+      unitCost: Number(row.unit_cost),
+      note: row.note || undefined,
+      createdAt: row.created_at,
+    };
+  });
 }
 
 export async function getDailyAvailability(
@@ -215,7 +261,7 @@ export async function getSessionClosingSummary(
   const { data, error } = await supabase
     .from("sales")
     .select(
-      "total,payment_method,sale_items(product_name,quantity,sale_unit,line_total)",
+      "total,payment_method,sale_items(product_id,product_name,quantity,sale_unit,line_total)",
     )
     .eq("business_id", businessId)
     .eq("cash_session_id", sessionId)
@@ -242,6 +288,7 @@ export async function getSessionClosingSummary(
     for (const item of sale.sale_items || []) {
       const current = products.get(item.product_name);
       products.set(item.product_name, {
+        productId: item.product_id || undefined,
         name: item.product_name,
         quantity: (current?.quantity || 0) + Number(item.quantity),
         saleUnit: item.sale_unit,

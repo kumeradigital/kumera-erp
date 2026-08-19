@@ -20,6 +20,7 @@ import {
   closeCashSessionAction,
   adjustAvailabilityAction,
   openCashSessionAction,
+  registerProductionBatchAction,
   registerCashWithdrawalAction,
   reconcileCashSessionAction,
   registerSaleAction,
@@ -32,6 +33,8 @@ import {
   type DailyAvailability,
   type PaymentMethod,
   type Product,
+  type ProductionBatch,
+  type ProductionFamily,
   type SessionClosingSummary,
 } from "./types";
 type Cart = Record<string, number>;
@@ -47,6 +50,8 @@ export function PosClient({
   session,
   cashSales,
   withdrawals,
+  productionFamilies,
+  productionBatches,
   latestSession,
   availability,
   cardFeeSettings,
@@ -56,6 +61,8 @@ export function PosClient({
   session: CashSession | null;
   cashSales: number;
   withdrawals: CashWithdrawal[];
+  productionFamilies: ProductionFamily[];
+  productionBatches: ProductionBatch[];
   latestSession: CashSession | null;
   availability: DailyAvailability[];
   cardFeeSettings: CardFeeSettings;
@@ -73,6 +80,7 @@ export function PosClient({
   const [selectingGroup, setSelectingGroup] = useState<ProductTile | null>(
     null,
   );
+  const [recordingProduction, setRecordingProduction] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const visibleProducts = products.filter(
     (product) => category === "Todos" || product.category === category,
@@ -141,15 +149,26 @@ export function PosClient({
               </button>
             ))}
           </div>
-          {availability.length > 0 && (
-            <button
-              onClick={() => setManagingAvailability(true)}
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-3 py-2 text-xs font-black text-[#235b45]"
-            >
-              <ClipboardList size={16} />
-              <span className="hidden sm:inline">Disponibilidad</span>
-            </button>
-          )}
+          <div className="flex shrink-0 gap-2">
+            {productionFamilies.length > 0 && (
+              <button
+                onClick={() => setRecordingProduction(true)}
+                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-[#235b45] px-3 py-2 text-xs font-black text-white"
+              >
+                <Layers3 size={16} />
+                <span className="hidden sm:inline">Producción</span>
+              </button>
+            )}
+            {availability.length > 0 && (
+              <button
+                onClick={() => setManagingAvailability(true)}
+                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-3 py-2 text-xs font-black text-[#235b45]"
+              >
+                <ClipboardList size={16} />
+                <span className="hidden sm:inline">Disponibilidad</span>
+              </button>
+            )}
+          </div>
         </div>
         {products.length ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
@@ -456,6 +475,8 @@ export function PosClient({
           availability={availability}
           products={products}
           summary={closingSummary!}
+          productionFamilies={productionFamilies}
+          productionBatches={productionBatches}
         />
       )}
       {managingAvailability && (
@@ -480,6 +501,14 @@ export function PosClient({
             setSelectingGroup(null);
             add(product.id);
           }}
+        />
+      )}
+      {recordingProduction && (
+        <ProductionDialog
+          sessionId={session.id}
+          families={productionFamilies}
+          batches={productionBatches}
+          onClose={() => setRecordingProduction(false)}
         />
       )}
     </main>
@@ -573,6 +602,185 @@ function ProductGroupDialog({
             <b>¿La bolsa lleva panes mezclados?</b> Registra y pesa cada
             variedad por separado. Así el sistema no inventará un costo promedio
             y los márgenes seguirán siendo confiables.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductionDialog({
+  sessionId,
+  families,
+  batches,
+  onClose,
+}: {
+  sessionId: string;
+  families: ProductionFamily[];
+  batches: ProductionBatch[];
+  onClose: () => void;
+}) {
+  const [familyId, setFamilyId] = useState(families[0]?.product.id || "");
+  const family = families.find((item) => item.product.id === familyId);
+  const [componentId, setComponentId] = useState(
+    families[0]?.members[0]?.id || "",
+  );
+  const [quantity, setQuantity] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const familyBatches = batches.filter(
+    (batch) => batch.familyProductId === familyId,
+  );
+  const produced = familyBatches.reduce(
+    (sum, batch) => sum + batch.quantity,
+    0,
+  );
+  const productionCost = familyBatches.reduce(
+    (sum, batch) => sum + batch.quantity * batch.unitCost,
+    0,
+  );
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              Caja activa
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Registrar producción</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid size-10 place-items-center rounded-full bg-[#f0f0e8]"
+            aria-label="Cerrar"
+          >
+            <X size={19} />
+          </button>
+        </div>
+        <form
+          className="mt-5 space-y-4"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            try {
+              await registerProductionBatchAction(
+                sessionId,
+                familyId,
+                componentId,
+                Number(quantity),
+                note,
+              );
+              location.reload();
+            } catch (error) {
+              alert(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo registrar la producción",
+              );
+              setBusy(false);
+            }
+          }}
+        >
+          {families.length > 1 && (
+            <label className="block text-xs font-bold">
+              Familia comercial
+              <select
+                value={familyId}
+                onChange={(event) => {
+                  const next = families.find(
+                    (item) => item.product.id === event.target.value,
+                  );
+                  setFamilyId(event.target.value);
+                  setComponentId(next?.members[0]?.id || "");
+                }}
+                className="input mt-2"
+              >
+                {families.map((item) => (
+                  <option key={item.product.id} value={item.product.id}>
+                    {item.product.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="block text-xs font-bold">
+            Variedad producida
+            <select
+              required
+              value={componentId}
+              onChange={(event) => setComponentId(event.target.value)}
+              className="input mt-2"
+            >
+              {family?.members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs font-bold">
+            Peso total producido (kg)
+            <input
+              autoFocus
+              required
+              type="number"
+              min="0.001"
+              step="0.001"
+              inputMode="decimal"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              className="input mt-2 text-xl font-black"
+              placeholder="Ej. 12,5"
+            />
+          </label>
+          <label className="block text-xs font-bold">
+            Nota opcional
+            <input
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              className="input mt-2"
+              placeholder="Ej. Segunda hornada"
+            />
+          </label>
+          <button
+            disabled={busy || !componentId || Number(quantity) <= 0}
+            className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-40"
+          >
+            {busy ? "Registrando…" : "Registrar hornada"}
+          </button>
+        </form>
+        <div className="mt-5 rounded-xl bg-[#f0f2e9] p-4">
+          <div className="flex justify-between text-xs">
+            <span>Producción acumulada</span>
+            <b>
+              {produced.toLocaleString("es-CL", { maximumFractionDigits: 3 })}{" "}
+              kg
+            </b>
+          </div>
+          <div className="mt-2 flex justify-between text-xs">
+            <span>Costo productivo registrado</span>
+            <b>{formatClp(Math.round(productionCost))}</b>
+          </div>
+        </div>
+        {familyBatches.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {familyBatches.slice(0, 8).map((batch) => (
+              <div
+                key={batch.id}
+                className="flex justify-between rounded-lg border border-[#e3e3da] p-3 text-xs"
+              >
+                <span>
+                  <b>{batch.componentName}</b>
+                  <br />
+                  {new Date(batch.createdAt).toLocaleTimeString("es-CL", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: "America/Santiago",
+                  })}
+                </span>
+                <b>{batch.quantity.toLocaleString("es-CL")} kg</b>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -886,6 +1094,8 @@ function CloseSessionDialog({
   availability,
   products,
   summary,
+  productionFamilies,
+  productionBatches,
 }: {
   session: CashSession;
   expectedCash: number;
@@ -893,6 +1103,8 @@ function CloseSessionDialog({
   availability: DailyAvailability[];
   products: Product[];
   summary: SessionClosingSummary;
+  productionFamilies: ProductionFamily[];
+  productionBatches: ProductionBatch[];
 }) {
   const [busy, setBusy] = useState(false);
   const [waste, setWaste] = useState<
@@ -904,6 +1116,13 @@ function CloseSessionDialog({
       note?: string;
     }[]
   >([]);
+  const productionMembers = productionFamilies.flatMap(
+    (family) => family.members,
+  );
+  const wasteProducts = [...products, ...productionMembers].filter(
+    (product, index, list) =>
+      list.findIndex((candidate) => candidate.id === product.id) === index,
+  );
   return (
     <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto overscroll-contain bg-black/50 md:place-items-center md:p-4">
       <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-h-[calc(100dvh-2rem)] md:max-w-md md:rounded-3xl">
@@ -967,6 +1186,66 @@ function CloseSessionDialog({
             ))}
           </div>
         </div>
+        {productionFamilies.map((family) => {
+          const familyBatches = productionBatches.filter(
+            (batch) => batch.familyProductId === family.product.id,
+          );
+          const produced = familyBatches.reduce(
+            (sum, batch) => sum + batch.quantity,
+            0,
+          );
+          const sold = summary.products
+            .filter((item) => item.productId === family.product.id)
+            .reduce((sum, item) => sum + item.quantity, 0);
+          const memberIds = new Set(family.members.map((member) => member.id));
+          const wasted = waste
+            .filter((item) => item.product_id && memberIds.has(item.product_id))
+            .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+          const difference = produced - sold - wasted;
+          const productionCost = familyBatches.reduce(
+            (sum, batch) => sum + batch.quantity * batch.unitCost,
+            0,
+          );
+          return (
+            <div
+              key={family.product.id}
+              className="mt-4 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] p-4"
+            >
+              <p className="text-xs font-black uppercase tracking-wider text-[#235b45]">
+                Conciliación de {family.product.name}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <span>Producido</span>
+                <b className="text-right">
+                  {produced.toLocaleString("es-CL")} kg
+                </b>
+                <span>Vendido</span>
+                <b className="text-right">{sold.toLocaleString("es-CL")} kg</b>
+                <span>Merma informada</span>
+                <b className="text-right">
+                  {wasted.toLocaleString("es-CL")} kg
+                </b>
+                <span>Diferencia pendiente</span>
+                <b
+                  className={`text-right ${Math.abs(difference) <= 0.01 ? "text-[#235b45]" : "text-[#a24628]"}`}
+                >
+                  {difference.toLocaleString("es-CL", {
+                    maximumFractionDigits: 3,
+                  })}{" "}
+                  kg
+                </b>
+                <span>Costo de producción</span>
+                <b className="money text-right">
+                  {formatClp(Math.round(productionCost))}
+                </b>
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-[#667067]">
+                Registra abajo todo el pan restante como merma por variedad para
+                conciliar la producción del día.
+              </p>
+            </div>
+          );
+        })}
         <form
           action={async (form) => {
             setBusy(true);
@@ -1091,7 +1370,7 @@ function CloseSessionDialog({
                   className="input"
                 >
                   <option value="">Producto / descripción</option>
-                  {products.map((product) => (
+                  {wasteProducts.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.name}
                     </option>

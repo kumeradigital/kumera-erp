@@ -81,6 +81,8 @@ export type CostProduct = {
   recipeId?: string;
   wastePercentage: number;
   targetMarginPercentage: number;
+  isSalesFamily: boolean;
+  familyProductId?: string;
 };
 
 export type ProductCostAnalysis = CostProduct & {

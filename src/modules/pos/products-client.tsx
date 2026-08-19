@@ -141,7 +141,13 @@ export function ProductsClient({ products }: { products: Product[] }) {
                           : "Sin control"}
                       </td>
                       <td className="px-4 py-3">
-                        {product.active ? "Activo" : "Oculto"}
+                        {product.familyProductId
+                          ? "Variedad interna"
+                          : product.isSalesFamily
+                            ? "Familia de caja"
+                            : product.active
+                              ? "Activo"
+                              : "Oculto"}
                       </td>
                       <td className="px-4 py-3">
                         <ProductActions
@@ -197,6 +203,16 @@ export function ProductsClient({ products }: { products: Product[] }) {
                         <PackageCheck size={14} /> Disponibilidad diaria activa
                       </p>
                     )}
+                    {p.isSalesFamily && (
+                      <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#235b45]">
+                        Familia comercial para caja
+                      </p>
+                    )}
+                    {p.familyProductId && (
+                      <p className="mt-3 text-xs font-bold text-[#7a650e]">
+                        Variedad interna de una familia
+                      </p>
+                    )}
                     <ProductActions
                       product={p}
                       onEdit={() => {
@@ -229,7 +245,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
       )}
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 md:place-items-center">
-          <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+          <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
             <div className="flex justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
@@ -317,6 +333,53 @@ export function ProductsClient({ products }: { products: Product[] }) {
                   </span>
                 </span>
               </label>
+              <label className="flex items-start gap-3 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] p-4 text-sm">
+                <input
+                  name="isSalesFamily"
+                  type="checkbox"
+                  defaultChecked={editing?.isSalesFamily}
+                  className="mt-0.5 size-4 accent-[#235b45]"
+                />
+                <span>
+                  <b className="block text-[#235b45]">
+                    Es una familia comercial
+                  </b>
+                  <span className="mt-1 block text-xs font-normal leading-5 text-[#6f756d]">
+                    Ejemplo: Pan. Será el único producto vendido en caja y sus
+                    variedades se usarán para registrar producción y costos.
+                  </span>
+                </span>
+              </label>
+              <fieldset className="rounded-xl border border-[#dfe4da] p-4">
+                <legend className="px-2 text-xs font-black text-[#235b45]">
+                  Variedades internas de esta familia
+                </legend>
+                <p className="mb-3 text-[11px] leading-5 text-[#777]">
+                  Marca hallulla, marraqueta, amasado u otros productos con
+                  receta propia. No aparecerán directamente en caja.
+                </p>
+                <div className="grid max-h-44 gap-2 overflow-y-auto sm:grid-cols-2">
+                  {products
+                    .filter((product) => product.id !== editing?.id)
+                    .map((product) => (
+                      <label
+                        key={product.id}
+                        className="flex items-center gap-2 rounded-lg bg-[#f5f5ee] p-2 text-xs font-bold"
+                      >
+                        <input
+                          type="checkbox"
+                          name="familyMembers"
+                          value={product.id}
+                          defaultChecked={
+                            product.familyProductId === editing?.id
+                          }
+                          className="accent-[#235b45]"
+                        />
+                        <span className="truncate">{product.name}</span>
+                      </label>
+                    ))}
+                </div>
+              </fieldset>
               <Field label="Imagen opcional">
                 <input
                   name="image"

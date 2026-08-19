@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
+import { getCostingData } from "@/modules/costs/data";
 import type {
   AvailabilityMovementType,
   PaymentMethod,
@@ -33,6 +34,11 @@ export async function saveProductAction(form: FormData) {
   const saleUnit = String(form.get("saleUnit") || "unit") as SaleUnit;
   const trackDailyAvailability =
     saleUnit === "unit" && form.get("trackDailyAvailability") === "on";
+  const isSalesFamily = form.get("isSalesFamily") === "on";
+  const familyMembers = form
+    .getAll("familyMembers")
+    .map(String)
+    .filter(Boolean);
   if (!name || name.length > 100 || !Number.isInteger(price) || price <= 0)
     throw new Error("Producto inválido");
   if (!(["unit", "kg"] as SaleUnit[]).includes(saleUnit))
@@ -76,6 +82,7 @@ export async function saveProductAction(form: FormData) {
     price,
     sale_unit: saleUnit,
     track_daily_availability: trackDailyAvailability,
+    is_sales_family: isSalesFamily,
     image_path: imagePath,
     updated_at: new Date().toISOString(),
   };
@@ -85,8 +92,26 @@ export async function saveProductAction(form: FormData) {
         .update({ ...values, ...(!imagePath ? { image_path: undefined } : {}) })
         .eq("id", id)
         .eq("business_id", ctx.businessId)
-    : await ctx.supabase.from("products").insert(values);
+        .select("id")
+        .single()
+    : await ctx.supabase.from("products").insert(values).select("id").single();
   if (result.error) throw result.error;
+  const productId = result.data.id;
+  const clear = await ctx.supabase
+    .from("products")
+    .update({ family_product_id: null })
+    .eq("business_id", ctx.businessId)
+    .eq("family_product_id", productId);
+  if (clear.error) throw clear.error;
+  if (isSalesFamily && familyMembers.length) {
+    const memberUpdate = await ctx.supabase
+      .from("products")
+      .update({ family_product_id: productId, is_sales_family: false })
+      .eq("business_id", ctx.businessId)
+      .neq("id", productId)
+      .in("id", familyMembers);
+    if (memberUpdate.error) throw memberUpdate.error;
+  }
   revalidatePath("/productos");
   revalidatePath("/caja");
   return { ok: true };
@@ -193,6 +218,55 @@ export async function registerCashWithdrawalAction(
   if (error) throw error;
   revalidatePath("/caja");
   revalidatePath("/cierres");
+}
+export async function registerProductionBatchAction(
+  sessionId: string,
+  familyProductId: string,
+  componentProductId: string,
+  quantity: number,
+  note = "",
+) {
+  const ctx = await context();
+  const normalizedQuantity = Number(quantity.toFixed(3));
+  if (
+    !sessionId ||
+    !familyProductId ||
+    !componentProductId ||
+    !Number.isFinite(normalizedQuantity) ||
+    normalizedQuantity <= 0
+  )
+    throw new Error("Producción inválida");
+  const { data: component, error: componentError } = await ctx.supabase
+    .from("products")
+    .select("id,family_product_id,sale_unit")
+    .eq("id", componentProductId)
+    .eq("business_id", ctx.businessId)
+    .eq("family_product_id", familyProductId)
+    .single();
+  if (componentError || !component)
+    throw new Error("La variedad no pertenece a esta familia");
+  const costing = await getCostingData();
+  const analysis = costing.analyses.find(
+    (item) => item.id === componentProductId,
+  );
+  if (!analysis?.complete)
+    throw new Error("Completa la receta y costos de esta variedad primero");
+  const unitCost = analysis.physicalCost + analysis.wasteCost;
+  const { error } = await ctx.supabase
+    .from("cash_session_production_batches")
+    .insert({
+      business_id: ctx.businessId,
+      cash_session_id: sessionId,
+      family_product_id: familyProductId,
+      component_product_id: componentProductId,
+      quantity: normalizedQuantity,
+      unit_cost: unitCost,
+      note: note.trim() || null,
+      created_by: ctx.user.id,
+    });
+  if (error) throw error;
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
 }
 export async function closeCashSessionAction(
   sessionId: string,

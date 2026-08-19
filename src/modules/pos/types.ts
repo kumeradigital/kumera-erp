@@ -10,7 +10,23 @@ export type Product = {
   imageUrl?: string;
   active: boolean;
   trackDailyAvailability: boolean;
+  isSalesFamily: boolean;
+  familyProductId?: string;
   availability?: DailyAvailability;
+};
+export type ProductionFamily = {
+  product: Product;
+  members: Product[];
+};
+export type ProductionBatch = {
+  id: string;
+  familyProductId: string;
+  componentProductId: string;
+  componentName: string;
+  quantity: number;
+  unitCost: number;
+  note?: string;
+  createdAt: string;
 };
 export type AvailabilityMovementType =
   "production" | "waste" | "consumption" | "correction";
@@ -75,6 +91,7 @@ export type SessionClosingSummary = {
   byPayment: Record<PaymentMethod, number>;
   transactionsByPayment: Record<PaymentMethod, number>;
   products: {
+    productId?: string;
     name: string;
     quantity: number;
     saleUnit: SaleUnit;

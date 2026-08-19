@@ -3,6 +3,7 @@ import {
   analyzeProducts,
   calculateRecipeCosts,
   monthlyFixedCost,
+  weightedCommissionPercentage,
 } from "./calculations";
 import type {
   CostProduct,
@@ -42,6 +43,7 @@ export async function getCostingData() {
     fixedResult,
     scenarioResult,
     scenarioItemResult,
+    productionResult,
   ] = await Promise.all([
     supabase
       .from("ingredients")
@@ -73,7 +75,7 @@ export async function getCostingData() {
     supabase
       .from("products")
       .select(
-        "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage",
+        "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id",
       )
       .eq("business_id", businessId)
       .is("deleted_at", null)
@@ -97,6 +99,10 @@ export async function getCostingData() {
       .from("sales_scenario_items")
       .select("scenario_id,product_id,quantity_per_day")
       .eq("business_id", businessId),
+    supabase
+      .from("cash_session_production_batches")
+      .select("family_product_id,component_product_id,quantity")
+      .eq("business_id", businessId),
   ]);
 
   for (const result of [
@@ -109,6 +115,7 @@ export async function getCostingData() {
     fixedResult,
     scenarioResult,
     scenarioItemResult,
+    productionResult,
   ]) {
     if (result.error) throw result.error;
   }
@@ -178,6 +185,8 @@ export async function getCostingData() {
     recipeId: row.cost_recipe_id || undefined,
     wastePercentage: Number(row.waste_percentage),
     targetMarginPercentage: Number(row.target_margin_percentage),
+    isSalesFamily: row.is_sales_family,
+    familyProductId: row.family_product_id || undefined,
   }));
 
   const rawSettings = settingsResult.data!;
@@ -226,7 +235,69 @@ export async function getCostingData() {
   }));
 
   const recipeCosts = calculateRecipeCosts(ingredients, recipes);
-  const analyses = analyzeProducts(products, recipes, recipeCosts, settings);
+  const baseAnalyses = analyzeProducts(
+    products,
+    recipes,
+    recipeCosts,
+    settings,
+  );
+  const analysisMap = new Map(baseAnalyses.map((item) => [item.id, item]));
+  const productionMix = new Map<string, Map<string, number>>();
+  for (const row of productionResult.data || []) {
+    const family = productionMix.get(row.family_product_id) || new Map();
+    family.set(
+      row.component_product_id,
+      (family.get(row.component_product_id) || 0) + Number(row.quantity),
+    );
+    productionMix.set(row.family_product_id, family);
+  }
+  const feePercentage = weightedCommissionPercentage(settings);
+  const analyses = baseAnalyses.map((analysis) => {
+    if (!analysis.isSalesFamily) return analysis;
+    const mix = productionMix.get(analysis.id);
+    const members = products.filter(
+      (product) => product.familyProductId === analysis.id,
+    );
+    const totalWeight = mix
+      ? [...mix.values()].reduce((sum, value) => sum + value, 0)
+      : 0;
+    const missing = members
+      .map((member) => analysisMap.get(member.id))
+      .filter((member) => !member?.complete)
+      .map((member) => `${member?.name || "Variedad"} sin costo completo`);
+    if (!members.length) missing.push("Familia sin variedades vinculadas");
+    if (!totalWeight) missing.push("Registra una mezcla de producción real");
+    const weighted = (field: "physicalCost" | "wasteCost") =>
+      totalWeight
+        ? [...(mix || [])].reduce(
+            (sum, [productId, quantity]) =>
+              sum + (analysisMap.get(productId)?.[field] || 0) * quantity,
+            0,
+          ) / totalWeight
+        : 0;
+    const physicalCost = weighted("physicalCost");
+    const wasteCost = weighted("wasteCost");
+    const commissionCost = analysis.price * (feePercentage / 100);
+    const variableCost = physicalCost + wasteCost + commissionCost;
+    const netRevenue = analysis.price / (1 + settings.vatRate / 100);
+    const contribution = netRevenue - variableCost;
+    const contributionPercentage = netRevenue
+      ? (contribution / netRevenue) * 100
+      : 0;
+    return {
+      ...analysis,
+      recipeName: "Promedio ponderado de producción",
+      physicalCost,
+      wasteCost,
+      commissionCost,
+      variableCost,
+      netRevenue,
+      contribution,
+      contributionPercentage,
+      complete: missing.length === 0,
+      missing,
+    };
+  });
   return {
     ingredients,
     recipes,
