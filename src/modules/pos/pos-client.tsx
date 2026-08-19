@@ -434,12 +434,17 @@ export function PosClient({
           onPay={async (method, cash) => {
             setBusy(true);
             try {
-              await registerSaleAction(
+              const result = await registerSaleAction(
                 session.id,
                 method,
                 cash,
                 lines.map((l) => ({ product_id: l.id, quantity: l.quantity })),
               );
+              if (!result.ok) {
+                alert(result.error);
+                setBusy(false);
+                return;
+              }
               setCart({});
               setPaying(false);
               alert("Venta registrada");

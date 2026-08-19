@@ -377,21 +377,71 @@ export async function registerSaleAction(
   items: { product_id: string; quantity: number }[],
 ) {
   const ctx = await context();
+  const normalizedItems = items.map((item) => ({
+    product_id: item.product_id,
+    quantity: Number(Number(item.quantity).toFixed(3)),
+  }));
   const normalizedCash =
     cashReceived == null ? null : Math.round(Number(cashReceived));
   if (
     normalizedCash != null &&
     (!Number.isFinite(normalizedCash) || normalizedCash < 0)
   )
-    throw new Error("Efectivo recibido inválido");
+    return { ok: false as const, error: "Efectivo recibido inválido" };
+  if (
+    !normalizedItems.length ||
+    normalizedItems.some(
+      (item) =>
+        !item.product_id ||
+        !Number.isFinite(item.quantity) ||
+        item.quantity <= 0,
+    )
+  )
+    return {
+      ok: false as const,
+      error: "La venta no contiene productos válidos",
+    };
+
+  const productIds = [
+    ...new Set(normalizedItems.map((item) => item.product_id)),
+  ];
+  const { data: currentProducts, error: productsError } = await ctx.supabase
+    .from("products")
+    .select("id,name,price,sale_unit")
+    .eq("business_id", ctx.businessId)
+    .eq("active", true)
+    .is("deleted_at", null)
+    .in("id", productIds);
+  if (productsError)
+    return {
+      ok: false as const,
+      error: "No se pudieron verificar los precios vigentes",
+    };
+  if ((currentProducts || []).length !== productIds.length)
+    return {
+      ok: false as const,
+      error: "Uno de los productos ya no está disponible. Actualiza la caja.",
+    };
+  const productMap = new Map(
+    (currentProducts || []).map((product) => [product.id, product]),
+  );
+  const currentTotal = normalizedItems.reduce((sum, item) => {
+    const product = productMap.get(item.product_id)!;
+    return sum + Math.round(Number(product.price) * item.quantity);
+  }, 0);
+  if (payment === "cash" && (normalizedCash ?? 0) < currentTotal)
+    return {
+      ok: false as const,
+      error: `El total vigente es $${currentTotal.toLocaleString("es-CL")}. Ingresa al menos ese monto en efectivo o actualiza la caja.`,
+    };
   const { data, error } = await ctx.supabase.rpc("register_sale", {
     p_session: sessionId,
     p_payment: payment,
     p_cash_received: normalizedCash,
-    p_items: items,
+    p_items: normalizedItems,
   });
-  if (error) throw error;
+  if (error) return { ok: false as const, error: error.message };
   revalidatePath("/caja");
   revalidatePath("/ventas");
-  return { id: data as string };
+  return { ok: true as const, id: data as string };
 }
