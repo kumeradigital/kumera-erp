@@ -17,4 +17,10 @@ describe("totales de caja en pesos enteros", () => {
       ]),
     ).toBe(5030);
   });
+
+  it("redondea medio peso igual que PostgreSQL usando gramos enteros", () => {
+    expect(2850 * 0.29).toBeLessThan(826.5);
+    expect(calculateLineTotal({ price: 2850, quantity: 0.29 })).toBe(827);
+    expect(calculateCartTotal([{ price: 2850, quantity: 0.29 }])).toBe(827);
+  });
 });

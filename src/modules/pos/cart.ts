@@ -4,7 +4,8 @@ export type PricedQuantity = {
 };
 
 export function calculateLineTotal(item: PricedQuantity) {
-  return Math.round(item.price * item.quantity);
+  const quantityInThousandths = Math.round(item.quantity * 1000);
+  return Math.round((item.price * quantityInThousandths) / 1000);
 }
 
 export function calculateCartTotal(items: PricedQuantity[]) {

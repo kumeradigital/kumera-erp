@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
 import { getCostingData } from "@/modules/costs/data";
+import { calculateLineTotal } from "./cart";
 import type {
   AvailabilityMovementType,
   PaymentMethod,
@@ -427,7 +428,13 @@ export async function registerSaleAction(
   );
   const currentTotal = normalizedItems.reduce((sum, item) => {
     const product = productMap.get(item.product_id)!;
-    return sum + Math.round(Number(product.price) * item.quantity);
+    return (
+      sum +
+      calculateLineTotal({
+        price: Number(product.price),
+        quantity: item.quantity,
+      })
+    );
   }, 0);
   if (payment === "cash" && (normalizedCash ?? 0) < currentTotal)
     return {
