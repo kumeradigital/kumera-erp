@@ -706,16 +706,20 @@ function CloseSessionDialog({
     }[]
   >([]);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
-      <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl">
-        <div className="flex justify-between">
+    <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto overscroll-contain bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-h-[calc(100dvh-2rem)] md:max-w-md md:rounded-3xl">
+        <div className="sticky -top-6 z-10 -mx-2 flex justify-between border-b border-[#ecebe4] bg-[#fffef9]/95 px-2 pb-4 pt-1 backdrop-blur-sm">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
               Fin de jornada
             </p>
             <h2 className="mt-1 text-2xl font-black">Cerrar caja</h2>
           </div>
-          <button onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-[#f0f0e8]"
+            aria-label="Cerrar ventana"
+          >
             <X />
           </button>
         </div>
@@ -725,7 +729,7 @@ function CloseSessionDialog({
             <b className="money">{formatClp(expectedCash)}</b>
           </div>
           <p className="mt-1 text-[11px] text-[#777]">
-            Efectivo inicial + ventas en efectivo
+            Efectivo inicial + ventas en efectivo − retiros de caja
           </p>
         </div>
         {availability.length > 0 && (
@@ -938,7 +942,7 @@ function CloseSessionDialog({
           </label>
           <button
             disabled={busy}
-            className="h-13 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-50"
+            className="sticky bottom-0 h-13 w-full rounded-xl bg-[#235b45] font-black text-white shadow-[0_-10px_20px_12px_#fffef9] disabled:opacity-50"
           >
             {busy ? "Cerrando..." : "Confirmar cierre"}
           </button>
