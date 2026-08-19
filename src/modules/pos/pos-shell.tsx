@@ -19,7 +19,16 @@ export function PosShell({
   return (
     <div className="min-h-screen bg-[#f7f6ee]">
       <header className="flex h-16 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
+        <Link
+          href="/caja"
+          className="flex shrink-0 items-center gap-2 md:hidden"
+        >
+          <span className="grid size-9 place-items-center rounded-xl bg-[#d8f070] font-black text-[#235b45]">
+            K
+          </span>
+          <span className="font-black text-[#235b45]">ERP KUMERA</span>
+        </Link>
+        <Link href="/" className="hidden shrink-0 items-center gap-2 md:flex">
           <span className="grid size-9 place-items-center rounded-xl bg-[#d8f070] font-black text-[#235b45]">
             K
           </span>
@@ -27,7 +36,7 @@ export function PosShell({
             ERP KUMERA
           </span>
         </Link>
-        <nav className="scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs font-bold md:justify-center">
+        <nav className="scrollbar hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs font-bold md:flex md:justify-center">
           <Nav
             href="/"
             label="Puesta en marcha"
@@ -70,9 +79,9 @@ export function PosShell({
             icon={<LineChart size={16} />}
           />
         </nav>
-        <form action={signOutAction} className="shrink-0">
-          <button className="text-xs font-bold text-[#777] hover:text-[#a33d20]">
-            Salir
+        <form action={signOutAction} className="ml-auto shrink-0 md:ml-0">
+          <button className="rounded-lg border border-[#d7d7ce] px-3 py-2 text-xs font-bold text-[#777] hover:text-[#a33d20] md:border-0 md:px-0">
+            Cerrar sesión
           </button>
         </form>
       </header>

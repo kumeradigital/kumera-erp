@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MobileCashierGuard } from "@/shared/ui/mobile-cashier-guard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <MobileCashierGuard>{children}</MobileCashierGuard>
+      </body>
     </html>
   );
 }
