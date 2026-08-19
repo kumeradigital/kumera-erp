@@ -438,16 +438,24 @@ function ProductActions({
         onClick={async () => {
           if (
             !confirm(
-              `¿Eliminar ${product.name}? Ya no aparecerá en el catálogo ni en caja.`,
+              `¿Archivar ${product.name}? Podrás recuperarlo creando nuevamente un producto con el mismo nombre.`,
             )
           )
             return;
-          await deleteProductAction(product.id);
-          location.reload();
+          try {
+            await deleteProductAction(product.id);
+            location.reload();
+          } catch (error) {
+            alert(
+              error instanceof Error
+                ? error.message
+                : "No se pudo archivar el producto",
+            );
+          }
         }}
         className="flex items-center gap-1 rounded-lg px-3 py-2 text-[#a24628] hover:bg-[#f7e8e2]"
       >
-        <Trash2 size={13} /> Eliminar
+        <Trash2 size={13} /> Archivar
       </button>
     </div>
   );

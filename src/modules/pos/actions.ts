@@ -86,15 +86,44 @@ export async function saveProductAction(form: FormData) {
     image_path: imagePath,
     updated_at: new Date().toISOString(),
   };
-  const result = id
-    ? await ctx.supabase
-        .from("products")
-        .update({ ...values, ...(!imagePath ? { image_path: undefined } : {}) })
-        .eq("id", id)
-        .eq("business_id", ctx.businessId)
-        .select("id")
-        .single()
-    : await ctx.supabase.from("products").insert(values).select("id").single();
+  let result;
+  if (id) {
+    result = await ctx.supabase
+      .from("products")
+      .update({ ...values, ...(!imagePath ? { image_path: undefined } : {}) })
+      .eq("id", id)
+      .eq("business_id", ctx.businessId)
+      .select("id")
+      .single();
+  } else {
+    const archived = await ctx.supabase
+      .from("products")
+      .select("id")
+      .eq("business_id", ctx.businessId)
+      .eq("name", name)
+      .not("deleted_at", "is", null)
+      .maybeSingle();
+    if (archived.error) throw archived.error;
+
+    result = archived.data
+      ? await ctx.supabase
+          .from("products")
+          .update({
+            ...values,
+            ...(!imagePath ? { image_path: undefined } : {}),
+            active: true,
+            deleted_at: null,
+          })
+          .eq("id", archived.data.id)
+          .eq("business_id", ctx.businessId)
+          .select("id")
+          .single()
+      : await ctx.supabase
+          .from("products")
+          .insert(values)
+          .select("id")
+          .single();
+  }
   if (result.error) throw result.error;
   const productId = result.data.id;
   const clear = await ctx.supabase
