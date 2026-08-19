@@ -278,9 +278,10 @@ export async function registerProductionBatchAction(
   const analysis = costing.analyses.find(
     (item) => item.id === componentProductId,
   );
-  if (!analysis?.complete)
-    throw new Error("Completa la receta y costos de esta variedad primero");
-  const unitCost = analysis.physicalCost + analysis.wasteCost;
+  const costingPending = !analysis?.complete;
+  const unitCost = analysis?.complete
+    ? analysis.physicalCost + analysis.wasteCost
+    : 0;
   const { error } = await ctx.supabase
     .from("cash_session_production_batches")
     .insert({
@@ -296,6 +297,7 @@ export async function registerProductionBatchAction(
   if (error) throw error;
   revalidatePath("/caja");
   revalidatePath("/ventas");
+  return { ok: true, costingPending };
 }
 export async function closeCashSessionAction(
   sessionId: string,

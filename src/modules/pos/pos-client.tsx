@@ -663,13 +663,18 @@ function ProductionDialog({
             event.preventDefault();
             setBusy(true);
             try {
-              await registerProductionBatchAction(
+              const result = await registerProductionBatchAction(
                 sessionId,
                 familyId,
                 componentId,
                 Number(quantity),
                 note,
               );
+              if (result.costingPending) {
+                alert(
+                  "Producción registrada. Esta variedad todavía no tiene una receta de costos completa; podrás completarla después sin perder los kilos ingresados.",
+                );
+              }
               location.reload();
             } catch (error) {
               alert(
