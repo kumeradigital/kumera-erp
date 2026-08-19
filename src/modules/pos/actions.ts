@@ -41,6 +41,7 @@ export async function saveProductAction(form: FormData) {
     .filter(Boolean);
   if (!name || name.length > 100 || !Number.isInteger(price) || price <= 0)
     throw new Error("Producto inválido");
+  if (categoryName.length > 60) throw new Error("Categoría inválida");
   if (!(["unit", "kg"] as SaleUnit[]).includes(saleUnit))
     throw new Error("Forma de venta inválida");
   const { data: existingCategory, error: categoryError } = await ctx.supabase

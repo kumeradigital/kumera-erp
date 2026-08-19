@@ -19,6 +19,8 @@ export function ProductsClient({ products }: { products: Product[] }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
+  const [formCategory, setFormCategory] = useState("Otros");
+  const [customCategory, setCustomCategory] = useState("");
   const [search, setSearch] = useState("");
   const [view, setView] = useCollectionView("products");
   const sectionProducts = products.filter((product) =>
@@ -29,6 +31,17 @@ export function ProductsClient({ products }: { products: Product[] }) {
   const categories = [
     "Todos",
     ...new Set(sectionProducts.map((product) => product.category)),
+  ];
+  const formCategories = [
+    ...new Set([
+      "Bollería",
+      "Empanadas",
+      "Pan",
+      "Pan envasado",
+      "Bebidas",
+      "Otros",
+      ...products.map((product) => product.category),
+    ]),
   ];
   const visibleProducts = sectionProducts.filter(
     (product) =>
@@ -66,6 +79,8 @@ export function ProductsClient({ products }: { products: Product[] }) {
         <button
           onClick={() => {
             setEditing(null);
+            setFormCategory("Otros");
+            setCustomCategory("");
             setOpen(true);
           }}
           className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
@@ -187,6 +202,8 @@ export function ProductsClient({ products }: { products: Product[] }) {
                           product={product}
                           onEdit={() => {
                             setEditing(product);
+                            setFormCategory(product.category);
+                            setCustomCategory("");
                             setOpen(true);
                           }}
                         />
@@ -263,6 +280,8 @@ export function ProductsClient({ products }: { products: Product[] }) {
                       product={p}
                       onEdit={() => {
                         setEditing(p);
+                        setFormCategory(p.category);
+                        setCustomCategory("");
                         setOpen(true);
                       }}
                     />
@@ -356,19 +375,39 @@ export function ProductsClient({ products }: { products: Product[] }) {
                 </Field>
               </div>
               <Field label="Categoría">
-                <select
+                <input
+                  type="hidden"
                   name="category"
+                  value={
+                    formCategory === "__new__" ? customCategory : formCategory
+                  }
+                />
+                <select
                   className="input"
-                  defaultValue={editing?.category || "Otros"}
+                  value={formCategory}
+                  onChange={(event) => setFormCategory(event.target.value)}
                 >
-                  <option>Bollería</option>
-                  <option>Empanadas</option>
-                  <option>Pan</option>
-                  <option>Pan envasado</option>
-                  <option>Bebidas</option>
-                  <option>Otros</option>
+                  {formCategories.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                  <option value="__new__">＋ Crear nueva categoría…</option>
                 </select>
               </Field>
+              {formCategory === "__new__" && (
+                <Field label="Nombre de la nueva categoría *">
+                  <input
+                    autoFocus
+                    required
+                    maxLength={60}
+                    value={customCategory}
+                    onChange={(event) => setCustomCategory(event.target.value)}
+                    className="input"
+                    placeholder="Ej: Sándwiches"
+                  />
+                </Field>
+              )}
               <Field label="Descripción opcional">
                 <textarea
                   name="description"
