@@ -1176,6 +1176,7 @@ function CloseSessionDialog({
   productionBatches: ProductionBatch[];
 }) {
   const [busy, setBusy] = useState(false);
+  const [countedCash, setCountedCash] = useState(String(expectedCash));
   const [waste, setWaste] = useState<
     {
       product_id?: string;
@@ -1192,6 +1193,9 @@ function CloseSessionDialog({
     (product, index, list) =>
       list.findIndex((candidate) => candidate.id === product.id) === index,
   );
+  const withdrawalTotal =
+    session.openingCash + summary.byPayment.cash - expectedCash;
+  const cashDifference = Number(countedCash || 0) - expectedCash;
   return (
     <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto overscroll-contain bg-black/50 md:place-items-center md:p-4">
       <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-h-[calc(100dvh-2rem)] md:max-w-md md:rounded-3xl">
@@ -1215,9 +1219,20 @@ function CloseSessionDialog({
             <span>Efectivo esperado</span>
             <b className="money">{formatClp(expectedCash)}</b>
           </div>
-          <p className="mt-1 text-[11px] text-[#777]">
-            Efectivo inicial + ventas en efectivo − retiros de caja
-          </p>
+          <div className="mt-3 space-y-1.5 border-t border-[#d8dcd2] pt-3 text-[11px] text-[#62675f]">
+            <div className="flex justify-between">
+              <span>Efectivo inicial</span>
+              <b>{formatClp(session.openingCash)}</b>
+            </div>
+            <div className="flex justify-between">
+              <span>Ventas en efectivo registradas</span>
+              <b>+ {formatClp(summary.byPayment.cash)}</b>
+            </div>
+            <div className="flex justify-between">
+              <span>Retiros registrados</span>
+              <b>− {formatClp(withdrawalTotal)}</b>
+            </div>
+          </div>
         </div>
         {availability.length > 0 && (
           <div className="mt-4 rounded-xl border border-[#e1e1d7] p-4">
@@ -1327,13 +1342,13 @@ function CloseSessionDialog({
                   form.get("reason") || "Totales verificados al cierre",
                 ),
                 actual: {
-                  cash: Number(form.get("actual_cash")),
+                  cash: summary.byPayment.cash,
                   debit: Number(form.get("actual_debit")),
                   credit: Number(form.get("actual_credit")),
                   transfer: Number(form.get("actual_transfer")),
                 },
                 transactions: {
-                  cash: Number(form.get("transactions_cash")),
+                  cash: summary.transactionsByPayment.cash,
                   debit: Number(form.get("transactions_debit")),
                   credit: Number(form.get("transactions_credit")),
                   transfer: Number(form.get("transactions_transfer")),
@@ -1351,17 +1366,45 @@ function CloseSessionDialog({
           className="mt-5 space-y-4"
         >
           <label className="block text-xs font-bold">
-            Efectivo contado
+            Efectivo final en caja
             <input
               name="countedCash"
               required
               inputMode="numeric"
-              defaultValue={expectedCash}
-              className="input mt-2"
+              value={countedCash}
+              onChange={(event) =>
+                setCountedCash(event.target.value.replace(/\D/g, ""))
+              }
+              className="input mt-2 text-xl font-black"
             />
+            <span className="mt-2 block text-[10px] font-medium text-[#777]">
+              Cuenta todo el efectivo físico que queda, incluido el monto con
+              que abriste la caja.
+            </span>
           </label>
+          <div
+            className={`flex items-center justify-between rounded-xl border p-4 text-sm ${cashDifference === 0 ? "border-[#bfd3bb] bg-[#edf4e9] text-[#235b45]" : "border-[#ead7a4] bg-[#fff8df] text-[#765c12]"}`}
+          >
+            <span className="font-bold">
+              {cashDifference === 0
+                ? "La caja cuadra"
+                : cashDifference > 0
+                  ? "Sobrante"
+                  : "Faltante"}
+            </span>
+            <b className="money">{formatClp(Math.abs(cashDifference))}</b>
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-[#777]">
+              Totales externos
+            </p>
+            <p className="mt-1 text-[10px] leading-4 text-[#777]">
+              Revisa estos valores contra TUU y la cuenta bancaria. El efectivo
+              ya fue tomado automáticamente desde las ventas registradas.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            {(["cash", "debit", "credit", "transfer"] as PaymentMethod[]).map(
+            {(["debit", "credit", "transfer"] as PaymentMethod[]).map(
               (method) => (
                 <label key={method} className="block text-xs font-bold">
                   {paymentLabels[method]}
