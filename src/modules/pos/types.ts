@@ -54,6 +54,13 @@ export type CashWithdrawal = {
   reason: string;
   createdAt: string;
 };
+export type RecentSale = {
+  id: string;
+  saleNumber: number;
+  total: number;
+  payment: PaymentMethod;
+  createdAt: string;
+};
 export type SalesSessionPeriod = {
   id: string;
   status: "open" | "closed";

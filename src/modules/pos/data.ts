@@ -7,6 +7,7 @@ import type {
   Product,
   ProductionBatch,
   ProductionFamily,
+  RecentSale,
   SaleSummary,
   SalesSessionPeriod,
   SessionClosingSummary,
@@ -237,6 +238,35 @@ export async function getCashSalesTotal(sessionId: string): Promise<number> {
       sum + Number(sale.total) + Number(sale.cash_rounding_amount || 0),
     0,
   );
+}
+
+export async function getRecentSessionSales(
+  sessionId: string,
+  limit = 3,
+): Promise<RecentSale[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("sales")
+    .select(
+      "id,sale_number,total,cash_rounding_amount,payment_method,created_at",
+    )
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []).map((sale) => ({
+    id: sale.id,
+    saleNumber: Number(sale.sale_number),
+    total:
+      Number(sale.total) +
+      (sale.payment_method === "cash"
+        ? Number(sale.cash_rounding_amount || 0)
+        : 0),
+    payment: sale.payment_method as PaymentMethod,
+    createdAt: sale.created_at,
+  }));
 }
 
 export async function getCashWithdrawals(

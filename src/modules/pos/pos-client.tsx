@@ -41,6 +41,7 @@ import {
   type Product,
   type ProductionBatch,
   type ProductionFamily,
+  type RecentSale,
   type SessionClosingSummary,
 } from "./types";
 type Cart = Record<string, number>;
@@ -55,6 +56,7 @@ export function PosClient({
   session,
   cashSales,
   withdrawals,
+  recentSales,
   productionFamilies,
   productionBatches,
   latestSession,
@@ -66,6 +68,7 @@ export function PosClient({
   session: CashSession | null;
   cashSales: number;
   withdrawals: CashWithdrawal[];
+  recentSales: RecentSale[];
   productionFamilies: ProductionFamily[];
   productionBatches: ProductionBatch[];
   latestSession: CashSession | null;
@@ -141,6 +144,43 @@ export function PosClient({
           <p className="text-xs text-[#687467]">
             Efectivo inicial: <b>{formatClp(session.openingCash)}</b>
           </p>
+        </div>
+        <div className="mb-4 rounded-2xl border border-[#dfdfd5] bg-[#fffef9] p-3">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#6f746c]">
+              Últimas ventas
+            </p>
+            <span className="text-[10px] text-[#8a8e86]">Jornada actual</span>
+          </div>
+          {recentSales.length ? (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {recentSales.map((sale) => (
+                <div
+                  key={sale.id}
+                  className="flex min-w-[148px] flex-1 items-center justify-between gap-3 rounded-xl bg-[#f1f2e9] px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-[#777]">
+                      #{sale.saleNumber} ·{" "}
+                      {new Date(sale.createdAt).toLocaleTimeString("es-CL", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "America/Santiago",
+                      })}
+                    </p>
+                    <p className="mt-1 truncate text-[10px] font-bold text-[#235b45]">
+                      {paymentLabels[sale.payment]}
+                    </p>
+                  </div>
+                  <b className="money text-sm">{formatClp(sale.total)}</b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl bg-[#f1f2e9] px-3 py-3 text-center text-[11px] text-[#777]">
+              Todavía no hay ventas registradas en esta jornada.
+            </p>
+          )}
         </div>
         <div className="flex items-start justify-between gap-3 pb-4">
           <div className="flex gap-2 overflow-x-auto">

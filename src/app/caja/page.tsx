@@ -8,6 +8,7 @@ import {
   getProductionBatches,
   getProductionFamilies,
   getProducts,
+  getRecentSessionSales,
   getSessionClosingSummary,
 } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
@@ -28,6 +29,7 @@ export default async function PosPage() {
   ]);
   const cashSales = session ? await getCashSalesTotal(session.id) : 0;
   const withdrawals = session ? await getCashWithdrawals(session.id) : [];
+  const recentSales = session ? await getRecentSessionSales(session.id, 3) : [];
   const productionBatches = session
     ? await getProductionBatches(session.id)
     : [];
@@ -47,6 +49,7 @@ export default async function PosPage() {
         session={session}
         cashSales={cashSales}
         withdrawals={withdrawals}
+        recentSales={recentSales}
         productionFamilies={productionFamilies}
         productionBatches={productionBatches}
         latestSession={latestSession}
