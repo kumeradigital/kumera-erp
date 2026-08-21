@@ -435,7 +435,7 @@ export async function reconcileCashSessionAction(
 }
 export async function registerSaleAction(
   sessionId: string,
-  payment: PaymentMethod,
+  payment: PaymentMethod | "unclassified",
   cashReceived: number | null,
   items: { product_id: string; quantity: number }[],
 ) {

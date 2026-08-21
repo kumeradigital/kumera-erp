@@ -54,30 +54,25 @@ type ProductTile = {
 export function PosClient({
   products,
   session,
-  cashSales,
   withdrawals,
   recentSales,
   productionFamilies,
   productionBatches,
   latestSession,
   availability,
-  cardFeeSettings,
   closingSummary,
 }: {
   products: Product[];
   session: CashSession | null;
-  cashSales: number;
   withdrawals: CashWithdrawal[];
   recentSales: RecentSale[];
   productionFamilies: ProductionFamily[];
   productionBatches: ProductionBatch[];
   latestSession: CashSession | null;
   availability: DailyAvailability[];
-  cardFeeSettings: CardFeeSettings;
   closingSummary: SessionClosingSummary | null;
 }) {
   const [cart, setCart] = useState<Cart>({});
-  const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
   const [closing, setClosing] = useState(false);
@@ -121,6 +116,32 @@ export function PosClient({
       if (!next[id]) delete next[id];
       return next;
     });
+  }
+  async function recordSale() {
+    if (!session || !lines.length || busy) return;
+    setBusy(true);
+    try {
+      const result = await registerSaleAction(
+        session.id,
+        "unclassified",
+        null,
+        lines.map((line) => ({
+          product_id: line.id,
+          quantity: line.quantity,
+        })),
+      );
+      if (!result.ok) {
+        alert(result.error);
+        setBusy(false);
+        return;
+      }
+      setCart({});
+      alert("Venta registrada");
+      location.reload();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "No se pudo registrar");
+      setBusy(false);
+    }
   }
   if (!session)
     return <OpenSession latestSession={latestSession} products={products} />;
@@ -169,7 +190,9 @@ export function PosClient({
                       })}
                     </p>
                     <p className="mt-1 truncate text-[10px] font-bold text-[#235b45]">
-                      {paymentLabels[sale.payment]}
+                      {sale.payment === "unclassified"
+                        ? "Por conciliar"
+                        : paymentLabels[sale.payment]}
                     </p>
                   </div>
                   <b className="money text-sm">{formatClp(sale.total)}</b>
@@ -443,11 +466,11 @@ export function PosClient({
             </span>
           </div>
           <button
-            disabled={!total}
-            onClick={() => setPaying(true)}
+            disabled={!total || busy}
+            onClick={recordSale}
             className="mt-5 h-14 w-full rounded-2xl bg-[#235b45] text-lg font-black text-white disabled:opacity-30"
           >
-            Cobrar
+            {busy ? "Registrando…" : "Registrar venta"}
           </button>
           <button
             onClick={() => setClosing(true)}
@@ -471,37 +494,6 @@ export function PosClient({
           <span className="money text-lg font-black">{formatClp(total)}</span>
         </button>
       </div>
-      {paying && (
-        <PaymentDialog
-          total={total}
-          busy={busy}
-          cardFeeSettings={cardFeeSettings}
-          onClose={() => setPaying(false)}
-          onPay={async (method, cash) => {
-            setBusy(true);
-            try {
-              const result = await registerSaleAction(
-                session.id,
-                method,
-                cash,
-                lines.map((l) => ({ product_id: l.id, quantity: l.quantity })),
-              );
-              if (!result.ok) {
-                alert(result.error);
-                setBusy(false);
-                return;
-              }
-              setCart({});
-              setPaying(false);
-              alert("Venta registrada");
-              location.reload();
-            } catch (e) {
-              alert(e instanceof Error ? e.message : "No se pudo registrar");
-              setBusy(false);
-            }
-          }}
-        />
-      )}
       {weighing && (
         <WeightDialog
           product={weighing}
@@ -520,7 +512,7 @@ export function PosClient({
       {closing && (
         <CloseSessionDialog
           session={session}
-          expectedCash={session.openingCash + cashSales - withdrawalTotal}
+          withdrawalTotal={withdrawalTotal}
           onClose={() => setClosing(false)}
           availability={availability}
           products={products}
@@ -1198,7 +1190,7 @@ function WeightDialog({
 
 function CloseSessionDialog({
   session,
-  expectedCash,
+  withdrawalTotal,
   onClose,
   availability,
   products,
@@ -1207,7 +1199,7 @@ function CloseSessionDialog({
   productionBatches,
 }: {
   session: CashSession;
-  expectedCash: number;
+  withdrawalTotal: number;
   onClose: () => void;
   availability: DailyAvailability[];
   products: Product[];
@@ -1216,7 +1208,17 @@ function CloseSessionDialog({
   productionBatches: ProductionBatch[];
 }) {
   const [busy, setBusy] = useState(false);
-  const [countedCash, setCountedCash] = useState(String(expectedCash));
+  const [countedCash, setCountedCash] = useState("");
+  const [externalTotals, setExternalTotals] = useState({
+    debit: summary.byPayment.debit,
+    credit: summary.byPayment.credit,
+    transfer: summary.byPayment.transfer,
+  });
+  const [externalTransactions, setExternalTransactions] = useState({
+    debit: summary.transactionsByPayment.debit,
+    credit: summary.transactionsByPayment.credit,
+    transfer: summary.transactionsByPayment.transfer,
+  });
   const [waste, setWaste] = useState<
     {
       product_id?: string;
@@ -1233,9 +1235,20 @@ function CloseSessionDialog({
     (product, index, list) =>
       list.findIndex((candidate) => candidate.id === product.id) === index,
   );
-  const withdrawalTotal =
-    session.openingCash + summary.byPayment.cash - expectedCash;
-  const cashDifference = Number(countedCash || 0) - expectedCash;
+  const derivedCashSales =
+    Number(countedCash || 0) + withdrawalTotal - session.openingCash;
+  const cardAndTransferTotal =
+    externalTotals.debit + externalTotals.credit + externalTotals.transfer;
+  const allocatedTotal = Math.max(0, derivedCashSales) + cardAndTransferTotal;
+  const allocationDifference = allocatedTotal - summary.recordedTotal;
+  const externalTransactionCount =
+    externalTransactions.debit +
+    externalTransactions.credit +
+    externalTransactions.transfer;
+  const derivedCashTransactions = Math.max(
+    derivedCashSales > 0 ? 1 : 0,
+    summary.recordedTransactions - externalTransactionCount,
+  );
   return (
     <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto overscroll-contain bg-black/50 md:place-items-center md:p-4">
       <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-h-[calc(100dvh-2rem)] md:max-w-md md:rounded-3xl">
@@ -1255,24 +1268,22 @@ function CloseSessionDialog({
           </button>
         </div>
         <div className="mt-5 rounded-xl bg-[#eff0e8] p-4">
-          <div className="flex justify-between text-sm">
-            <span>Efectivo esperado</span>
-            <b className="money">{formatClp(expectedCash)}</b>
-          </div>
-          <div className="mt-3 space-y-1.5 border-t border-[#d8dcd2] pt-3 text-[11px] text-[#62675f]">
+          <p className="text-xs font-black uppercase tracking-wider text-[#62675f]">
+            Cálculo automático del efectivo vendido
+          </p>
+          <div className="mt-3 space-y-1.5 text-[11px] text-[#62675f]">
             <div className="flex justify-between">
               <span>Efectivo inicial</span>
               <b>{formatClp(session.openingCash)}</b>
             </div>
             <div className="flex justify-between">
-              <span>Ventas en efectivo registradas</span>
-              <b>+ {formatClp(summary.byPayment.cash)}</b>
-            </div>
-            <div className="flex justify-between">
               <span>Retiros registrados</span>
-              <b>− {formatClp(withdrawalTotal)}</b>
+              <b>{formatClp(withdrawalTotal)}</b>
             </div>
           </div>
+          <p className="mt-3 border-t border-[#d8dcd2] pt-3 text-[10px] leading-4 text-[#777]">
+            Ventas en efectivo = efectivo final + retiros − efectivo inicial.
+          </p>
         </div>
         {availability.length > 0 && (
           <div className="mt-4 rounded-xl border border-[#e1e1d7] p-4">
@@ -1382,16 +1393,16 @@ function CloseSessionDialog({
                   form.get("reason") || "Totales verificados al cierre",
                 ),
                 actual: {
-                  cash: summary.byPayment.cash,
-                  debit: Number(form.get("actual_debit")),
-                  credit: Number(form.get("actual_credit")),
-                  transfer: Number(form.get("actual_transfer")),
+                  cash: derivedCashSales,
+                  debit: externalTotals.debit,
+                  credit: externalTotals.credit,
+                  transfer: externalTotals.transfer,
                 },
                 transactions: {
-                  cash: summary.transactionsByPayment.cash,
-                  debit: Number(form.get("transactions_debit")),
-                  credit: Number(form.get("transactions_credit")),
-                  transfer: Number(form.get("transactions_transfer")),
+                  cash: derivedCashTransactions,
+                  debit: externalTransactions.debit,
+                  credit: externalTransactions.credit,
+                  transfer: externalTransactions.transfer,
                 },
                 waste: waste
                   .filter((item) => Number(item.quantity) > 0)
@@ -1423,16 +1434,12 @@ function CloseSessionDialog({
             </span>
           </label>
           <div
-            className={`flex items-center justify-between rounded-xl border p-4 text-sm ${cashDifference === 0 ? "border-[#bfd3bb] bg-[#edf4e9] text-[#235b45]" : "border-[#ead7a4] bg-[#fff8df] text-[#765c12]"}`}
+            className={`flex items-center justify-between rounded-xl border p-4 text-sm ${derivedCashSales >= 0 ? "border-[#bfd3bb] bg-[#edf4e9] text-[#235b45]" : "border-[#e3b9aa] bg-[#f9e8e1] text-[#9b4025]"}`}
           >
-            <span className="font-bold">
-              {cashDifference === 0
-                ? "La caja cuadra"
-                : cashDifference > 0
-                  ? "Sobrante"
-                  : "Faltante"}
-            </span>
-            <b className="money">{formatClp(Math.abs(cashDifference))}</b>
+            <span className="font-bold">Ventas en efectivo calculadas</span>
+            <b className="money">
+              {derivedCashSales >= 0 ? formatClp(derivedCashSales) : "Inválido"}
+            </b>
           </div>
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-[#777]">
@@ -1440,35 +1447,67 @@ function CloseSessionDialog({
             </p>
             <p className="mt-1 text-[10px] leading-4 text-[#777]">
               Revisa estos valores contra TUU y la cuenta bancaria. El efectivo
-              ya fue tomado automáticamente desde las ventas registradas.
+              se calcula automáticamente desde el conteo físico.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {(["debit", "credit", "transfer"] as PaymentMethod[]).map(
-              (method) => (
-                <label key={method} className="block text-xs font-bold">
-                  {paymentLabels[method]}
-                  <input
-                    name={`actual_${method}`}
-                    required
-                    inputMode="numeric"
-                    defaultValue={summary.byPayment[method]}
-                    className="input mt-2"
-                  />
-                  <span className="mt-2 block text-[10px] text-[#777]">
-                    Cantidad de transacciones
-                  </span>
-                  <input
-                    name={`transactions_${method}`}
-                    required
-                    min={0}
-                    inputMode="numeric"
-                    defaultValue={summary.transactionsByPayment[method]}
-                    className="input mt-1"
-                  />
-                </label>
-              ),
-            )}
+            {(["debit", "credit", "transfer"] as const).map((method) => (
+              <label key={method} className="block text-xs font-bold">
+                {paymentLabels[method]}
+                <input
+                  name={`actual_${method}`}
+                  required
+                  inputMode="numeric"
+                  value={externalTotals[method]}
+                  onChange={(event) =>
+                    setExternalTotals((current) => ({
+                      ...current,
+                      [method]: Number(event.target.value.replace(/\D/g, "")),
+                    }))
+                  }
+                  className="input mt-2"
+                />
+                <span className="mt-2 block text-[10px] text-[#777]">
+                  Cantidad de transacciones
+                </span>
+                <input
+                  name={`transactions_${method}`}
+                  required
+                  min={0}
+                  inputMode="numeric"
+                  value={externalTransactions[method]}
+                  onChange={(event) =>
+                    setExternalTransactions((current) => ({
+                      ...current,
+                      [method]: Number(event.target.value.replace(/\D/g, "")),
+                    }))
+                  }
+                  className="input mt-1"
+                />
+              </label>
+            ))}
+          </div>
+          <div
+            className={`rounded-xl border p-4 text-sm ${allocationDifference === 0 ? "border-[#bfd3bb] bg-[#edf4e9] text-[#235b45]" : "border-[#ead7a4] bg-[#fff8df] text-[#765c12]"}`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-black">
+                {allocationDifference === 0
+                  ? "El cierre coincide con la caja"
+                  : allocationDifference > 0
+                    ? "Ingresaste más pagos que ventas"
+                    : "Faltan pagos por clasificar"}
+              </span>
+              <b className="money">
+                {formatClp(Math.abs(allocationDifference))}
+              </b>
+            </div>
+            <div className="mt-2 flex justify-between text-[10px]">
+              <span>
+                Ventas registradas: {formatClp(summary.recordedTotal)}
+              </span>
+              <span>Pagos informados: {formatClp(allocatedTotal)}</span>
+            </div>
           </div>
           <label className="block text-xs font-bold">
             Fuente de los totales
@@ -1571,7 +1610,7 @@ function CloseSessionDialog({
             <input name="note" className="input mt-2" />
           </label>
           <button
-            disabled={busy}
+            disabled={busy || derivedCashSales < 0}
             className="sticky bottom-0 h-13 w-full rounded-xl bg-[#235b45] font-black text-white shadow-[0_-10px_20px_12px_#fffef9] disabled:opacity-50"
           >
             {busy ? "Cerrando..." : "Confirmar cierre"}

@@ -1,4 +1,5 @@
 export type PaymentMethod = "cash" | "debit" | "credit" | "transfer";
+export type SalePaymentMethod = PaymentMethod | "unclassified";
 export type SaleUnit = "unit" | "kg";
 export type Product = {
   id: string;
@@ -58,7 +59,7 @@ export type RecentSale = {
   id: string;
   saleNumber: number;
   total: number;
-  payment: PaymentMethod;
+  payment: SalePaymentMethod;
   createdAt: string;
 };
 export type SalesSessionPeriod = {
@@ -97,6 +98,8 @@ export type SaleSummary = {
 export type SessionClosingSummary = {
   byPayment: Record<PaymentMethod, number>;
   transactionsByPayment: Record<PaymentMethod, number>;
+  recordedTotal: number;
+  recordedTransactions: number;
   products: {
     productId?: string;
     name: string;

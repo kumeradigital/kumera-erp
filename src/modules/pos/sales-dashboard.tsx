@@ -11,6 +11,7 @@ import { SalesFilters, type SalesPeriodView } from "./sales-filters";
 import {
   paymentLabels,
   type PaymentMethod,
+  type SalePaymentMethod,
   type SalesSessionPeriod,
   type SaleSummary,
 } from "./types";
@@ -26,7 +27,7 @@ export function SalesDashboard({
   recent: {
     id: string;
     total: number;
-    payment: PaymentMethod;
+    payment: SalePaymentMethod;
     createdAt: string;
   }[];
   period: SalesPeriodView;
@@ -334,7 +335,10 @@ export function SalesDashboard({
                   timeStyle: "short",
                   timeZone: "America/Santiago",
                 })}{" "}
-                · {paymentLabels[r.payment]}
+                ·{" "}
+                {r.payment === "unclassified"
+                  ? "Conciliada al cierre"
+                  : paymentLabels[r.payment]}
               </p>
             </div>
             <b className="money">{formatClp(r.total)}</b>

@@ -8,6 +8,7 @@ import type {
   ProductionBatch,
   ProductionFamily,
   RecentSale,
+  SalePaymentMethod,
   SaleSummary,
   SalesSessionPeriod,
   SessionClosingSummary,
@@ -264,7 +265,7 @@ export async function getRecentSessionSales(
       (sale.payment_method === "cash"
         ? Number(sale.cash_rounding_amount || 0)
         : 0),
-    payment: sale.payment_method as PaymentMethod,
+    payment: sale.payment_method as SalePaymentMethod,
     createdAt: sale.created_at,
   }));
 }
@@ -316,11 +317,13 @@ export async function getSessionClosingSummary(
     };
   const products = new Map<string, SessionClosingSummary["products"][number]>();
   for (const sale of data || []) {
-    const method = sale.payment_method as PaymentMethod;
-    byPayment[method] +=
-      Number(sale.total) +
-      (method === "cash" ? Number(sale.cash_rounding_amount || 0) : 0);
-    transactionsByPayment[method] += 1;
+    const method = sale.payment_method as SalePaymentMethod;
+    if (method !== "unclassified") {
+      byPayment[method] +=
+        Number(sale.total) +
+        (method === "cash" ? Number(sale.cash_rounding_amount || 0) : 0);
+      transactionsByPayment[method] += 1;
+    }
     for (const item of sale.sale_items || []) {
       const current = products.get(item.product_name);
       products.set(item.product_name, {
@@ -335,6 +338,11 @@ export async function getSessionClosingSummary(
   return {
     byPayment,
     transactionsByPayment,
+    recordedTotal: (data || []).reduce(
+      (sum, sale) => sum + Number(sale.total),
+      0,
+    ),
+    recordedTransactions: (data || []).length,
     products: [...products.values()].sort((a, b) => b.total - a.total),
   };
 }
@@ -490,7 +498,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   recent: {
     id: string;
     total: number;
-    payment: PaymentMethod;
+    payment: SalePaymentMethod;
     createdAt: string;
   }[];
 }> {
@@ -575,8 +583,9 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     { quantity: number; saleUnit: "unit" | "kg"; total: number }
   >();
   rows.forEach((r) => {
-    const method = r.payment_method as PaymentMethod;
-    payments.set(method, (payments.get(method) || 0) + Number(r.total));
+    const method = r.payment_method as SalePaymentMethod;
+    if (method !== "unclassified")
+      payments.set(method, (payments.get(method) || 0) + Number(r.total));
     const hour = Number(
       new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Santiago",
@@ -610,8 +619,9 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     rows
       .filter((row) => row.cash_session_id === sessionId)
       .forEach((row) => {
-        const method = row.payment_method as PaymentMethod;
-        recorded.set(method, (recorded.get(method) || 0) + Number(row.total));
+        const method = row.payment_method as SalePaymentMethod;
+        if (method !== "unclassified")
+          recorded.set(method, (recorded.get(method) || 0) + Number(row.total));
       });
     const actual: Record<PaymentMethod, number> = {
       cash: Number(value.actual_cash_sales),
@@ -664,7 +674,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     recent: rows.slice(0, 10).map((r) => ({
       id: r.id,
       total: Number(r.total),
-      payment: r.payment_method as PaymentMethod,
+      payment: r.payment_method as SalePaymentMethod,
       createdAt: r.created_at,
     })),
   };
