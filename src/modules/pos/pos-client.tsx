@@ -661,6 +661,7 @@ function ProductionDialog({
   batches: ProductionBatch[];
   onClose: () => void;
 }) {
+  const basketTareGrams = 614;
   const [familyId, setFamilyId] = useState(families[0]?.product.id || "");
   const family = families.find((item) => item.product.id === familyId);
   const [componentId, setComponentId] = useState(
@@ -707,7 +708,12 @@ function ProductionDialog({
             event.preventDefault();
             setBusy(true);
             try {
-              const quantityInKg = Number(quantity) / 1000;
+              const netWeightGrams = Number(quantity) - basketTareGrams;
+              if (netWeightGrams <= 0)
+                throw new Error(
+                  `El peso debe ser mayor a ${basketTareGrams} g, que corresponden al canasto.`,
+                );
+              const quantityInKg = netWeightGrams / 1000;
               const result = editing
                 ? await updateProductionBatchAction(
                     editing.id,
@@ -778,12 +784,12 @@ function ProductionDialog({
             </select>
           </label>
           <label className="block text-xs font-bold">
-            Peso total producido (gramos)
+            Peso en la balanza con canasto (gramos)
             <input
               autoFocus
               required
               type="number"
-              min="1"
+              min={basketTareGrams + 1}
               step="1"
               inputMode="numeric"
               value={quantity}
@@ -791,16 +797,28 @@ function ProductionDialog({
               className="input mt-2 text-xl font-black"
               placeholder="Ej. 1567"
             />
-            {Number(quantity) > 0 && (
-              <span className="mt-2 block text-[11px] font-medium text-[#697067]">
-                Equivale a{" "}
-                {(Number(quantity) / 1000).toLocaleString("es-CL", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}{" "}
-                kg
+            {Number(quantity) > basketTareGrams && (
+              <span className="mt-2 block rounded-xl bg-[#edf4e9] px-3 py-2 text-[11px] font-medium leading-5 text-[#53645a]">
+                {Number(quantity).toLocaleString("es-CL")} g brutos −{" "}
+                {basketTareGrams} g del canasto ={" "}
+                <b className="text-[#235b45]">
+                  {(Number(quantity) - basketTareGrams).toLocaleString("es-CL")}{" "}
+                  g netos (
+                  {((Number(quantity) - basketTareGrams) / 1000).toLocaleString(
+                    "es-CL",
+                    {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    },
+                  )}{" "}
+                  kg)
+                </b>
               </span>
             )}
+            <span className="mt-2 block text-[10px] font-medium text-[#777]">
+              El sistema descuenta automáticamente los {basketTareGrams} g del
+              canasto.
+            </span>
           </label>
           <label className="block text-xs font-bold">
             Nota opcional
@@ -812,7 +830,9 @@ function ProductionDialog({
             />
           </label>
           <button
-            disabled={busy || !componentId || Number(quantity) <= 0}
+            disabled={
+              busy || !componentId || Number(quantity) <= basketTareGrams
+            }
             className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-40"
           >
             {busy
@@ -872,7 +892,11 @@ function ProductionDialog({
                       setEditing(batch);
                       setFamilyId(batch.familyProductId);
                       setComponentId(batch.componentProductId);
-                      setQuantity(String(Math.round(batch.quantity * 1000)));
+                      setQuantity(
+                        String(
+                          Math.round(batch.quantity * 1000) + basketTareGrams,
+                        ),
+                      );
                       setNote(batch.note || "");
                     }}
                     className="ml-3 rounded-lg border border-[#cfd5ca] px-2.5 py-1.5 font-black text-[#235b45]"
