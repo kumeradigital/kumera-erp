@@ -1,4 +1,4 @@
-import { getSalesSummary } from "@/modules/pos/data";
+import { getBusinessPulse, getSalesSummary } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { SalesDashboard } from "@/modules/pos/sales-dashboard";
 
@@ -101,10 +101,13 @@ export default async function SalesPage({
   searchParams: Promise<Query>;
 }) {
   const period = resolvePeriod(await searchParams);
-  const data = await getSalesSummary(period.range);
+  const [data, pulse] = await Promise.all([
+    getSalesSummary(period.range),
+    getBusinessPulse(),
+  ]);
   return (
     <PosShell active="sales">
-      <SalesDashboard {...data} period={period} />
+      <SalesDashboard {...data} period={period} pulse={pulse} />
     </PosShell>
   );
 }

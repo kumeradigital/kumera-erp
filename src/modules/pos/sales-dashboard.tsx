@@ -2,6 +2,7 @@ import {
   BarChart3,
   Clock,
   CreditCard,
+  Gauge,
   Receipt,
   TrendingUp,
   Wallet,
@@ -10,6 +11,7 @@ import { formatClp } from "@/shared/money";
 import { SalesFilters, type SalesPeriodView } from "./sales-filters";
 import {
   paymentLabels,
+  type BusinessPulse,
   type PaymentMethod,
   type SalePaymentMethod,
   type SalesSessionPeriod,
@@ -21,6 +23,7 @@ export function SalesDashboard({
   sessions,
   recent,
   period,
+  pulse,
 }: {
   summary: SaleSummary;
   sessions: SalesSessionPeriod[];
@@ -31,6 +34,7 @@ export function SalesDashboard({
     createdAt: string;
   }[];
   period: SalesPeriodView;
+  pulse: BusinessPulse;
 }) {
   const peakHour = [...summary.hourlySales].sort(
     (a, b) => b.total - a.total,
@@ -53,6 +57,8 @@ export function SalesDashboard({
       </div>
 
       <SalesFilters period={period} />
+
+      <BusinessPulsePanel pulse={pulse} />
 
       <section className="card mt-4 overflow-hidden">
         <div className="border-b border-[#e6e5dd] p-5">
@@ -392,6 +398,105 @@ export function SalesDashboard({
       </section>
     </main>
   );
+}
+
+function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
+  const hasData = pulse.observedDays > 0;
+  return (
+    <section className="card mt-4 overflow-hidden border-[#cddbc8]">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#dce5d8] bg-[#edf4e9] p-5">
+        <div>
+          <div className="flex items-center gap-2 text-[#235b45]">
+            <Gauge size={19} />
+            <h2 className="font-black">Pulso del negocio</h2>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-[#667066]">
+            Tendencia preliminar construida únicamente con jornadas cerradas y
+            conciliadas.
+          </p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#55705e]">
+          {pulse.observedDays}{" "}
+          {pulse.observedDays === 1 ? "jornada" : "jornadas"}
+        </span>
+      </div>
+      {hasData ? (
+        <>
+          <div className="grid gap-px bg-[#e6e8df] sm:grid-cols-2 xl:grid-cols-4">
+            <PulseValue
+              label="Ventas observadas"
+              value={formatClp(pulse.totalSales)}
+              detail={formatObservedRange(pulse)}
+            />
+            <PulseValue
+              label="Promedio diario"
+              value={formatClp(pulse.averageDailySales)}
+              detail="Por jornada conciliada"
+            />
+            <PulseValue
+              label="Proyección mensual"
+              value={formatClp(pulse.projectedMonthlySales)}
+              detail={`${pulse.operatingDaysMonth} días abiertos al ritmo actual`}
+              accent
+            />
+            <PulseValue
+              label="Rentabilidad"
+              value="Pendiente"
+              detail="Se activará al completar los recetarios"
+            />
+          </div>
+          <p className="border-t border-[#e6e5dd] bg-[#fffef9] px-5 py-3 text-[11px] leading-5 text-[#747970]">
+            Esta proyección extiende el promedio actual y no representa
+            utilidad. Todavía no descuenta ingredientes, mermas, costos fijos ni
+            impuestos.
+          </p>
+        </>
+      ) : (
+        <div className="p-6 text-center text-sm text-[#777]">
+          El pulso aparecerá después del primer cierre de caja conciliado.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PulseValue({
+  label,
+  value,
+  detail,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`p-5 ${accent ? "bg-[#f5fadf]" : "bg-[#fffef9]"}`}>
+      <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#777]">
+        {label}
+      </p>
+      <p
+        className={`money mt-2 text-2xl font-black ${accent ? "text-[#235b45]" : "text-[#20231f]"}`}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-[#777]">{detail}</p>
+    </div>
+  );
+}
+
+function formatObservedRange(pulse: BusinessPulse) {
+  if (!pulse.firstObservedAt || !pulse.lastObservedAt) return "Sin período";
+  const format = (value: string) =>
+    new Date(value).toLocaleDateString("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Santiago",
+    });
+  const first = format(pulse.firstObservedAt);
+  const last = format(pulse.lastObservedAt);
+  return first === last ? first : `${first} al ${last}`;
 }
 
 function formatHourRange(hour: number) {

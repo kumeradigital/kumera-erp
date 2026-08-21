@@ -1,5 +1,6 @@
 import { createClient } from "@/server/supabase/server";
 import type {
+  BusinessPulse,
   CashSession,
   CashWithdrawal,
   DailyAvailability,
@@ -33,6 +34,56 @@ async function businessContext() {
 
 function oneRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return Array.isArray(value) ? value[0] : value || undefined;
+}
+
+export async function getBusinessPulse(): Promise<BusinessPulse> {
+  const { businessId, supabase } = await businessContext();
+  const [sessionsResult, settingsResult] = await Promise.all([
+    supabase
+      .from("cash_sessions")
+      .select(
+        "opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+      )
+      .eq("business_id", businessId)
+      .eq("status", "closed")
+      .order("opened_at", { ascending: true }),
+    supabase
+      .from("cost_settings")
+      .select("operating_days_month")
+      .eq("business_id", businessId)
+      .maybeSingle(),
+  ]);
+  if (sessionsResult.error) throw sessionsResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+  const observed = (sessionsResult.data || []).flatMap((session) => {
+    const reconciliation = oneRelation(session.cash_session_reconciliations);
+    if (!reconciliation) return [];
+    return [
+      {
+        openedAt: session.opened_at,
+        total:
+          Number(reconciliation.actual_cash_sales) +
+          Number(reconciliation.actual_debit_sales) +
+          Number(reconciliation.actual_credit_sales) +
+          Number(reconciliation.actual_transfer_sales),
+      },
+    ];
+  });
+  const totalSales = observed.reduce((sum, day) => sum + day.total, 0);
+  const averageDailySales = observed.length
+    ? Math.round(totalSales / observed.length)
+    : 0;
+  const operatingDaysMonth =
+    Number(settingsResult.data?.operating_days_month) || 26;
+  return {
+    observedDays: observed.length,
+    totalSales,
+    averageDailySales,
+    projectedMonthlySales: averageDailySales * operatingDaysMonth,
+    operatingDaysMonth,
+    firstObservedAt: observed[0]?.openedAt,
+    lastObservedAt: observed.at(-1)?.openedAt,
+  };
 }
 
 export async function getProducts(includeInactive = false): Promise<Product[]> {

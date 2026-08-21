@@ -70,6 +70,15 @@ export type SalesSessionPeriod = {
   openingCash: number;
   autoClosed: boolean;
 };
+export type BusinessPulse = {
+  observedDays: number;
+  totalSales: number;
+  averageDailySales: number;
+  projectedMonthlySales: number;
+  operatingDaysMonth: number;
+  firstObservedAt?: string;
+  lastObservedAt?: string;
+};
 export type SaleSummary = {
   total: number;
   recordedTotal: number;
