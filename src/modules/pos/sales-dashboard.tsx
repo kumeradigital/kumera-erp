@@ -288,11 +288,54 @@ export function SalesDashboard({
             Todos los productos registrados durante el periodo seleccionado.
           </p>
         </div>
+        {summary.byCategory.length > 0 && (
+          <div className="border-b border-[#e6e5dd] bg-[#fafaf5] p-5">
+            <p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#777]">
+              Totales por categoría
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {summary.byCategory.map((category) => (
+                <div
+                  key={category.category}
+                  className="rounded-xl border border-[#e2e3d9] bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-black">{category.category}</h3>
+                      <p className="mt-1 text-[11px] text-[#777]">
+                        {category.productCount}{" "}
+                        {category.productCount === 1
+                          ? "producto vendido"
+                          : "productos vendidos"}
+                      </p>
+                    </div>
+                    <b className="money text-[#235b45]">
+                      {formatClp(category.total)}
+                    </b>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+                    {category.unitQuantity > 0 && (
+                      <span className="rounded-full bg-[#edf4e9] px-3 py-1.5 text-[#235b45]">
+                        {formatQuantity(category.unitQuantity)} un.
+                      </span>
+                    )}
+                    {category.kgQuantity > 0 && (
+                      <span className="rounded-full bg-[#edf4e9] px-3 py-1.5 text-[#235b45]">
+                        {formatQuantity(category.kgQuantity)} kg
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead className="bg-[#f2f2ea] text-[10px] uppercase text-[#777]">
               <tr>
                 <th className="px-5 py-3">Producto</th>
+                <th className="px-5 py-3">Categoría</th>
                 <th className="px-5 py-3">Cantidad</th>
                 <th className="px-5 py-3 text-right">Venta registrada</th>
               </tr>
@@ -301,6 +344,7 @@ export function SalesDashboard({
               {summary.topProducts.map((product) => (
                 <tr key={product.name} className="border-t border-[#eeede6]">
                   <td className="px-5 py-3 font-bold">{product.name}</td>
+                  <td className="px-5 py-3 text-[#666]">{product.category}</td>
                   <td className="px-5 py-3">
                     {product.saleUnit === "kg"
                       ? `${product.quantity.toLocaleString("es-CL", { maximumFractionDigits: 3 })} kg`
@@ -353,6 +397,10 @@ export function SalesDashboard({
 function formatHourRange(hour: number) {
   const next = (hour + 1) % 24;
   return `${String(hour).padStart(2, "0")}:00–${String(next).padStart(2, "0")}:00`;
+}
+
+function formatQuantity(value: number) {
+  return value.toLocaleString("es-CL", { maximumFractionDigits: 3 });
 }
 
 function formatSessionDate(value: string) {

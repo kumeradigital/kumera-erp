@@ -506,7 +506,7 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const { data: sales, error } = await ctx.supabase
     .from("sales")
     .select(
-      "id,cash_session_id,total,payment_method,commission_net_amount,commission_tax_amount,expected_deposit_amount,created_at,sale_items(product_name,quantity,sale_unit,line_total)",
+      "id,cash_session_id,total,payment_method,commission_net_amount,commission_tax_amount,expected_deposit_amount,created_at,sale_items(product_name,quantity,sale_unit,line_total,products(product_categories(name)))",
     )
     .eq("business_id", ctx.businessId)
     .eq("status", "completed")
@@ -580,7 +580,12 @@ export async function getSalesSummary(range: SalesRange): Promise<{
   const hourlySales = new Map<number, { total: number; count: number }>();
   const products = new Map<
     string,
-    { quantity: number; saleUnit: "unit" | "kg"; total: number }
+    {
+      category: string;
+      quantity: number;
+      saleUnit: "unit" | "kg";
+      total: number;
+    }
   >();
   rows.forEach((r) => {
     const method = r.payment_method as SalePaymentMethod;
@@ -604,15 +609,47 @@ export async function getSalesSummary(range: SalesRange): Promise<{
         quantity: number | string;
         sale_unit: "unit" | "kg";
         line_total: number | string;
+        products:
+          | { product_categories: { name: string } | { name: string }[] | null }
+          | {
+              product_categories: { name: string } | { name: string }[] | null;
+            }[]
+          | null;
       }) => {
+        const product = oneRelation(item.products);
+        const categoryRelation = oneRelation(product?.product_categories);
+        const category = categoryRelation?.name || "Sin categoría";
         const previous = products.get(item.product_name);
         products.set(item.product_name, {
+          category,
           quantity: (previous?.quantity || 0) + Number(item.quantity),
           saleUnit: item.sale_unit,
           total: (previous?.total || 0) + Number(item.line_total),
         });
       },
     );
+  });
+  const categories = new Map<
+    string,
+    {
+      unitQuantity: number;
+      kgQuantity: number;
+      total: number;
+      products: Set<string>;
+    }
+  >();
+  products.forEach((product, name) => {
+    const previous = categories.get(product.category) || {
+      unitQuantity: 0,
+      kgQuantity: 0,
+      total: 0,
+      products: new Set<string>(),
+    };
+    if (product.saleUnit === "kg") previous.kgQuantity += product.quantity;
+    else previous.unitQuantity += product.quantity;
+    previous.total += product.total;
+    previous.products.add(name);
+    categories.set(product.category, previous);
   });
   for (const [sessionId, value] of reconciliations) {
     const recorded = new Map<PaymentMethod, number>();
@@ -670,6 +707,15 @@ export async function getSalesSummary(range: SalesRange): Promise<{
       topProducts: [...products]
         .map(([name, value]) => ({ name, ...value }))
         .sort((a, b) => b.quantity - a.quantity),
+      byCategory: [...categories]
+        .map(([category, value]) => ({
+          category,
+          unitQuantity: value.unitQuantity,
+          kgQuantity: value.kgQuantity,
+          total: value.total,
+          productCount: value.products.size,
+        }))
+        .sort((a, b) => b.total - a.total),
     },
     recent: rows.slice(0, 10).map((r) => ({
       id: r.id,

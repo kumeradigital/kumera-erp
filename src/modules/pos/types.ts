@@ -89,9 +89,17 @@ export type SaleSummary = {
   byPayment: { method: PaymentMethod; total: number }[];
   topProducts: {
     name: string;
+    category: string;
     quantity: number;
     saleUnit: SaleUnit;
     total: number;
+  }[];
+  byCategory: {
+    category: string;
+    unitQuantity: number;
+    kgQuantity: number;
+    total: number;
+    productCount: number;
   }[];
 };
 
