@@ -174,6 +174,28 @@ export async function deleteProductAction(id: string) {
   revalidatePath("/productos");
   revalidatePath("/caja");
 }
+export async function restoreProductAction(id: string) {
+  const ctx = await context();
+  const { data, error } = await ctx.supabase
+    .from("products")
+    .update({
+      active: true,
+      deleted_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", ctx.businessId)
+    .not("deleted_at", "is", null)
+    .select("id")
+    .single();
+  if (error || !data)
+    throw new Error(
+      "No se pudo restaurar el producto. Comprueba que no exista otro producto activo con el mismo nombre.",
+    );
+  revalidatePath("/productos");
+  revalidatePath("/caja");
+  revalidatePath("/costos");
+}
 export async function openCashSessionAction(
   openingCash: number,
   note = "",

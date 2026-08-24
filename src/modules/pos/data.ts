@@ -87,6 +87,17 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
 }
 
 export async function getProducts(includeInactive = false): Promise<Product[]> {
+  return getProductsByArchive(includeInactive, false);
+}
+
+export async function getArchivedProducts(): Promise<Product[]> {
+  return getProductsByArchive(true, true);
+}
+
+async function getProductsByArchive(
+  includeInactive: boolean,
+  archivedOnly: boolean,
+): Promise<Product[]> {
   const { businessId, supabase } = await businessContext();
   let query = supabase
     .from("products")
@@ -94,9 +105,11 @@ export async function getProducts(includeInactive = false): Promise<Product[]> {
       "id,name,description,price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,product_categories(name)",
     )
     .eq("business_id", businessId)
-    .is("deleted_at", null)
     .order("position")
     .order("name");
+  query = archivedOnly
+    ? query.not("deleted_at", "is", null)
+    : query.is("deleted_at", null);
   if (!includeInactive)
     query = query.eq("active", true).is("family_product_id", null);
   const { data, error } = await query;

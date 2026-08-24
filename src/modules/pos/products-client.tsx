@@ -1,7 +1,15 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-import { ImageIcon, PackageCheck, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  ArchiveRestore,
+  ImageIcon,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { formatClp } from "@/shared/money";
 import {
   CollectionToolbar,
@@ -9,12 +17,21 @@ import {
 } from "@/shared/ui/collection-controls";
 import {
   deleteProductAction,
+  restoreProductAction,
   saveProductAction,
   toggleProductAction,
 } from "./actions";
 import type { Product } from "./types";
-export function ProductsClient({ products }: { products: Product[] }) {
-  const [section, setSection] = useState<"products" | "families">("products");
+export function ProductsClient({
+  products,
+  archivedProducts,
+}: {
+  products: Product[];
+  archivedProducts: Product[];
+}) {
+  const [section, setSection] = useState<"products" | "families" | "archived">(
+    "products",
+  );
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,9 +40,14 @@ export function ProductsClient({ products }: { products: Product[] }) {
   const [customCategory, setCustomCategory] = useState("");
   const [search, setSearch] = useState("");
   const [view, setView] = useCollectionView("products");
-  const sectionProducts = products.filter((product) =>
-    section === "families" ? product.isSalesFamily : !product.isSalesFamily,
-  );
+  const sectionProducts =
+    section === "archived"
+      ? archivedProducts
+      : products.filter((product) =>
+          section === "families"
+            ? product.isSalesFamily
+            : !product.isSalesFamily,
+        );
   const isFamilyForm =
     editing?.isSalesFamily || (!editing && section === "families");
   const categories = [
@@ -73,27 +95,32 @@ export function ProductsClient({ products }: { products: Product[] }) {
           <p className="mt-2 text-sm text-[#747970]">
             {section === "products"
               ? "Crea primero cada producto o variedad con su receta y costo."
-              : "Agrupa productos existentes bajo un único producto de venta en caja."}
+              : section === "families"
+                ? "Agrupa productos existentes bajo un único producto de venta en caja."
+                : "Recupera productos y familias conservando todos sus datos anteriores."}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditing(null);
-            setFormCategory("Otros");
-            setCustomCategory("");
-            setOpen(true);
-          }}
-          className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
-        >
-          <Plus size={17} />
-          {section === "products" ? "Producto" : "Familia"}
-        </button>
+        {section !== "archived" && (
+          <button
+            onClick={() => {
+              setEditing(null);
+              setFormCategory("Otros");
+              setCustomCategory("");
+              setOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
+          >
+            <Plus size={17} />
+            {section === "products" ? "Producto" : "Familia"}
+          </button>
+        )}
       </div>
-      <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#ecece3] p-1.5">
+      <div className="mt-7 grid grid-cols-3 gap-2 rounded-2xl bg-[#ecece3] p-1.5">
         {(
           [
             ["products", "Productos individuales"],
             ["families", "Familias de productos"],
+            ["archived", "Archivados"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -109,7 +136,9 @@ export function ProductsClient({ products }: { products: Product[] }) {
             <span className="opacity-70">
               {value === "products"
                 ? products.filter((p) => !p.isSalesFamily).length
-                : products.filter((p) => p.isSalesFamily).length}
+                : value === "families"
+                  ? products.filter((p) => p.isSalesFamily).length
+                  : archivedProducts.length}
             </span>
           </button>
         ))}
@@ -170,7 +199,9 @@ export function ProductsClient({ products }: { products: Product[] }) {
                     <tr
                       key={product.id}
                       className={
-                        !product.active ? "opacity-55" : "hover:bg-[#fafaf4]"
+                        !product.active && section !== "archived"
+                          ? "opacity-55"
+                          : "hover:bg-[#fafaf4]"
                       }
                     >
                       <td className="px-4 py-3 font-black">{product.name}</td>
@@ -189,17 +220,22 @@ export function ProductsClient({ products }: { products: Product[] }) {
                           : "Sin control"}
                       </td>
                       <td className="px-4 py-3">
-                        {section === "families"
-                          ? `${products.filter((item) => item.familyProductId === product.id).length} variedades`
-                          : product.familyProductId
-                            ? "Variedad interna"
-                            : product.active
-                              ? "Activo"
-                              : "Oculto"}
+                        {section === "archived"
+                          ? product.isSalesFamily
+                            ? "Familia archivada"
+                            : "Producto archivado"
+                          : section === "families"
+                            ? `${products.filter((item) => item.familyProductId === product.id).length} variedades`
+                            : product.familyProductId
+                              ? "Variedad interna"
+                              : product.active
+                                ? "Activo"
+                                : "Oculto"}
                       </td>
                       <td className="px-4 py-3">
                         <ProductActions
                           product={product}
+                          archived={section === "archived"}
                           onEdit={() => {
                             setEditing(product);
                             setFormCategory(product.category);
@@ -217,7 +253,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
               visibleProducts.map((p) => (
                 <article
                   key={p.id}
-                  className={`card overflow-hidden ${!p.active ? "opacity-55" : ""}`}
+                  className={`card overflow-hidden ${!p.active && section !== "archived" ? "opacity-55" : ""}`}
                 >
                   <div className="grid h-36 place-items-center bg-[#edece3]">
                     {p.imageUrl ? (
@@ -278,6 +314,7 @@ export function ProductsClient({ products }: { products: Product[] }) {
                     )}
                     <ProductActions
                       product={p}
+                      archived={section === "archived"}
                       onEdit={() => {
                         setEditing(p);
                         setFormCategory(p.category);
@@ -292,8 +329,13 @@ export function ProductsClient({ products }: { products: Product[] }) {
         ) : (
           <div className="card mt-5 p-10 text-center">
             <p className="font-bold">
-              No hay {section === "products" ? "productos" : "familias"} en{" "}
-              {category}
+              No hay{" "}
+              {section === "products"
+                ? "productos"
+                : section === "families"
+                  ? "familias"
+                  : "archivados"}{" "}
+              en {category}
             </p>
             <button
               onClick={() => setCategory("Todos")}
@@ -306,12 +348,19 @@ export function ProductsClient({ products }: { products: Product[] }) {
       ) : (
         <div className="card mt-7 p-12 text-center">
           <p className="font-bold">
-            Aún no hay {section === "products" ? "productos" : "familias"}
+            Aún no hay{" "}
+            {section === "products"
+              ? "productos"
+              : section === "families"
+                ? "familias"
+                : "productos archivados"}
           </p>
           <p className="mt-2 text-sm text-[#777]">
             {section === "products"
               ? "Crea el primero antes de formar familias."
-              : "Crea una familia y selecciona los productos que la componen."}
+              : section === "families"
+                ? "Crea una familia y selecciona los productos que la componen."
+                : "Los productos que archives aparecerán aquí para poder restaurarlos."}
           </p>
         </div>
       )}
@@ -504,10 +553,34 @@ export function ProductsClient({ products }: { products: Product[] }) {
 function ProductActions({
   product,
   onEdit,
+  archived = false,
 }: {
   product: Product;
   onEdit: () => void;
+  archived?: boolean;
 }) {
+  if (archived)
+    return (
+      <div className="flex justify-end border-t border-[#ebeae2] pt-3 text-xs font-bold">
+        <button
+          onClick={async () => {
+            try {
+              await restoreProductAction(product.id);
+              location.reload();
+            } catch (error) {
+              alert(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo restaurar el producto",
+              );
+            }
+          }}
+          className="flex items-center gap-1.5 rounded-lg bg-[#edf4e9] px-3 py-2 text-[#235b45]"
+        >
+          <ArchiveRestore size={14} /> Restaurar
+        </button>
+      </div>
+    );
   return (
     <div className="flex flex-wrap justify-end gap-2 border-t border-[#ebeae2] pt-3 text-xs font-bold">
       <button
@@ -529,7 +602,7 @@ function ProductActions({
         onClick={async () => {
           if (
             !confirm(
-              `¿Archivar ${product.name}? Podrás recuperarlo creando nuevamente un producto con el mismo nombre.`,
+              `¿Archivar ${product.name}? Podrás recuperarlo desde la pestaña Archivados.`,
             )
           )
             return;
