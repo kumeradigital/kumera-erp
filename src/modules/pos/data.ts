@@ -83,7 +83,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
   if (sessionIds.length) {
     const { data: sales, error: salesError } = await supabase
       .from("sales")
-      .select("sale_items(product_id,quantity,subtotal)")
+      .select("sale_items(product_id,quantity,line_total)")
       .eq("business_id", businessId)
       .in("cash_session_id", sessionIds);
     if (salesError) throw salesError;
@@ -94,7 +94,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       for (const item of sale.sale_items || []) {
         const analysis = analysisMap.get(item.product_id);
         if (!analysis?.complete) continue;
-        const subtotal = Number(item.subtotal);
+        const subtotal = Number(item.line_total);
         const quantity = Number(item.quantity);
         costedSales += subtotal;
         estimatedContribution +=
