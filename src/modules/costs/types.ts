@@ -76,6 +76,7 @@ export type CostSettings = {
 export type CostProduct = {
   id: string;
   name: string;
+  category: string;
   price: number;
   saleUnit: "unit" | "kg";
   recipeId?: string;

@@ -75,7 +75,7 @@ export async function getCostingData() {
     supabase
       .from("products")
       .select(
-        "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id",
+        "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,product_categories(name)",
       )
       .eq("business_id", businessId)
       .is("deleted_at", null)
@@ -177,17 +177,23 @@ export async function getCostingData() {
     items: itemsByRecipe.get(row.id) || [],
   }));
 
-  const products: CostProduct[] = (productResult.data || []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    price: Number(row.price),
-    saleUnit: row.sale_unit,
-    recipeId: row.cost_recipe_id || undefined,
-    wastePercentage: Number(row.waste_percentage),
-    targetMarginPercentage: Number(row.target_margin_percentage),
-    isSalesFamily: row.is_sales_family,
-    familyProductId: row.family_product_id || undefined,
-  }));
+  const products: CostProduct[] = (productResult.data || []).map((row) => {
+    const category = Array.isArray(row.product_categories)
+      ? row.product_categories[0]?.name
+      : (row.product_categories as { name: string } | null)?.name;
+    return {
+      id: row.id,
+      name: row.name,
+      category: category || "Sin categoría",
+      price: Number(row.price),
+      saleUnit: row.sale_unit,
+      recipeId: row.cost_recipe_id || undefined,
+      wastePercentage: Number(row.waste_percentage),
+      targetMarginPercentage: Number(row.target_margin_percentage),
+      isSalesFamily: row.is_sales_family,
+      familyProductId: row.family_product_id || undefined,
+    };
+  });
 
   const rawSettings = settingsResult.data!;
   const settings: CostSettings = {

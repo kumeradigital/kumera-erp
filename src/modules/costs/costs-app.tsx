@@ -789,8 +789,16 @@ function ProductsCostView({
   const [editing, setEditing] = useState<ProductCostAnalysis | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [category, setCategory] = useState("Todas");
   const [view, setView] = useCollectionView("product-costs");
-  const costedProducts = analyses.filter((product) => product.complete);
+  const categories = [
+    "Todas",
+    ...new Set(analyses.map((product) => product.category)),
+  ];
+  const categoryProducts = analyses.filter(
+    (product) => category === "Todas" || product.category === category,
+  );
+  const costedProducts = categoryProducts.filter((product) => product.complete);
   const averageMargin = costedProducts.length
     ? costedProducts.reduce(
         (sum, product) => sum + product.contributionPercentage,
@@ -803,6 +811,7 @@ function ProductsCostView({
     : 0;
   const visible = analyses.filter(
     (product) =>
+      (category === "Todas" || product.category === category) &&
       (status === "all" ||
         (status === "complete" ? product.complete : !product.complete)) &&
       product.name
@@ -826,7 +835,9 @@ function ProductsCostView({
             </p>
             <p className="mt-2 max-w-2xl text-xs leading-5 text-[#66766c]">
               Promedio simple con los precios actuales de los productos que
-              tienen costeo completo. No está ponderado por cantidad vendida.
+              tienen costeo completo
+              {category === "Todas" ? "" : ` en ${category}`}. No está ponderado
+              por cantidad vendida.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:min-w-72">
@@ -840,7 +851,7 @@ function ProductsCostView({
             />
             <Mini
               label="Productos incluidos"
-              value={`${costedProducts.length} de ${analyses.length}`}
+              value={`${costedProducts.length} de ${categoryProducts.length}`}
             />
           </div>
         </div>
@@ -852,6 +863,18 @@ function ProductsCostView({
         onSearchChange={setSearch}
         placeholder="Buscar producto..."
       >
+        <select
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          className="input h-11 min-h-0 sm:w-48"
+          aria-label="Categoría de productos"
+        >
+          {categories.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
         <select
           value={status}
           onChange={(event) => setStatus(event.target.value)}
@@ -874,6 +897,7 @@ function ProductsCostView({
             <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
               <tr>
                 <th className="px-4 py-3">Producto</th>
+                <th className="px-4 py-3">Categoría</th>
                 <th className="px-4 py-3">Receta final</th>
                 <th className="px-4 py-3">Precio</th>
                 <th className="px-4 py-3">Costo variable</th>
@@ -887,6 +911,9 @@ function ProductsCostView({
               {visible.map((product) => (
                 <tr key={product.id} className="hover:bg-[#fafaf4]">
                   <td className="px-4 py-3 font-black">{product.name}</td>
+                  <td className="px-4 py-3 text-[#70756d]">
+                    {product.category}
+                  </td>
                   <td className="px-4 py-3 text-[#70756d]">
                     {product.recipeName || "Sin receta"}
                   </td>
@@ -931,8 +958,8 @@ function ProductsCostView({
                 <div>
                   <h3 className="font-black">{product.name}</h3>
                   <p className="mt-1 text-xs text-[#777]">
-                    {product.recipeName || "Sin receta"} · venta por{" "}
-                    {product.saleUnit === "kg" ? "kg" : "unidad"}
+                    {product.category} · {product.recipeName || "Sin receta"} ·
+                    venta por {product.saleUnit === "kg" ? "kg" : "unidad"}
                   </p>
                 </div>
                 <Status
