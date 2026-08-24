@@ -383,7 +383,7 @@ export async function getCashWithdrawals(
   const { businessId, supabase } = await businessContext();
   const { data, error } = await supabase
     .from("cash_session_withdrawals")
-    .select("id,amount,reason,created_at")
+    .select("id,amount,reason,category,is_business_expense,created_at")
     .eq("business_id", businessId)
     .eq("cash_session_id", sessionId)
     .order("created_at", { ascending: false });
@@ -392,6 +392,8 @@ export async function getCashWithdrawals(
     id: item.id,
     amount: Number(item.amount),
     reason: item.reason,
+    category: item.category,
+    isBusinessExpense: item.is_business_expense,
     createdAt: item.created_at,
   }));
 }
@@ -490,7 +492,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
   const { data, error } = await supabase
     .from("cash_sessions")
     .select(
-      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,cash_rounding_amount,payment_method,status),cash_session_withdrawals(id,amount,reason,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
+      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,cash_rounding_amount,payment_method,status),cash_session_withdrawals(id,amount,reason,category,is_business_expense,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
     )
     .eq("business_id", businessId)
     .eq("status", "closed")
@@ -523,11 +525,15 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
           id: string;
           amount: number | string;
           reason: string;
+          category: string;
+          is_business_expense: boolean;
           created_at: string;
         }) => ({
           id: item.id,
           amount: Number(item.amount),
           reason: item.reason,
+          category: item.category,
+          isBusinessExpense: item.is_business_expense,
           createdAt: item.created_at,
         }),
       )

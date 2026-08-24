@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
+import { CASH_WITHDRAWAL_CATEGORIES } from "@/modules/operations/categories";
 import {
   calculateCashPayable,
   calculateCashRounding,
@@ -922,6 +923,8 @@ function CashWithdrawalDialog({
 }) {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
+  const [category, setCategory] = useState("Compra menor del negocio");
+  const [isBusinessExpense, setIsBusinessExpense] = useState(true);
   const [busy, setBusy] = useState(false);
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
@@ -935,6 +938,8 @@ function CashWithdrawalDialog({
               sessionId,
               Math.round(Number(amount)),
               reason,
+              category,
+              isBusinessExpense,
             );
             location.reload();
           } catch (error) {
@@ -978,6 +983,33 @@ function CashWithdrawalDialog({
           className="input mt-2"
           placeholder="Ej. Compra de agua y bebida"
         />
+        <label className="mt-4 block text-xs font-bold">Categoría</label>
+        <select
+          value={category}
+          onChange={(event) => {
+            setCategory(event.target.value);
+            setIsBusinessExpense(event.target.value !== "Retiro personal");
+          }}
+          className="input mt-2"
+        >
+          {CASH_WITHDRAWAL_CATEGORIES.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
+        </select>
+        <label className="mt-4 flex items-start gap-3 rounded-xl bg-[#f2f2ea] p-3 text-xs">
+          <input
+            type="checkbox"
+            checked={isBusinessExpense}
+            onChange={(event) => setIsBusinessExpense(event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <b>Es un gasto del negocio</b>
+            <span className="mt-1 block font-normal text-[#777]">
+              Desmárcalo si corresponde a un retiro personal del propietario.
+            </span>
+          </span>
+        </label>
         <p className="mt-3 text-[11px] leading-5 text-[#777]">
           El retiro disminuirá el efectivo esperado al cerrar la caja. Si fue
           una compra del negocio, regístrala también en Compras y gastos.
@@ -1252,6 +1284,15 @@ function CloseSessionDialog({
       note?: string;
     }[]
   >([]);
+  const [carryover, setCarryover] = useState<
+    {
+      product_id?: string;
+      product_name: string;
+      quantity: string;
+      sale_unit: "unit" | "kg";
+      note?: string;
+    }[]
+  >([]);
   const productionMembers = productionFamilies.flatMap(
     (family) => family.members,
   );
@@ -1360,7 +1401,10 @@ function CloseSessionDialog({
           const wasted = waste
             .filter((item) => item.product_id && memberIds.has(item.product_id))
             .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-          const difference = produced - sold - wasted;
+          const carried = carryover
+            .filter((item) => item.product_id && memberIds.has(item.product_id))
+            .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+          const difference = produced - sold - wasted - carried;
           const productionCost = familyBatches.reduce(
             (sum, batch) => sum + batch.quantity * batch.unitCost,
             0,
@@ -1384,6 +1428,10 @@ function CloseSessionDialog({
                 <b className="text-right">
                   {wasted.toLocaleString("es-CL")} kg
                 </b>
+                <span>Sobrante vendible</span>
+                <b className="text-right">
+                  {carried.toLocaleString("es-CL")} kg
+                </b>
                 <span>Diferencia pendiente</span>
                 <b
                   className={`text-right ${Math.abs(difference) <= 0.01 ? "text-[#235b45]" : "text-[#a24628]"}`}
@@ -1399,8 +1447,9 @@ function CloseSessionDialog({
                 </b>
               </div>
               <p className="mt-3 text-[10px] leading-4 text-[#667067]">
-                Registra abajo todo el pan restante como merma por variedad para
-                conciliar la producción del día.
+                Registra como sobrante lo que pueda venderse mañana. Usa merma
+                solamente para lo descartado, regalado o definitivamente
+                perdido.
               </p>
             </div>
           );
@@ -1429,6 +1478,12 @@ function CloseSessionDialog({
                   transfer: externalTransactions.transfer,
                 },
                 waste: waste
+                  .filter((item) => Number(item.quantity) > 0)
+                  .map((item) => ({
+                    ...item,
+                    quantity: Number(item.quantity),
+                  })),
+                carryover: carryover
                   .filter((item) => Number(item.quantity) > 0)
                   .map((item) => ({
                     ...item,
@@ -1542,6 +1597,77 @@ function CloseSessionDialog({
               className="input mt-2"
             />
           </label>
+          <div className="rounded-xl border border-[#e1e1d7] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <b className="text-sm">Sobrante vendible</b>
+                <p className="mt-1 text-[10px] text-[#777]">
+                  Producto que queda al cierre y todavía se venderá o
+                  reutilizará.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setCarryover((items) => [
+                    ...items,
+                    { product_name: "", quantity: "", sale_unit: "unit" },
+                  ])
+                }
+                className="text-xs font-bold text-[#235b45]"
+              >
+                + Agregar sobrante
+              </button>
+            </div>
+            {carryover.map((item, index) => (
+              <div key={index} className="mt-3 grid grid-cols-[1fr_90px] gap-2">
+                <select
+                  value={item.product_id || ""}
+                  onChange={(event) => {
+                    const product = wasteProducts.find(
+                      (candidate) => candidate.id === event.target.value,
+                    );
+                    setCarryover((items) =>
+                      items.map((row, i) =>
+                        i === index
+                          ? {
+                              ...row,
+                              product_id: product?.id,
+                              product_name: product?.name || "",
+                              sale_unit: product?.saleUnit || "unit",
+                            }
+                          : row,
+                      ),
+                    );
+                  }}
+                  className="input"
+                >
+                  <option value="">Producto</option>
+                  {wasteProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  aria-label="Cantidad de sobrante vendible"
+                  inputMode="decimal"
+                  placeholder={item.sale_unit === "kg" ? "kg" : "Un."}
+                  value={item.quantity}
+                  onChange={(event) =>
+                    setCarryover((items) =>
+                      items.map((row, i) =>
+                        i === index
+                          ? { ...row, quantity: event.target.value }
+                          : row,
+                      ),
+                    )
+                  }
+                  className="input"
+                />
+              </div>
+            ))}
+          </div>
           <div className="rounded-xl border border-[#e1e1d7] p-4">
             <div className="flex items-center justify-between">
               <b className="text-sm">Mermas del día</b>

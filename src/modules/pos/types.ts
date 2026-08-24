@@ -53,6 +53,8 @@ export type CashWithdrawal = {
   id: string;
   amount: number;
   reason: string;
+  category: string;
+  isBusinessExpense: boolean;
   createdAt: string;
 };
 export type RecentSale = {

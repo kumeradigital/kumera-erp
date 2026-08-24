@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
+import { CASH_WITHDRAWAL_CATEGORIES } from "@/modules/operations/categories";
 import { getCostingData } from "@/modules/costs/data";
 import { calculateCashPayable, calculateLineTotal } from "./cart";
 import type {
@@ -255,17 +256,27 @@ export async function registerCashWithdrawalAction(
   sessionId: string,
   amount: number,
   reason: string,
+  category: string,
+  isBusinessExpense: boolean,
 ) {
   const ctx = await context();
   const normalizedReason = reason.trim();
   if (!sessionId || !Number.isInteger(amount) || amount <= 0)
     throw new Error("Monto de retiro inválido");
   if (!normalizedReason) throw new Error("Debes indicar el motivo del retiro");
+  if (
+    !CASH_WITHDRAWAL_CATEGORIES.includes(
+      category as (typeof CASH_WITHDRAWAL_CATEGORIES)[number],
+    )
+  )
+    throw new Error("Categoría de retiro inválida");
   const { error } = await ctx.supabase.from("cash_session_withdrawals").insert({
     business_id: ctx.businessId,
     cash_session_id: sessionId,
     amount,
     reason: normalizedReason,
+    category,
+    is_business_expense: isBusinessExpense,
     created_by: ctx.user.id,
   });
   if (error) throw error;
@@ -400,6 +411,13 @@ export async function closeCashSessionAction(
       sale_unit: SaleUnit;
       note?: string;
     }[];
+    carryover: {
+      product_id?: string;
+      product_name: string;
+      quantity: number;
+      sale_unit: SaleUnit;
+      note?: string;
+    }[];
   },
 ) {
   const ctx = await context();
@@ -417,6 +435,35 @@ export async function closeCashSessionAction(
     )
   )
     throw new Error("Merma inválida");
+  if (
+    details.carryover.some(
+      (item) => !Number.isFinite(item.quantity) || item.quantity <= 0,
+    )
+  )
+    throw new Error("Sobrante vendible inválido");
+  const { error: clearCarryoverError } = await ctx.supabase
+    .from("cash_session_product_carryover")
+    .delete()
+    .eq("business_id", ctx.businessId)
+    .eq("cash_session_id", sessionId);
+  if (clearCarryoverError) throw clearCarryoverError;
+  if (details.carryover.length) {
+    const { error: carryoverError } = await ctx.supabase
+      .from("cash_session_product_carryover")
+      .insert(
+        details.carryover.map((item) => ({
+          business_id: ctx.businessId,
+          cash_session_id: sessionId,
+          product_id: item.product_id || null,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          sale_unit: item.sale_unit,
+          note: item.note || null,
+          created_by: ctx.user.id,
+        })),
+      );
+    if (carryoverError) throw carryoverError;
+  }
   const { error } = await ctx.supabase.rpc("close_cash_session_with_details", {
     p_session: sessionId,
     p_counted_cash: countedCash,

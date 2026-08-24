@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { saveOperationAction } from "./actions";
+import { OPERATION_CATEGORIES } from "./categories";
 import { operationLabels, type Operation, type OperationType } from "./types";
 export function OperationsApp({
   operations,
@@ -124,6 +125,7 @@ function OperationDialog({
 }) {
   const [type, setType] = useState<OperationType>("purchase");
   const [ingredient, setIngredient] = useState("");
+  const [category, setCategory] = useState("Materias primas");
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
       <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
@@ -145,7 +147,19 @@ function OperationDialog({
             <select
               name="type"
               value={type}
-              onChange={(e) => setType(e.target.value as OperationType)}
+              onChange={(e) => {
+                const next = e.target.value as OperationType;
+                setType(next);
+                setCategory(
+                  next === "fixed_cost"
+                    ? "Servicios básicos"
+                    : next === "owner_withdrawal"
+                      ? "Retiros personales"
+                      : next === "purchase"
+                        ? "Materias primas"
+                        : "Otros",
+                );
+              }}
               className="input mt-2"
             >
               {Object.entries(operationLabels).map(([v, l]) => (
@@ -190,11 +204,16 @@ function OperationDialog({
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs font-bold">
               Categoría
-              <input
+              <select
                 name="category"
-                defaultValue={type === "fixed_cost" ? "Costos fijos" : "Otros"}
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
                 className="input mt-2"
-              />
+              >
+                {OPERATION_CATEGORIES.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
             </label>
             <label className="text-xs font-bold">
               Medio de pago
