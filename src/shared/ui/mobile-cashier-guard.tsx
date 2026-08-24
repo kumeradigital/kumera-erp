@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 const MOBILE_QUERY = "(max-width: 767px)";
@@ -14,27 +14,20 @@ export function MobileCashierGuard({
   const pathname = usePathname();
   const router = useRouter();
   const routeIsAvailableOnMobile = MOBILE_ROUTES.has(pathname);
-  const [canRender, setCanRender] = useState(routeIsAvailableOnMobile);
 
   useEffect(() => {
-    if (routeIsAvailableOnMobile) {
-      setCanRender(true);
-      return;
-    }
+    if (routeIsAvailableOnMobile) return;
 
     const media = window.matchMedia(MOBILE_QUERY);
-    if (media.matches) {
-      setCanRender(false);
-      router.replace("/caja");
-      return;
-    }
-
-    setCanRender(true);
+    if (media.matches) router.replace("/caja");
   }, [routeIsAvailableOnMobile, router]);
 
-  if (!canRender) {
-    return (
-      <main className="grid min-h-dvh place-items-center bg-[#f7f6ee] p-6">
+  if (routeIsAvailableOnMobile) return children;
+
+  return (
+    <>
+      <div className="hidden md:contents">{children}</div>
+      <main className="grid min-h-dvh place-items-center bg-[#f7f6ee] p-6 md:hidden">
         <div className="text-center">
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[#d8f070] text-xl font-black text-[#235b45]">
             K
@@ -44,8 +37,6 @@ export function MobileCashierGuard({
           </p>
         </div>
       </main>
-    );
-  }
-
-  return children;
+    </>
+  );
 }
