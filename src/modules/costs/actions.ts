@@ -217,6 +217,22 @@ export async function addRecipeItemAction(form: FormData) {
     if (ingredientError || !ingredient)
       throw new Error("Materia prima no válida");
   }
+  const { data: existingItems, error: existingError } = await ctx.supabase
+    .from("recipe_items")
+    .select("ingredient_id,subrecipe_id")
+    .eq("recipe_id", recipeId)
+    .eq("business_id", ctx.businessId);
+  if (existingError) throw existingError;
+  const alreadyExists = existingItems?.some((item) =>
+    componentType === "ingredient"
+      ? item.ingredient_id === componentId
+      : item.subrecipe_id === componentId,
+  );
+  if (alreadyExists) {
+    throw new Error(
+      "Este componente ya está en la receta. Edita su cantidad desde el detalle.",
+    );
+  }
   const { error } = await ctx.supabase.from("recipe_items").insert({
     business_id: ctx.businessId,
     recipe_id: recipeId,

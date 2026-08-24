@@ -396,13 +396,14 @@ function RecipesView({
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<RecipeKind>("subrecipe");
   const [view, setView] = useCollectionView("recipes");
-  const [viewing, setViewing] = useState<Recipe | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<{
     recipe: Recipe;
     item: Recipe["items"][number];
   } | null>(null);
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
   const recipeMap = new Map(recipes.map((item) => [item.id, item]));
+  const viewing = recipes.find((recipe) => recipe.id === viewingId) || null;
   const recipeCounts = {
     subrecipe: recipes.filter((recipe) => recipe.kind === "subrecipe").length,
     final: recipes.filter((recipe) => recipe.kind === "final").length,
@@ -579,7 +580,7 @@ function RecipesView({
                       <div className="flex justify-end gap-3 whitespace-nowrap text-xs font-bold">
                         <button
                           className="text-[#235b45]"
-                          onClick={() => setViewing(recipe)}
+                          onClick={() => setViewingId(recipe.id)}
                         >
                           Ver detalle
                         </button>
@@ -696,7 +697,7 @@ function RecipesView({
                 )}
                 <div className="mt-4 flex flex-wrap gap-4">
                   <button
-                    onClick={() => setViewing(recipe)}
+                    onClick={() => setViewingId(recipe.id)}
                     className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
                   >
                     <Eye size={14} /> Ver detalle
@@ -759,7 +760,10 @@ function RecipesView({
           recipes={recipes}
           costs={costs}
           onEdit={(item) => setEditingItem({ recipe: viewing, item })}
-          onClose={() => setViewing(null)}
+          onDelete={async (item) => {
+            await deleteRecipeItemAction(item.id);
+          }}
+          onClose={() => setViewingId(null)}
         />
       )}
       {editingItem && (
@@ -1792,6 +1796,7 @@ function RecipeDetailDialog({
   recipes,
   costs,
   onEdit,
+  onDelete,
   onClose,
 }: {
   recipe: Recipe;
@@ -1799,6 +1804,7 @@ function RecipeDetailDialog({
   recipes: Recipe[];
   costs: Record<string, RecipeCost>;
   onEdit: (item: Recipe["items"][number]) => void;
+  onDelete: (item: Recipe["items"][number]) => Promise<void>;
   onClose: () => void;
 }) {
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
@@ -1858,6 +1864,27 @@ function RecipeDetailDialog({
                 aria-label="Editar componente"
               >
                 <Pencil size={15} />
+              </button>
+              <button
+                onClick={async () => {
+                  const name =
+                    ingredient?.name || subrecipe?.name || "este componente";
+                  if (!confirm(`¿Quitar ${name} de esta receta?`)) return;
+                  try {
+                    await onDelete(item);
+                  } catch (error) {
+                    alert(
+                      error instanceof Error
+                        ? error.message
+                        : "No se pudo quitar el componente",
+                    );
+                  }
+                }}
+                className="grid size-9 place-items-center rounded-lg bg-[#fff0e9] text-[#a24628]"
+                aria-label="Quitar componente"
+                title="Quitar de la receta"
+              >
+                <Trash2 size={15} />
               </button>
             </div>
           );
