@@ -392,7 +392,7 @@ function RecipesView({
 }) {
   const [creating, setCreating] = useState<RecipeKind | null>(null);
   const [editing, setEditing] = useState<Recipe | null>(null);
-  const [addingTo, setAddingTo] = useState<Recipe | null>(null);
+  const [addingToId, setAddingToId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<RecipeKind>("subrecipe");
   const [view, setView] = useCollectionView("recipes");
@@ -403,6 +403,7 @@ function RecipesView({
   } | null>(null);
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
   const recipeMap = new Map(recipes.map((item) => [item.id, item]));
+  const addingTo = recipes.find((recipe) => recipe.id === addingToId) || null;
   const viewing = recipes.find((recipe) => recipe.id === viewingId) || null;
   const recipeCounts = {
     subrecipe: recipes.filter((recipe) => recipe.kind === "subrecipe").length,
@@ -586,7 +587,7 @@ function RecipesView({
                         </button>
                         <button
                           className="text-[#235b45]"
-                          onClick={() => setAddingTo(recipe)}
+                          onClick={() => setAddingToId(recipe.id)}
                         >
                           Agregar componente
                         </button>
@@ -703,7 +704,7 @@ function RecipesView({
                     <Eye size={14} /> Ver detalle
                   </button>
                   <button
-                    onClick={() => setAddingTo(recipe)}
+                    onClick={() => setAddingToId(recipe.id)}
                     className="flex items-center gap-2 text-xs font-bold text-[#235b45]"
                   >
                     <Plus size={14} /> Agregar materia prima o subreceta
@@ -750,7 +751,7 @@ function RecipesView({
           recipe={addingTo}
           ingredients={ingredients}
           recipes={recipes}
-          onClose={() => setAddingTo(null)}
+          onClose={() => setAddingToId(null)}
         />
       )}
       {viewing && (
@@ -1729,6 +1730,9 @@ function RecipeItemDialog({
   const [kind, id] = key.split(":");
   const ingredient = ingredients.find((item) => item.id === id);
   const subrecipe = recipes.find((item) => item.id === id);
+  const alreadyAdded = recipe.items.some((item) =>
+    kind === "ingredient" ? item.ingredientId === id : item.subrecipeId === id,
+  );
   const allowedUnits =
     ingredient?.baseUnit === "g"
       ? ["g", "kg"]
@@ -1755,13 +1759,21 @@ function RecipeItemDialog({
         <Field label="Ingrediente o subreceta">
           <select
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={(e) => {
+              setKey(e.target.value);
+              setSaved(false);
+            }}
             className="input"
           >
             <optgroup label="Materias primas">
               {ingredients.map((item) => (
                 <option key={item.id} value={`ingredient:${item.id}`}>
                   {item.name}
+                  {recipe.items.some(
+                    (recipeItem) => recipeItem.ingredientId === item.id,
+                  )
+                    ? " · ya agregado"
+                    : ""}
                 </option>
               ))}
             </optgroup>
@@ -1773,6 +1785,11 @@ function RecipeItemDialog({
                 .map((item) => (
                   <option key={item.id} value={`recipe:${item.id}`}>
                     {item.name}
+                    {recipe.items.some(
+                      (recipeItem) => recipeItem.subrecipeId === item.id,
+                    )
+                      ? " · ya agregada"
+                      : ""}
                   </option>
                 ))}
             </optgroup>
@@ -1803,6 +1820,12 @@ function RecipeItemDialog({
             </select>
           </Field>
         </div>
+        {alreadyAdded && !saved && (
+          <p className="rounded-xl bg-[#fff4d4] p-3 text-center text-xs font-bold text-[#795f0d]">
+            Este componente ya está en la receta. Abre el detalle para editar su
+            cantidad o eliminarlo.
+          </p>
+        )}
         {saved && (
           <p
             role="status"
@@ -1811,7 +1834,9 @@ function RecipeItemDialog({
             Componente agregado. Puedes continuar con el siguiente.
           </p>
         )}
-        <Submit>Agregar componente</Submit>
+        <Submit disabled={alreadyAdded}>
+          {alreadyAdded ? "Componente ya agregado" : "Agregar componente"}
+        </Submit>
       </AsyncForm>
     </Dialog>
   );
@@ -2301,9 +2326,18 @@ function AsyncForm({
     </form>
   );
 }
-function Submit({ children }: { children: React.ReactNode }) {
+function Submit({
+  children,
+  disabled = false,
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
   return (
-    <button className="h-12 w-full rounded-xl bg-[#235b45] font-bold text-white">
+    <button
+      disabled={disabled}
+      className="h-12 w-full rounded-xl bg-[#235b45] font-bold text-white disabled:cursor-not-allowed disabled:bg-[#aeb7ae]"
+    >
       {children}
     </button>
   );
