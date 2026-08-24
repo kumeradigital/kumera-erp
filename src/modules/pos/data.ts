@@ -1,4 +1,5 @@
 import { createClient } from "@/server/supabase/server";
+import { getCostingData } from "@/modules/costs/data";
 import type {
   BusinessPulse,
   CashSession,
@@ -38,11 +39,11 @@ function oneRelation<T>(value: T | T[] | null | undefined): T | undefined {
 
 export async function getBusinessPulse(): Promise<BusinessPulse> {
   const { businessId, supabase } = await businessContext();
-  const [sessionsResult, settingsResult] = await Promise.all([
+  const [sessionsResult, settingsResult, costing] = await Promise.all([
     supabase
       .from("cash_sessions")
       .select(
-        "opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+        "id,opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
       )
       .eq("business_id", businessId)
       .eq("status", "closed")
@@ -52,6 +53,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       .select("operating_days_month")
       .eq("business_id", businessId)
       .maybeSingle(),
+    getCostingData(),
   ]);
   if (sessionsResult.error) throw sessionsResult.error;
   if (settingsResult.error) throw settingsResult.error;
@@ -75,11 +77,52 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
     : 0;
   const operatingDaysMonth =
     Number(settingsResult.data?.operating_days_month) || 26;
+  const sessionIds = (sessionsResult.data || []).map((session) => session.id);
+  let costedSales = 0;
+  let estimatedContribution = 0;
+  if (sessionIds.length) {
+    const { data: sales, error: salesError } = await supabase
+      .from("sales")
+      .select("sale_items(product_id,quantity,subtotal)")
+      .eq("business_id", businessId)
+      .in("cash_session_id", sessionIds);
+    if (salesError) throw salesError;
+    const analysisMap = new Map(
+      costing.analyses.map((analysis) => [analysis.id, analysis]),
+    );
+    for (const sale of sales || []) {
+      for (const item of sale.sale_items || []) {
+        const analysis = analysisMap.get(item.product_id);
+        if (!analysis?.complete) continue;
+        const subtotal = Number(item.subtotal);
+        const quantity = Number(item.quantity);
+        costedSales += subtotal;
+        estimatedContribution +=
+          subtotal / (1 + costing.settings.vatRate / 100) -
+          analysis.variableCost * quantity;
+      }
+    }
+  }
+  const contributionOnGrossPercentage = costedSales
+    ? estimatedContribution / costedSales
+    : 0;
+  const projectedMonthlyContribution = Math.round(
+    averageDailySales * operatingDaysMonth * contributionOnGrossPercentage,
+  );
+  const projectedMonthlyOperatingResult =
+    projectedMonthlyContribution - costing.monthlyFixedCosts;
   return {
     observedDays: observed.length,
     totalSales,
     averageDailySales,
     projectedMonthlySales: averageDailySales * operatingDaysMonth,
+    profitabilityReady: costedSales > 0,
+    costCoveragePercentage: totalSales
+      ? Math.min(100, (costedSales / totalSales) * 100)
+      : 0,
+    projectedMonthlyContribution,
+    monthlyFixedCosts: costing.monthlyFixedCosts,
+    projectedMonthlyOperatingResult,
     operatingDaysMonth,
     firstObservedAt: observed[0]?.openedAt,
     lastObservedAt: observed.at(-1)?.openedAt,

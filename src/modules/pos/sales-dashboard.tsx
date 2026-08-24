@@ -440,15 +440,23 @@ function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
               accent
             />
             <PulseValue
-              label="Rentabilidad"
-              value="Pendiente"
-              detail="Se activará al completar los recetarios"
+              label="Resultado mensual estimado"
+              value={
+                pulse.profitabilityReady
+                  ? formatClp(pulse.projectedMonthlyOperatingResult)
+                  : "Pendiente"
+              }
+              detail={
+                pulse.profitabilityReady
+                  ? `${pulse.costCoveragePercentage.toFixed(0)}% de ventas con costo identificado`
+                  : "Aún no hay ventas con costeo completo"
+              }
             />
           </div>
           <p className="border-t border-[#e6e5dd] bg-[#fffef9] px-5 py-3 text-[11px] leading-5 text-[#747970]">
-            Esta proyección extiende el promedio actual y no representa
-            utilidad. Todavía no descuenta ingredientes, mermas, costos fijos ni
-            impuestos.
+            {pulse.profitabilityReady
+              ? `Estimación con recetas y precios vigentes: contribución mensual ${formatClp(pulse.projectedMonthlyContribution)} menos costos fijos ${formatClp(pulse.monthlyFixedCosts)}. No descuenta impuesto a la renta ni reemplaza la contabilidad.`
+              : "La proyección de ventas todavía no representa utilidad. Completa y vincula los costeos de los productos vendidos para estimarla."}
           </p>
         </>
       ) : (
