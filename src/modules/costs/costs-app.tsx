@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Beaker,
@@ -1648,6 +1648,7 @@ function RecipeItemDialog({
   recipes: Recipe[];
   onClose: () => void;
 }) {
+  const [saved, setSaved] = useState(false);
   const [key, setKey] = useState(
     ingredients[0]
       ? `ingredient:${ingredients[0].id}`
@@ -1672,7 +1673,14 @@ function RecipeItemDialog({
             : ["unit"];
   return (
     <Dialog title={`Agregar a ${recipe.name}`} onClose={onClose}>
-      <AsyncForm action={addRecipeItemAction}>
+      <AsyncForm
+        action={addRecipeItemAction}
+        reloadOnSuccess={false}
+        onSuccess={(form) => {
+          form.reset();
+          setSaved(true);
+        }}
+      >
         <input type="hidden" name="recipeId" value={recipe.id} />
         <input type="hidden" name="componentType" value={kind} />
         <input type="hidden" name="componentId" value={id} />
@@ -1727,6 +1735,14 @@ function RecipeItemDialog({
             </select>
           </Field>
         </div>
+        {saved && (
+          <p
+            role="status"
+            className="rounded-xl bg-[#eef4eb] p-3 text-center text-xs font-bold text-[#235b45]"
+          >
+            Componente agregado. Puedes continuar con el siguiente.
+          </p>
+        )}
         <Submit>Agregar componente</Submit>
       </AsyncForm>
     </Dialog>
@@ -2159,18 +2175,29 @@ function Dialog({
 function AsyncForm({
   action,
   children,
+  reloadOnSuccess = true,
+  onSuccess,
 }: {
   action: (form: FormData) => Promise<void>;
   children: React.ReactNode;
+  reloadOnSuccess?: boolean;
+  onSuccess?: (form: HTMLFormElement) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   return (
     <form
-      action={async (form) => {
+      ref={formRef}
+      action={async (formData) => {
         setBusy(true);
         try {
-          await action(form);
-          location.reload();
+          await action(formData);
+          if (reloadOnSuccess) {
+            location.reload();
+            return;
+          }
+          if (formRef.current) onSuccess?.(formRef.current);
+          setBusy(false);
         } catch (error) {
           alert(error instanceof Error ? error.message : "No se pudo guardar");
           setBusy(false);
