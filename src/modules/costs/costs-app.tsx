@@ -1075,6 +1075,7 @@ function FixedCostsView({
   settings: CostSettings;
 }) {
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<FixedCost | null>(null);
   const [configuring, setConfiguring] = useState(false);
   return (
     <section className="mt-5">
@@ -1126,6 +1127,12 @@ function FixedCostsView({
             <div className="flex items-center gap-3">
               <b>{formatClp(cost.amount)}</b>
               <button
+                onClick={() => setEditing(cost)}
+                className="flex items-center gap-1 text-xs font-bold text-[#235b45]"
+              >
+                <Pencil size={14} /> Editar
+              </button>
+              <button
                 onClick={async () => {
                   await toggleFixedCostAction(cost.id, !cost.active);
                   location.reload();
@@ -1142,6 +1149,9 @@ function FixedCostsView({
         )}
       </div>
       {creating && <FixedCostDialog onClose={() => setCreating(false)} />}
+      {editing && (
+        <FixedCostDialog cost={editing} onClose={() => setEditing(null)} />
+      )}
       {configuring && (
         <SettingsDialog
           settings={settings}
@@ -2106,24 +2116,45 @@ function ProductCostDialog({
   );
 }
 
-function FixedCostDialog({ onClose }: { onClose: () => void }) {
+function FixedCostDialog({
+  cost,
+  onClose,
+}: {
+  cost?: FixedCost;
+  onClose: () => void;
+}) {
   return (
-    <Dialog title="Nuevo costo fijo" onClose={onClose}>
+    <Dialog
+      title={cost ? "Editar costo fijo" : "Nuevo costo fijo"}
+      onClose={onClose}
+    >
       <AsyncForm action={saveFixedCostAction}>
+        {cost && <input type="hidden" name="id" value={cost.id} />}
         <Field label="Nombre">
           <input
             name="name"
             required
+            defaultValue={cost?.name}
             className="input"
             placeholder="Ej: Arriendo"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Monto">
-            <input name="amount" required type="number" className="input" />
+            <input
+              name="amount"
+              required
+              type="number"
+              defaultValue={cost?.amount}
+              className="input"
+            />
           </Field>
           <Field label="Periodicidad">
-            <select name="period" className="input">
+            <select
+              name="period"
+              defaultValue={cost?.period || "monthly"}
+              className="input"
+            >
               <option value="monthly">Mensual</option>
               <option value="daily">Diario</option>
               <option value="quarterly">Trimestral</option>
@@ -2134,7 +2165,11 @@ function FixedCostDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Categoría">
-            <select name="category" className="input">
+            <select
+              name="category"
+              defaultValue={cost?.category || "Otros"}
+              className="input"
+            >
               <option>Local</option>
               <option>Personal</option>
               <option>Servicios</option>
@@ -2149,15 +2184,20 @@ function FixedCostDialog({ onClose }: { onClose: () => void }) {
               name="startsOn"
               type="date"
               required
-              defaultValue={today()}
+              defaultValue={cost?.startsOn || today()}
               className="input"
             />
           </Field>
         </div>
         <Field label="Hasta (opcional)">
-          <input name="endsOn" type="date" className="input" />
+          <input
+            name="endsOn"
+            type="date"
+            defaultValue={cost?.endsOn || ""}
+            className="input"
+          />
         </Field>
-        <Submit>Guardar costo fijo</Submit>
+        <Submit>{cost ? "Guardar cambios" : "Guardar costo fijo"}</Submit>
       </AsyncForm>
     </Dialog>
   );

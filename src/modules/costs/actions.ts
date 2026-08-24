@@ -314,6 +314,7 @@ export async function configureProductCostAction(form: FormData) {
 
 export async function saveFixedCostAction(form: FormData) {
   const ctx = await context();
+  const id = text(form, "id") || undefined;
   const name = text(form, "name");
   const category = text(form, "category") || "Otros";
   const amount = Math.round(positive(form, "amount"));
@@ -333,7 +334,7 @@ export async function saveFixedCostAction(form: FormData) {
     ).includes(period)
   )
     throw new Error("Periodicidad inválida");
-  const { error } = await ctx.supabase.from("fixed_costs").insert({
+  const values = {
     business_id: ctx.businessId,
     name,
     category,
@@ -341,7 +342,16 @@ export async function saveFixedCostAction(form: FormData) {
     period,
     starts_on: startsOn,
     ends_on: endsOn || null,
-  });
+    updated_at: new Date().toISOString(),
+  };
+  const result = id
+    ? await ctx.supabase
+        .from("fixed_costs")
+        .update(values)
+        .eq("id", id)
+        .eq("business_id", ctx.businessId)
+    : await ctx.supabase.from("fixed_costs").insert(values);
+  const { error } = result;
   if (error) throw error;
   revalidatePath("/costos");
 }
