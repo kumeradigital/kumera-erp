@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Beaker,
@@ -394,7 +394,7 @@ function RecipesView({
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [addingTo, setAddingTo] = useState<Recipe | null>(null);
   const [search, setSearch] = useState("");
-  const [kindFilter, setKindFilter] = useState("all");
+  const [kindFilter, setKindFilter] = useState<RecipeKind>("subrecipe");
   const [view, setView] = useCollectionView("recipes");
   const [viewing, setViewing] = useState<Recipe | null>(null);
   const [editingItem, setEditingItem] = useState<{
@@ -403,9 +403,24 @@ function RecipesView({
   } | null>(null);
   const ingredientMap = new Map(ingredients.map((item) => [item.id, item]));
   const recipeMap = new Map(recipes.map((item) => [item.id, item]));
+  const recipeCounts = {
+    subrecipe: recipes.filter((recipe) => recipe.kind === "subrecipe").length,
+    final: recipes.filter((recipe) => recipe.kind === "final").length,
+  };
+  useEffect(() => {
+    const saved = localStorage.getItem("kumera-recipe-kind");
+    if (saved === "subrecipe" || saved === "final") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setKindFilter(saved);
+    }
+  }, []);
+  function selectKind(kind: RecipeKind) {
+    setKindFilter(kind);
+    localStorage.setItem("kumera-recipe-kind", kind);
+  }
   const visible = recipes.filter(
     (recipe) =>
-      (kindFilter === "all" || recipe.kind === kindFilter) &&
+      recipe.kind === kindFilter &&
       recipe.name
         .toLocaleLowerCase("es")
         .includes(search.trim().toLocaleLowerCase("es")),
@@ -440,13 +455,19 @@ function RecipesView({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setCreating("subrecipe")}
+            onClick={() => {
+              selectKind("subrecipe");
+              setCreating("subrecipe");
+            }}
             className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-xs font-black text-[#235b45]"
           >
             <Plus size={15} /> Subreceta
           </button>
           <button
-            onClick={() => setCreating("final")}
+            onClick={() => {
+              selectKind("final");
+              setCreating("final");
+            }}
             className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-xs font-black text-white"
           >
             <Plus size={15} /> Receta final
@@ -482,23 +503,39 @@ function RecipesView({
           </div>
         </div>
       </div>
+      <div
+        className="mt-5 flex w-full gap-2 overflow-x-auto border-b border-[#deddd4] pb-2"
+        role="tablist"
+        aria-label="Tipo de receta"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={kindFilter === "subrecipe"}
+          onClick={() => selectKind("subrecipe")}
+          className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black ${kindFilter === "subrecipe" ? "bg-[#235b45] text-white" : "bg-[#fffef9] text-[#62675f]"}`}
+        >
+          Subrecetas{" "}
+          <span className="opacity-70">{recipeCounts.subrecipe}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={kindFilter === "final"}
+          onClick={() => selectKind("final")}
+          className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black ${kindFilter === "final" ? "bg-[#235b45] text-white" : "bg-[#fffef9] text-[#62675f]"}`}
+        >
+          Recetas finales{" "}
+          <span className="opacity-70">{recipeCounts.final}</span>
+        </button>
+      </div>
       <CollectionToolbar
         view={view}
         onViewChange={setView}
         search={search}
         onSearchChange={setSearch}
         placeholder="Buscar receta..."
-      >
-        <select
-          value={kindFilter}
-          onChange={(event) => setKindFilter(event.target.value)}
-          className="input h-11 min-h-0 sm:w-48"
-        >
-          <option value="all">Todas</option>
-          <option value="subrecipe">Subrecetas</option>
-          <option value="final">Recetas finales</option>
-        </select>
-      </CollectionToolbar>
+      />
       <div
         className={
           view === "cards" ? "mt-4 space-y-3" : "card mt-4 overflow-x-auto"
