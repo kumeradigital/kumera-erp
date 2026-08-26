@@ -14,7 +14,12 @@ export type Operation = {
   gross: number;
   net: number;
   tax: number;
+  taxRate: number;
+  paymentMethod?: "cash" | "debit" | "credit" | "transfer";
+  ingredientId?: string;
   ingredientName?: string;
+  purchaseQuantity?: number;
+  purchaseUnit?: "kg" | "g" | "l" | "ml" | "unit";
   supplier?: string;
   note?: string;
 };

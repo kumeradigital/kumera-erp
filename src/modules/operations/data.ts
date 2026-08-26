@@ -30,7 +30,7 @@ export async function getOperationsData() {
     supabase
       .from("operational_transactions")
       .select(
-        "id,transaction_date,type,description,category,gross_amount,net_amount,tax_amount,supplier,note,ingredients(name)",
+        "id,transaction_date,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,ingredients(name)",
       )
       .eq("business_id", m.business_id)
       .order("transaction_date", { ascending: false }),
@@ -57,9 +57,15 @@ export async function getOperationsData() {
       gross: Number(r.gross_amount),
       net: Number(r.net_amount),
       tax: Number(r.tax_amount),
+      taxRate: Number(r.tax_rate),
+      paymentMethod: r.payment_method || undefined,
+      ingredientId: r.ingredient_id || undefined,
       supplier: r.supplier || undefined,
       note: r.note || undefined,
       ingredientName: ing?.name,
+      purchaseQuantity:
+        r.purchase_quantity == null ? undefined : Number(r.purchase_quantity),
+      purchaseUnit: r.purchase_unit || undefined,
     };
   });
   const salesTotal = (sales.data || []).reduce(
