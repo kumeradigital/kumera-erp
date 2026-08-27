@@ -8,6 +8,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
+import { averagePerWorkedDay, workedDays } from "./sales-averages";
 import { SalesFilters, type SalesPeriodView } from "./sales-filters";
 import {
   paymentLabels,
@@ -36,6 +37,8 @@ export function SalesDashboard({
   period: SalesPeriodView;
   pulse: BusinessPulse;
 }) {
+  const days = workedDays(sessions);
+  const dailyAverage = (total: number) => averagePerWorkedDay(total, days);
   const peakHour = [...summary.hourlySales].sort(
     (a, b) => b.total - a.total,
   )[0];
@@ -293,6 +296,14 @@ export function SalesDashboard({
           <p className="mt-1 text-xs text-[#777]">
             Todos los productos registrados durante el periodo seleccionado.
           </p>
+          <p className="mt-2 text-xs text-[#235b45]">
+            Promedios calculados sobre {days}{" "}
+            {days === 1 ? "día trabajado" : "días trabajados"}: días con
+            apertura de caja, incluidos los días sin venta de un producto. No se
+            cuentan días sin apertura.
+            {sessions.some((session) => session.status === "open") &&
+              " Incluye la caja activa: su venta todavía es parcial."}
+          </p>
         </div>
         {summary.byCategory.length > 0 && (
           <div className="border-b border-[#e6e5dd] bg-[#fafaf5] p-5">
@@ -331,19 +342,33 @@ export function SalesDashboard({
                       </span>
                     )}
                   </div>
+                  <p className="mt-3 text-xs text-[#666]">
+                    Promedio diario:{" "}
+                    {category.unitQuantity > 0 &&
+                      `${formatQuantity(dailyAverage(category.unitQuantity))} un.`}
+                    {category.unitQuantity > 0 &&
+                      category.kgQuantity > 0 &&
+                      " + "}
+                    {category.kgQuantity > 0 &&
+                      `${formatQuantity(dailyAverage(category.kgQuantity))} kg`}
+                    {" · "}
+                    {formatClp(Math.round(dailyAverage(category.total)))}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left text-sm">
+          <table className="w-full min-w-[800px] text-left text-sm">
             <thead className="bg-[#f2f2ea] text-[10px] uppercase text-[#777]">
               <tr>
                 <th className="px-5 py-3">Producto</th>
                 <th className="px-5 py-3">Categoría</th>
                 <th className="px-5 py-3">Cantidad</th>
+                <th className="px-5 py-3">Cantidad / día</th>
                 <th className="px-5 py-3 text-right">Venta registrada</th>
+                <th className="px-5 py-3 text-right">Venta / día</th>
               </tr>
             </thead>
             <tbody>
@@ -357,7 +382,14 @@ export function SalesDashboard({
                       : `${product.quantity} un.`}
                   </td>
                   <td className="money px-5 py-3 text-right font-bold">
+                    {formatQuantity(dailyAverage(product.quantity))}{" "}
+                    {product.saleUnit === "kg" ? "kg" : "un."}
+                  </td>
+                  <td className="money px-5 py-3 text-right font-bold">
                     {formatClp(product.total)}
+                  </td>
+                  <td className="money px-5 py-3 text-right font-bold text-[#235b45]">
+                    {formatClp(Math.round(dailyAverage(product.total)))}
                   </td>
                 </tr>
               ))}
