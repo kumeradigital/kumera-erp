@@ -7,6 +7,8 @@ export const OPERATION_CATEGORIES = [
   "Combustible",
   "Estacionamiento y transporte",
   "Alimentación del personal",
+  "Remuneraciones",
+  "Cotizaciones previsionales",
   "Servicios básicos",
   "Mantención y reparaciones",
   "Gastos administrativos",
