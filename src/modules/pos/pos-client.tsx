@@ -161,8 +161,8 @@ export function PosClient({
   if (!session)
     return <OpenSession latestSession={latestSession} products={products} />;
   return (
-    <main className="grid min-h-[calc(100vh-64px)] lg:grid-cols-[1fr_390px]">
-      <section className="p-3 pb-28 sm:p-4 sm:pb-28 md:p-6 lg:pb-6">
+    <main className="grid min-h-[calc(100vh-64px)] min-w-0 overflow-x-hidden lg:grid-cols-[minmax(0,1fr)_390px]">
+      <section className="min-w-0 p-3 pb-28 sm:p-4 sm:pb-28 md:p-6 lg:pb-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#cbdcc6] bg-[#edf4e9] px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="grid size-9 place-items-center rounded-xl bg-[#235b45] text-white">
@@ -253,8 +253,8 @@ export function PosClient({
             </div>
           </div>
         )}
-        <div className="flex items-start justify-between gap-3 pb-4">
-          <div className="flex gap-2 overflow-x-auto">
+        <div className="flex min-w-0 flex-col gap-3 pb-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-1">
             {categories.map((c) => (
               <button
                 key={c}
@@ -265,7 +265,7 @@ export function PosClient({
               </button>
             ))}
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex max-w-full flex-wrap gap-2">
             <button
               onClick={() => setRecordingDelivery(true)}
               className="flex shrink-0 items-center gap-2 rounded-xl border border-[#d91f4b] bg-white px-3 py-2 text-xs font-black text-[#d91f4b]"
