@@ -30,7 +30,7 @@ export default async function PosPage() {
   const withdrawals = session ? await getCashWithdrawals(session.id) : [];
   const recentSales = session ? await getRecentSessionSales(session.id, 3) : [];
   const recentDeliveryOrders = session
-    ? await getRecentDeliveryOrders(session.id, 5)
+    ? await getRecentDeliveryOrders(session.id, 1000)
     : [];
   const productionBatches = session
     ? await getProductionBatches(session.id)

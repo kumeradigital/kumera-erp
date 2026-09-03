@@ -220,39 +220,6 @@ export function PosClient({
             </p>
           )}
         </div>
-        {recentDeliveryOrders.length > 0 && (
-          <div className="mb-3 rounded-xl border border-[#f2c7d2] bg-[#fff5f7] p-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-wider text-[#d91f4b]">
-                PedidosYa · jornada actual
-              </p>
-              <b className="money text-sm text-[#d91f4b]">
-                {formatClp(
-                  recentDeliveryOrders.reduce(
-                    (sum, order) => sum + order.grossAmount,
-                    0,
-                  ),
-                )}
-              </b>
-            </div>
-            <div className="mt-2 flex gap-2 overflow-x-auto">
-              {recentDeliveryOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="min-w-36 rounded-xl bg-white px-3 py-2 text-[10px]"
-                >
-                  <b className="block">#{order.orderNumber || "sin número"}</b>
-                  <span className="money mt-1 block text-sm font-black">
-                    {formatClp(order.grossAmount)}
-                  </span>
-                  <span className="text-[#777]">
-                    Ingreso est. {formatClp(order.estimatedNetAmount)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-3">
           {categories.map((c) => (
             <button
@@ -612,6 +579,7 @@ export function PosClient({
           summary={closingSummary!}
           productionFamilies={productionFamilies}
           productionBatches={productionBatches}
+          deliveryOrders={recentDeliveryOrders}
         />
       )}
       {managingAvailability && (
@@ -1673,6 +1641,7 @@ function CloseSessionDialog({
   summary,
   productionFamilies,
   productionBatches,
+  deliveryOrders,
 }: {
   session: CashSession;
   withdrawalTotal: number;
@@ -1682,6 +1651,7 @@ function CloseSessionDialog({
   summary: SessionClosingSummary;
   productionFamilies: ProductionFamily[];
   productionBatches: ProductionBatch[];
+  deliveryOrders: DeliveryOrder[];
 }) {
   const [busy, setBusy] = useState(false);
   const [countedCash, setCountedCash] = useState("");
@@ -1806,6 +1776,49 @@ function CloseSessionDialog({
             ))}
           </div>
         </div>
+        {deliveryOrders.length > 0 && (
+          <div className="mt-4 rounded-xl border border-[#f2c7d2] bg-[#fff5f7] p-4">
+            <p className="text-xs font-black uppercase tracking-wider text-[#d91f4b]">
+              PedidosYa de la jornada
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+              <div>
+                <span className="block text-[10px] text-[#777]">Pedidos</span>
+                <b>{deliveryOrders.length}</b>
+              </div>
+              <div>
+                <span className="block text-[10px] text-[#777]">
+                  Venta bruta
+                </span>
+                <b className="money">
+                  {formatClp(
+                    deliveryOrders.reduce(
+                      (sum, order) => sum + order.grossAmount,
+                      0,
+                    ),
+                  )}
+                </b>
+              </div>
+              <div>
+                <span className="block text-[10px] text-[#777]">
+                  Ingreso estimado
+                </span>
+                <b className="money">
+                  {formatClp(
+                    deliveryOrders.reduce(
+                      (sum, order) => sum + order.estimatedNetAmount,
+                      0,
+                    ),
+                  )}
+                </b>
+              </div>
+            </div>
+            <p className="mt-3 text-[10px] leading-4 text-[#777]">
+              Se muestran aparte porque PedidosYa deposita el ingreso después de
+              descontar su comisión.
+            </p>
+          </div>
+        )}
         {productionFamilies.map((family) => {
           const familyBatches = productionBatches.filter(
             (batch) => batch.familyProductId === family.product.id,
