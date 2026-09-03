@@ -6,6 +6,7 @@ export type Product = {
   name: string;
   description?: string;
   price: number;
+  pedidosYaPrice?: number;
   saleUnit: SaleUnit;
   category: string;
   imageUrl?: string;
@@ -62,6 +63,13 @@ export type RecentSale = {
   saleNumber: number;
   total: number;
   payment: SalePaymentMethod;
+  createdAt: string;
+};
+export type DeliveryOrder = {
+  id: string;
+  orderNumber?: string;
+  grossAmount: number;
+  estimatedNetAmount: number;
   createdAt: string;
 };
 export type SalesSessionPeriod = {

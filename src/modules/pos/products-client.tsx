@@ -423,6 +423,21 @@ export function ProductsClient({
                   />
                 </Field>
               </div>
+              {!isFamilyForm && (
+                <Field label="Precio en PedidosYa (opcional)">
+                  <input
+                    name="pedidosYaPrice"
+                    inputMode="numeric"
+                    defaultValue={editing?.pedidosYaPrice}
+                    className="input"
+                    placeholder="Ej: 3600"
+                  />
+                  <span className="mt-1 block text-[11px] font-normal leading-5 text-[#777]">
+                    Es el precio que ve el cliente en la plataforma. Puede ser
+                    distinto al precio del local.
+                  </span>
+                </Field>
+              )}
               <Field label="Categoría">
                 <input
                   type="hidden"

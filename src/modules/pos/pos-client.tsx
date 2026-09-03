@@ -29,8 +29,10 @@ import {
   registerProductionBatchAction,
   updateProductionBatchAction,
   registerCashWithdrawalAction,
+  registerPedidosYaOrderAction,
   reconcileCashSessionAction,
   registerSaleAction,
+  registerUnitProductionAction,
 } from "./actions";
 import {
   paymentLabels,
@@ -38,6 +40,7 @@ import {
   type CashSession,
   type CashWithdrawal,
   type DailyAvailability,
+  type DeliveryOrder,
   type PaymentMethod,
   type Product,
   type ProductionBatch,
@@ -54,9 +57,11 @@ type ProductTile = {
 };
 export function PosClient({
   products,
+  deliveryProducts,
   session,
   withdrawals,
   recentSales,
+  recentDeliveryOrders,
   productionFamilies,
   productionBatches,
   latestSession,
@@ -64,9 +69,11 @@ export function PosClient({
   closingSummary,
 }: {
   products: Product[];
+  deliveryProducts: Product[];
   session: CashSession | null;
   withdrawals: CashWithdrawal[];
   recentSales: RecentSale[];
+  recentDeliveryOrders: DeliveryOrder[];
   productionFamilies: ProductionFamily[];
   productionBatches: ProductionBatch[];
   latestSession: CashSession | null;
@@ -85,6 +92,8 @@ export function PosClient({
     null,
   );
   const [recordingProduction, setRecordingProduction] = useState(false);
+  const [recordingEmpanadas, setRecordingEmpanadas] = useState(false);
+  const [recordingDelivery, setRecordingDelivery] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const visibleProducts = products.filter(
     (product) => category === "Todos" || product.category === category,
@@ -97,6 +106,11 @@ export function PosClient({
   const withdrawalTotal = withdrawals.reduce(
     (sum, withdrawal) => sum + withdrawal.amount,
     0,
+  );
+  const empanadaProducts = deliveryProducts.filter(
+    (product) =>
+      product.saleUnit === "unit" &&
+      product.category.toLocaleLowerCase("es").includes("empanada"),
   );
   function add(id: string) {
     const product = products.find((item) => item.id === id);
@@ -206,6 +220,39 @@ export function PosClient({
             </p>
           )}
         </div>
+        {recentDeliveryOrders.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-[#f2c7d2] bg-[#fff5f7] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#d91f4b]">
+                PedidosYa · jornada actual
+              </p>
+              <b className="money text-sm text-[#d91f4b]">
+                {formatClp(
+                  recentDeliveryOrders.reduce(
+                    (sum, order) => sum + order.grossAmount,
+                    0,
+                  ),
+                )}
+              </b>
+            </div>
+            <div className="mt-2 flex gap-2 overflow-x-auto">
+              {recentDeliveryOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="min-w-36 rounded-xl bg-white px-3 py-2 text-[10px]"
+                >
+                  <b className="block">#{order.orderNumber || "sin número"}</b>
+                  <span className="money mt-1 block text-sm font-black">
+                    {formatClp(order.grossAmount)}
+                  </span>
+                  <span className="text-[#777]">
+                    Ingreso est. {formatClp(order.estimatedNetAmount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-3 pb-4">
           <div className="flex gap-2 overflow-x-auto">
             {categories.map((c) => (
@@ -219,6 +266,13 @@ export function PosClient({
             ))}
           </div>
           <div className="flex shrink-0 gap-2">
+            <button
+              onClick={() => setRecordingDelivery(true)}
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-[#d91f4b] bg-white px-3 py-2 text-xs font-black text-[#d91f4b]"
+            >
+              <ShoppingBag size={16} />
+              <span className="hidden sm:inline">PedidosYa</span>
+            </button>
             {productionFamilies.length > 0 && (
               <button
                 onClick={() => setRecordingProduction(true)}
@@ -226,6 +280,15 @@ export function PosClient({
               >
                 <Layers3 size={16} />
                 <span className="hidden sm:inline">Producción</span>
+              </button>
+            )}
+            {empanadaProducts.length > 0 && (
+              <button
+                onClick={() => setRecordingEmpanadas(true)}
+                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-[#235b45] px-3 py-2 text-xs font-black text-white"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Empanadas</span>
               </button>
             )}
             {availability.length > 0 && (
@@ -239,6 +302,41 @@ export function PosClient({
             )}
           </div>
         </div>
+        {empanadaProducts.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-[#d6dfd1] bg-[#f4f7f1] p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#687467]">
+                Empanadas disponibles
+              </p>
+              <button
+                onClick={() => setRecordingEmpanadas(true)}
+                className="text-[10px] font-black text-[#235b45] underline"
+              >
+                Agregar producción
+              </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {empanadaProducts.map((product) => {
+                const available = product.availability?.availableQuantity || 0;
+                return (
+                  <div
+                    key={product.id}
+                    className="flex min-w-fit items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm"
+                  >
+                    <span
+                      className={`grid size-7 place-items-center rounded-lg text-xs font-black ${available > 5 ? "bg-[#dfeeda] text-[#235b45]" : available > 0 ? "bg-[#fff0b7] text-[#6f5711]" : "bg-[#f6e2da] text-[#a24628]"}`}
+                    >
+                      {available}
+                    </span>
+                    <span className="max-w-28 truncate text-[11px] font-bold">
+                      {product.name.replace(/^Empanada\s+(de\s+)?/i, "")}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {products.length ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
             {productTiles.map((tile) => {
@@ -554,7 +652,335 @@ export function PosClient({
           onClose={() => setRecordingProduction(false)}
         />
       )}
+      {recordingEmpanadas && (
+        <UnitProductionDialog
+          sessionId={session.id}
+          products={empanadaProducts}
+          onClose={() => setRecordingEmpanadas(false)}
+        />
+      )}
+      {recordingDelivery && (
+        <PedidosYaDialog
+          sessionId={session.id}
+          products={deliveryProducts}
+          onClose={() => setRecordingDelivery(false)}
+        />
+      )}
     </main>
+  );
+}
+
+function UnitProductionDialog({
+  sessionId,
+  products,
+  onClose,
+}: {
+  sessionId: string;
+  products: Product[];
+  onClose: () => void;
+}) {
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-xl md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+              Caja activa
+            </p>
+            <h2 className="mt-1 text-2xl font-black">
+              Producción de empanadas
+            </h2>
+            <p className="mt-2 text-sm text-[#747970]">
+              Anota solamente las unidades recién horneadas. Se sumarán a las
+              disponibles.
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <form
+          className="mt-5"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            try {
+              await registerUnitProductionAction(
+                sessionId,
+                products.map((product) => ({
+                  product_id: product.id,
+                  quantity: Number(quantities[product.id] || 0),
+                })),
+                note,
+              );
+              location.reload();
+            } catch (error) {
+              alert(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo registrar la producción",
+              );
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {products.map((product) => (
+              <label
+                key={product.id}
+                className="rounded-2xl border border-[#deded5] bg-white p-4 text-sm font-black"
+              >
+                <span className="flex items-center justify-between gap-2">
+                  <span>{product.name}</span>
+                  <span className="text-xs text-[#235b45]">
+                    {product.availability?.availableQuantity || 0} disponibles
+                  </span>
+                </span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={quantities[product.id] || ""}
+                  onChange={(event) =>
+                    setQuantities((current) => ({
+                      ...current,
+                      [product.id]: event.target.value,
+                    }))
+                  }
+                  className="input mt-3"
+                  placeholder="0"
+                />
+              </label>
+            ))}
+          </div>
+          <label className="mt-4 block text-xs font-bold">
+            Nota opcional
+            <input
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              className="input mt-2"
+              placeholder="Ej: Segunda hornada"
+            />
+          </label>
+          <button
+            disabled={busy}
+            className="mt-5 h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-50"
+          >
+            {busy ? "Guardando…" : "Sumar a disponibilidad"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function PedidosYaDialog({
+  sessionId,
+  products,
+  onClose,
+}: {
+  sessionId: string;
+  products: Product[];
+  onClose: () => void;
+}) {
+  const [category, setCategory] = useState("Todos");
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries(
+      products.map((product) => [
+        product.id,
+        product.pedidosYaPrice || product.price,
+      ]),
+    ),
+  );
+  const [orderNumber, setOrderNumber] = useState("");
+  const [netEdited, setNetEdited] = useState(false);
+  const [netAmount, setNetAmount] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const categories = [
+    "Todos",
+    ...new Set(products.map((product) => product.category)),
+  ];
+  const selected = products.filter((product) => cart[product.id]);
+  const gross = selected.reduce(
+    (sum, product) => sum + Math.round(prices[product.id] * cart[product.id]),
+    0,
+  );
+  const suggestedNet = Math.round(gross * 0.762);
+  const effectiveNet = netEdited ? netAmount : suggestedNet;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-3xl md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#d91f4b]">
+              Canal externo
+            </p>
+            <h2 className="mt-1 text-2xl font-black">
+              Registrar pedido de PedidosYa
+            </h2>
+            <p className="mt-2 text-sm text-[#747970]">
+              Esta venta no entra al arqueo de efectivo ni tarjetas del local.
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((item) => (
+            <button
+              key={item}
+              onClick={() => setCategory(item)}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-black ${category === item ? "bg-[#d91f4b] text-white" : "border bg-white"}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+          {products
+            .filter(
+              (product) =>
+                category === "Todos" || product.category === category,
+            )
+            .map((product) => {
+              const quantity = cart[product.id] || 0;
+              return (
+                <div
+                  key={product.id}
+                  className="rounded-2xl border border-[#deded5] bg-white p-3"
+                >
+                  <b className="block min-h-10 text-sm">{product.name}</b>
+                  <label className="mt-2 block text-[10px] font-bold uppercase text-[#777]">
+                    Precio plataforma
+                    <input
+                      type="number"
+                      min="1"
+                      value={prices[product.id]}
+                      onChange={(event) =>
+                        setPrices((current) => ({
+                          ...current,
+                          [product.id]: Number(event.target.value),
+                        }))
+                      }
+                      className="input mt-1 h-10"
+                    />
+                  </label>
+                  <div className="mt-3 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCart((current) => ({
+                          ...current,
+                          [product.id]: Math.max(0, quantity - 1),
+                        }))
+                      }
+                      className="grid size-9 place-items-center rounded-lg bg-[#eee]"
+                      disabled={!quantity}
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <b>{quantity}</b>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCart((current) => ({
+                          ...current,
+                          [product.id]: quantity + 1,
+                        }))
+                      }
+                      className="grid size-9 place-items-center rounded-lg bg-[#ffdce5] text-[#d91f4b]"
+                    >
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+        <form
+          className="mt-5 rounded-2xl bg-[#f3f3eb] p-4"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            try {
+              const result = await registerPedidosYaOrderAction(
+                sessionId,
+                orderNumber,
+                effectiveNet,
+                selected.map((product) => ({
+                  product_id: product.id,
+                  quantity: cart[product.id],
+                  unit_price: prices[product.id],
+                })),
+              );
+              if (!result.ok) throw new Error(result.error);
+              location.reload();
+            } catch (error) {
+              alert(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo registrar el pedido",
+              );
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-bold">
+              Número de pedido (opcional)
+              <input
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+                className="input mt-2 bg-white"
+              />
+            </label>
+            <label className="text-xs font-bold">
+              Ingreso estimado para KUMERA
+              <input
+                type="number"
+                min="0"
+                max={gross}
+                value={effectiveNet || ""}
+                onChange={(e) => {
+                  setNetEdited(true);
+                  setNetAmount(Number(e.target.value));
+                }}
+                className="input mt-2 bg-white"
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#d9d9cf] pt-4">
+            <div>
+              <span className="text-xs text-[#777]">Venta al cliente</span>
+              <b className="money block text-xl">{formatClp(gross)}</b>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-[#777]">Comisión estimada</span>
+              <b className="money block text-[#d91f4b]">
+                {formatClp(Math.max(0, gross - effectiveNet))}
+              </b>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] leading-5 text-[#777]">
+            El ingreso se sugiere usando el 76,2% observado en tus pedidos
+            recientes. Puedes reemplazarlo por el valor exacto mostrado por
+            PedidosYa.
+          </p>
+          <button
+            disabled={busy || !gross}
+            className="mt-4 h-12 w-full rounded-xl bg-[#d91f4b] font-black text-white disabled:opacity-40"
+          >
+            {busy ? "Registrando…" : "Registrar pedido"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 

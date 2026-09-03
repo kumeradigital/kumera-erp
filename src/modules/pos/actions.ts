@@ -33,6 +33,10 @@ export async function saveProductAction(form: FormData) {
   const categoryName =
     String(form.get("category") || "General").trim() || "General";
   const price = Number(form.get("price"));
+  const pedidosYaPriceValue = String(form.get("pedidosYaPrice") || "").trim();
+  const pedidosYaPrice = pedidosYaPriceValue
+    ? Number(pedidosYaPriceValue)
+    : null;
   const saleUnit = String(form.get("saleUnit") || "unit") as SaleUnit;
   const trackDailyAvailability =
     saleUnit === "unit" && form.get("trackDailyAvailability") === "on";
@@ -43,6 +47,11 @@ export async function saveProductAction(form: FormData) {
     .filter(Boolean);
   if (!name || name.length > 100 || !Number.isInteger(price) || price <= 0)
     throw new Error("Producto inválido");
+  if (
+    pedidosYaPrice != null &&
+    (!Number.isInteger(pedidosYaPrice) || pedidosYaPrice <= 0)
+  )
+    throw new Error("Precio de PedidosYa inválido");
   if (categoryName.length > 60) throw new Error("Categoría inválida");
   if (!(["unit", "kg"] as SaleUnit[]).includes(saleUnit))
     throw new Error("Forma de venta inválida");
@@ -83,6 +92,7 @@ export async function saveProductAction(form: FormData) {
     name,
     description: description || null,
     price,
+    pedidosya_price: pedidosYaPrice,
     sale_unit: saleUnit,
     track_daily_availability: trackDailyAvailability,
     is_sales_family: isSalesFamily,
@@ -251,6 +261,73 @@ export async function adjustAvailabilityAction(
   });
   if (error) throw error;
   revalidatePath("/caja");
+}
+export async function registerUnitProductionAction(
+  sessionId: string,
+  quantities: { product_id: string; quantity: number }[],
+  note = "",
+) {
+  const ctx = await context();
+  const normalized = quantities
+    .map((item) => ({
+      product_id: item.product_id,
+      quantity: Math.trunc(Number(item.quantity)),
+    }))
+    .filter((item) => item.quantity > 0);
+  if (!sessionId || !normalized.length)
+    throw new Error("Ingresa al menos una cantidad producida");
+  const { error } = await ctx.supabase.rpc("register_unit_production", {
+    p_session: sessionId,
+    p_items: normalized,
+    p_note: note.trim(),
+  });
+  if (error) throw error;
+  revalidatePath("/caja");
+  return { ok: true };
+}
+
+export async function registerPedidosYaOrderAction(
+  sessionId: string,
+  orderNumber: string,
+  estimatedNetAmount: number,
+  items: { product_id: string; quantity: number; unit_price: number }[],
+) {
+  const ctx = await context();
+  const normalized = items.map((item) => ({
+    product_id: item.product_id,
+    quantity: Number(Number(item.quantity).toFixed(3)),
+    unit_price: Math.round(Number(item.unit_price)),
+  }));
+  if (
+    !sessionId ||
+    !normalized.length ||
+    normalized.some(
+      (item) =>
+        !item.product_id ||
+        !Number.isFinite(item.quantity) ||
+        item.quantity <= 0 ||
+        !Number.isInteger(item.unit_price) ||
+        item.unit_price <= 0,
+    )
+  )
+    return {
+      ok: false as const,
+      error: "El pedido no contiene productos válidos",
+    };
+  const net = Math.round(Number(estimatedNetAmount));
+  if (!Number.isInteger(net) || net < 0)
+    return { ok: false as const, error: "Ingreso estimado inválido" };
+  const { data, error } = await ctx.supabase.rpc("register_delivery_order", {
+    p_session: sessionId,
+    p_platform: "pedidos_ya",
+    p_external_order_number: orderNumber.trim() || null,
+    p_estimated_net_amount: net,
+    p_items: normalized,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
+  return { ok: true as const, id: data as string };
 }
 export async function registerCashWithdrawalAction(
   sessionId: string,

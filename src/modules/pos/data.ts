@@ -5,6 +5,7 @@ import type {
   CashSession,
   CashWithdrawal,
   DailyAvailability,
+  DeliveryOrder,
   PaymentMethod,
   Product,
   ProductionBatch,
@@ -145,7 +146,7 @@ async function getProductsByArchive(
   let query = supabase
     .from("products")
     .select(
-      "id,name,description,price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,product_categories(name)",
+      "id,name,description,price,pedidosya_price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,product_categories(name)",
     )
     .eq("business_id", businessId)
     .order("position")
@@ -174,6 +175,8 @@ async function getProductsByArchive(
         name: row.name,
         description: row.description || undefined,
         price: Number(row.price),
+        pedidosYaPrice:
+          row.pedidosya_price == null ? undefined : Number(row.pedidosya_price),
         saleUnit: row.sale_unit,
         category: category || "Sin categoría",
         imageUrl,
@@ -184,6 +187,11 @@ async function getProductsByArchive(
       };
     }),
   );
+}
+
+export async function getDeliveryProducts(): Promise<Product[]> {
+  const products = await getProducts(true);
+  return products.filter((product) => product.active && !product.isSalesFamily);
 }
 
 export async function getProductionFamilies(): Promise<ProductionFamily[]> {
@@ -374,6 +382,31 @@ export async function getRecentSessionSales(
         : 0),
     payment: sale.payment_method as SalePaymentMethod,
     createdAt: sale.created_at,
+  }));
+}
+
+export async function getRecentDeliveryOrders(
+  sessionId: string,
+  limit = 5,
+): Promise<DeliveryOrder[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("delivery_orders")
+    .select(
+      "id,external_order_number,gross_amount,estimated_net_amount,created_at",
+    )
+    .eq("business_id", businessId)
+    .eq("cash_session_id", sessionId)
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []).map((order) => ({
+    id: order.id,
+    orderNumber: order.external_order_number || undefined,
+    grossAmount: Number(order.gross_amount),
+    estimatedNetAmount: Number(order.estimated_net_amount),
+    createdAt: order.created_at,
   }));
 }
 
