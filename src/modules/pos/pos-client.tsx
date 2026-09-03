@@ -161,11 +161,11 @@ export function PosClient({
   if (!session)
     return <OpenSession latestSession={latestSession} products={products} />;
   return (
-    <main className="grid min-h-[calc(100vh-64px)] min-w-0 overflow-x-hidden lg:grid-cols-[minmax(0,1fr)_390px]">
-      <section className="min-w-0 p-3 pb-28 sm:p-4 sm:pb-28 md:p-6 lg:pb-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#cbdcc6] bg-[#edf4e9] px-4 py-3">
+    <main className="grid min-h-[calc(100vh-64px)] min-w-0 overflow-x-hidden lg:h-[calc(100vh-64px)] lg:grid-cols-[minmax(0,1fr)_390px] lg:overflow-hidden">
+      <section className="min-w-0 p-3 pb-28 sm:p-4 sm:pb-28 md:p-5 lg:overflow-y-auto lg:pb-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] px-3 py-2">
           <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-xl bg-[#235b45] text-white">
+            <span className="grid size-8 place-items-center rounded-lg bg-[#235b45] text-white">
               <Clock size={17} />
             </span>
             <div>
@@ -181,8 +181,8 @@ export function PosClient({
             Efectivo inicial: <b>{formatClp(session.openingCash)}</b>
           </p>
         </div>
-        <div className="mb-4 rounded-2xl border border-[#dfdfd5] bg-[#fffef9] p-3">
-          <div className="mb-2 flex items-center justify-between px-1">
+        <div className="mb-3 rounded-xl border border-[#dfdfd5] bg-[#fffef9] p-2">
+          <div className="mb-1 flex items-center justify-between px-1">
             <p className="text-[10px] font-black uppercase tracking-wider text-[#6f746c]">
               Últimas ventas
             </p>
@@ -193,7 +193,7 @@ export function PosClient({
               {recentSales.map((sale) => (
                 <div
                   key={sale.id}
-                  className="flex min-w-[148px] flex-1 items-center justify-between gap-3 rounded-xl bg-[#f1f2e9] px-3 py-2.5"
+                  className="flex min-w-[148px] flex-1 items-center justify-between gap-3 rounded-lg bg-[#f1f2e9] px-3 py-1.5"
                 >
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold text-[#777]">
@@ -204,7 +204,7 @@ export function PosClient({
                         timeZone: "America/Santiago",
                       })}
                     </p>
-                    <p className="mt-1 truncate text-[10px] font-bold text-[#235b45]">
+                    <p className="truncate text-[10px] font-bold text-[#235b45]">
                       {sale.payment === "unclassified"
                         ? "Por conciliar"
                         : paymentLabels[sale.payment]}
@@ -215,13 +215,13 @@ export function PosClient({
               ))}
             </div>
           ) : (
-            <p className="rounded-xl bg-[#f1f2e9] px-3 py-3 text-center text-[11px] text-[#777]">
+            <p className="rounded-lg bg-[#f1f2e9] px-3 py-2 text-center text-[11px] text-[#777]">
               Todavía no hay ventas registradas en esta jornada.
             </p>
           )}
         </div>
         {recentDeliveryOrders.length > 0 && (
-          <div className="mb-4 rounded-2xl border border-[#f2c7d2] bg-[#fff5f7] p-3">
+          <div className="mb-3 rounded-xl border border-[#f2c7d2] bg-[#fff5f7] p-2.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-[#d91f4b]">
                 PedidosYa · jornada actual
@@ -253,78 +253,32 @@ export function PosClient({
             </div>
           </div>
         )}
-        <div className="flex min-w-0 flex-col gap-3 pb-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-1">
-            {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <div className="flex max-w-full flex-wrap gap-2">
+        <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-3">
+          {categories.map((c) => (
             <button
-              onClick={() => setRecordingDelivery(true)}
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-[#d91f4b] bg-white px-3 py-2 text-xs font-black text-[#d91f4b]"
+              key={c}
+              onClick={() => setCategory(c)}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
             >
-              <ShoppingBag size={16} />
-              <span className="hidden sm:inline">PedidosYa</span>
+              {c}
             </button>
-            {productionFamilies.length > 0 && (
-              <button
-                onClick={() => setRecordingProduction(true)}
-                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-[#235b45] px-3 py-2 text-xs font-black text-white"
-              >
-                <Layers3 size={16} />
-                <span className="hidden sm:inline">Producción</span>
-              </button>
-            )}
-            {empanadaProducts.length > 0 && (
-              <button
-                onClick={() => setRecordingEmpanadas(true)}
-                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-[#235b45] px-3 py-2 text-xs font-black text-white"
-              >
-                <Plus size={16} />
-                <span className="hidden sm:inline">Empanadas</span>
-              </button>
-            )}
-            {availability.length > 0 && (
-              <button
-                onClick={() => setManagingAvailability(true)}
-                className="flex shrink-0 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-3 py-2 text-xs font-black text-[#235b45]"
-              >
-                <ClipboardList size={16} />
-                <span className="hidden sm:inline">Disponibilidad</span>
-              </button>
-            )}
-          </div>
+          ))}
         </div>
         {empanadaProducts.length > 0 && (
-          <div className="mb-4 rounded-2xl border border-[#d6dfd1] bg-[#f4f7f1] p-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-wider text-[#687467]">
-                Empanadas disponibles
-              </p>
-              <button
-                onClick={() => setRecordingEmpanadas(true)}
-                className="text-[10px] font-black text-[#235b45] underline"
-              >
-                Agregar producción
-              </button>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="mb-3 flex min-w-0 items-center gap-2 rounded-xl border border-[#d6dfd1] bg-[#f4f7f1] p-2">
+            <p className="hidden shrink-0 pl-1 text-[10px] font-black uppercase tracking-wider text-[#687467] xl:block">
+              Disponibles
+            </p>
+            <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
               {empanadaProducts.map((product) => {
                 const available = product.availability?.availableQuantity || 0;
                 return (
                   <div
                     key={product.id}
-                    className="flex min-w-fit items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm"
+                    className="flex min-w-fit items-center gap-1.5 rounded-lg bg-white px-2 py-1 shadow-sm"
                   >
                     <span
-                      className={`grid size-7 place-items-center rounded-lg text-xs font-black ${available > 5 ? "bg-[#dfeeda] text-[#235b45]" : available > 0 ? "bg-[#fff0b7] text-[#6f5711]" : "bg-[#f6e2da] text-[#a24628]"}`}
+                      className={`grid size-6 place-items-center rounded-md text-[11px] font-black ${available > 5 ? "bg-[#dfeeda] text-[#235b45]" : available > 0 ? "bg-[#fff0b7] text-[#6f5711]" : "bg-[#f6e2da] text-[#a24628]"}`}
                     >
                       {available}
                     </span>
@@ -335,6 +289,14 @@ export function PosClient({
                 );
               })}
             </div>
+            <button
+              onClick={() => setRecordingEmpanadas(true)}
+              className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#235b45] text-white"
+              title="Agregar producción de empanadas"
+              aria-label="Agregar producción de empanadas"
+            >
+              <Plus size={15} />
+            </button>
           </div>
         )}
         {products.length ? (
@@ -368,7 +330,7 @@ export function PosClient({
                     <span className="absolute right-2 top-2 z-10 rounded-full bg-[#235b45] px-2 py-1 text-[9px] font-black text-white shadow-sm sm:px-2.5 sm:text-[11px]">
                       {tile.products.length} variedades
                     </span>
-                    <div className="hidden h-28 place-items-center bg-[#e5eee2] text-[#235b45] sm:grid">
+                    <div className="hidden h-20 place-items-center bg-[#e5eee2] text-[#235b45] sm:grid">
                       <Layers3 size={32} />
                     </div>
                     <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
@@ -412,7 +374,7 @@ export function PosClient({
                       {remaining === 0 ? "Agotado" : `${remaining} disp.`}
                     </span>
                   )}
-                  <div className="hidden h-28 place-items-center bg-[#eaeae1] sm:grid">
+                  <div className="hidden h-20 place-items-center bg-[#eaeae1] sm:grid">
                     {p.imageUrl ? (
                       <img
                         src={p.imageUrl}
@@ -455,7 +417,7 @@ export function PosClient({
         />
       )}
       <aside
-        className={`border-l border-[#dfdfd5] bg-[#fffef9] p-5 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[88dvh] max-lg:overflow-y-auto max-lg:rounded-t-3xl max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-lg:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-lg:block" : "max-lg:hidden"}`}
+        className={`border-l border-[#dfdfd5] bg-[#fffef9] p-5 lg:h-full lg:overflow-y-auto max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[88dvh] max-lg:overflow-y-auto max-lg:rounded-t-3xl max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-lg:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-lg:block" : "max-lg:hidden"}`}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -481,6 +443,38 @@ export function PosClient({
               <X size={18} />
             </button>
           </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setRecordingDelivery(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#d91f4b] bg-white px-3 py-2 text-xs font-black text-[#d91f4b]"
+          >
+            <ShoppingBag size={15} /> PedidosYa
+          </button>
+          {productionFamilies.length > 0 && (
+            <button
+              onClick={() => setRecordingProduction(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#235b45] px-3 py-2 text-xs font-black text-white"
+            >
+              <Layers3 size={15} /> Pan
+            </button>
+          )}
+          {empanadaProducts.length > 0 && (
+            <button
+              onClick={() => setRecordingEmpanadas(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#235b45] px-3 py-2 text-xs font-black text-white"
+            >
+              <Plus size={15} /> Empanadas
+            </button>
+          )}
+          {availability.length > 0 && (
+            <button
+              onClick={() => setManagingAvailability(true)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-[#235b45] bg-white px-3 py-2 text-xs font-black text-[#235b45]"
+            >
+              <ClipboardList size={15} /> Disponibilidad
+            </button>
+          )}
         </div>
         <div className="mt-5 space-y-3">
           {lines.map((l) => (
@@ -530,7 +524,7 @@ export function PosClient({
             </div>
           ))}
           {!lines.length && (
-            <div className="py-16 text-center text-sm text-[#888]">
+            <div className="py-10 text-center text-sm text-[#888]">
               Toca un producto para agregarlo
             </div>
           )}
