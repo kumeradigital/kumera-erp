@@ -84,6 +84,43 @@ export async function saveIngredientAction(form: FormData) {
   revalidatePath("/costos");
 }
 
+export async function deleteIngredientAction(id: string) {
+  const ctx = await context();
+  const { data: ingredient, error: ingredientError } = await ctx.supabase
+    .from("ingredients")
+    .select("id,name")
+    .eq("id", id)
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null)
+    .single();
+  if (ingredientError) throw ingredientError;
+
+  const { count, error: usageError } = await ctx.supabase
+    .from("recipe_items")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", ctx.businessId)
+    .eq("ingredient_id", id);
+  if (usageError) throw usageError;
+  if ((count || 0) > 0) {
+    throw new Error(
+      `${ingredient.name} está incluida en una o más recetas. Retírala de esas recetas antes de eliminarla.`,
+    );
+  }
+
+  const { error } = await ctx.supabase
+    .from("ingredients")
+    .update({
+      active: false,
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", ctx.businessId)
+    .is("deleted_at", null);
+  if (error) throw error;
+  revalidatePath("/costos");
+}
+
 export async function addIngredientPriceAction(form: FormData) {
   const ctx = await context();
   const ingredientId = text(form, "ingredientId");

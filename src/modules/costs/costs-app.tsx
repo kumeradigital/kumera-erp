@@ -28,6 +28,7 @@ import {
   addIngredientPriceAction,
   addRecipeItemAction,
   configureProductCostAction,
+  deleteIngredientAction,
   deleteRecipeAction,
   deleteRecipeItemAction,
   saveCostSettingsAction,
@@ -173,6 +174,24 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
         .toLocaleLowerCase("es")
         .includes(search.trim().toLocaleLowerCase("es")),
   );
+  async function removeIngredient(ingredient: Ingredient) {
+    if (
+      !confirm(
+        `¿Eliminar ${ingredient.name}? Esta acción la quitará del listado de materias primas.`,
+      )
+    )
+      return;
+    try {
+      await deleteIngredientAction(ingredient.id);
+      location.reload();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar la materia prima",
+      );
+    }
+  }
   return (
     <section className="mt-5">
       <SectionHeader
@@ -261,6 +280,12 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                           ? "Actualizar precio"
                           : "Agregar precio"}
                       </button>
+                      <button
+                        onClick={() => removeIngredient(ingredient)}
+                        className="text-[#a24628]"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -344,6 +369,12 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                     : "Agregar precio"}
                 </button>
               </div>
+              <button
+                onClick={() => removeIngredient(ingredient)}
+                className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl py-2 text-xs font-bold text-[#a24628]"
+              >
+                <Trash2 size={14} /> Eliminar materia prima
+              </button>
               {ingredient.prices.length > 1 && (
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs font-bold text-[#235b45]">
