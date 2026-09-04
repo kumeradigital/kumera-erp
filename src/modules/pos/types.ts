@@ -88,11 +88,17 @@ export type BusinessPulse = {
   profitabilityReady: boolean;
   costCoveragePercentage: number;
   projectedMonthlyContribution: number;
+  observedContributionPercentage: number;
   monthlyFixedCosts: number;
   projectedMonthlyOperatingResult: number;
   operatingDaysMonth: number;
   firstObservedAt?: string;
   lastObservedAt?: string;
+  categoryMix: {
+    category: string;
+    total: number;
+    percentage: number;
+  }[];
 };
 export type SaleSummary = {
   total: number;

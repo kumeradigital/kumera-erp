@@ -49,6 +49,7 @@ import type {
   RecipeCost,
   Scenario,
 } from "./types";
+import type { BusinessPulse } from "@/modules/pos/types";
 
 export type CostTab =
   "ingredients" | "recipes" | "products" | "fixed" | "projections";
@@ -62,6 +63,7 @@ export function CostsApp({
   fixedCosts,
   monthlyFixedCosts,
   scenarios,
+  businessPulse,
   initialTab = "ingredients",
 }: {
   ingredients: Ingredient[];
@@ -72,6 +74,7 @@ export function CostsApp({
   fixedCosts: FixedCost[];
   monthlyFixedCosts: number;
   scenarios: Scenario[];
+  businessPulse: BusinessPulse;
   initialTab?: CostTab;
 }) {
   const [tab, setTab] = useState<CostTab>(initialTab);
@@ -146,10 +149,8 @@ export function CostsApp({
       )}
       {tab === "projections" && (
         <ProjectionsView
-          analyses={analyses}
           fixedCosts={monthlyFixedCosts}
-          settings={settings}
-          scenarios={scenarios}
+          businessPulse={businessPulse}
         />
       )}
     </main>
@@ -1194,6 +1195,237 @@ function FixedCostsView({
 }
 
 function ProjectionsView({
+  fixedCosts,
+  businessPulse,
+}: {
+  fixedCosts: number;
+  businessPulse: BusinessPulse;
+}) {
+  const realMonthlySales = businessPulse.projectedMonthlySales;
+  const realMargin = businessPulse.observedContributionPercentage;
+  const [monthlySales, setMonthlySales] = useState(realMonthlySales);
+  const [margin, setMargin] = useState(Number(realMargin.toFixed(1)));
+  const contribution = monthlySales * (margin / 100);
+  const operatingResult = contribution - fixedCosts;
+  const breakEvenSales = margin > 0 ? fixedCosts / (margin / 100) : 0;
+  const coverage = businessPulse.costCoveragePercentage;
+
+  function restoreRealData() {
+    setMonthlySales(realMonthlySales);
+    setMargin(Number(realMargin.toFixed(1)));
+  }
+
+  const scenarios = [
+    { label: "Cauteloso", factor: 0.85 },
+    { label: "Esperado", factor: 1 },
+    { label: "Crecimiento", factor: 1.15 },
+  ].map((scenario) => {
+    const sales = monthlySales * scenario.factor;
+    return {
+      ...scenario,
+      sales,
+      result: sales * (margin / 100) - fixedCosts,
+    };
+  });
+
+  return (
+    <section className="mt-5">
+      <SectionHeader
+        title="Proyección mensual simple"
+        subtitle="Parte de tus ventas reales y del margen observado. Cambia sólo los supuestos que quieras probar."
+      />
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
+        <div className="card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+                Base de cálculo
+              </p>
+              <h3 className="mt-1 text-lg font-black">
+                Datos reales del negocio
+              </h3>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-[#777]">
+                {businessPulse.observedDays} jornadas cerradas y conciliadas ·
+                promedio diario de {formatClp(businessPulse.averageDailySales)}{" "}
+                · {businessPulse.operatingDaysMonth} días abiertos al mes.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={restoreRealData}
+              className="rounded-xl border border-[#235b45] px-4 py-2.5 text-xs font-black text-[#235b45]"
+            >
+              Usar datos reales
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Field label="Venta mensual estimada">
+              <input
+                type="number"
+                min="0"
+                step="10000"
+                value={monthlySales}
+                onChange={(event) =>
+                  setMonthlySales(Number(event.target.value))
+                }
+                className="input money font-black"
+              />
+              <p className="mt-2 text-[11px] leading-4 text-[#777]">
+                El ERP propone {formatClp(realMonthlySales)} según el ritmo
+                actual. Puedes escribir otro monto para simular.
+              </p>
+            </Field>
+            <Field label="Margen de contribución estimado">
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={margin}
+                  onChange={(event) => setMargin(Number(event.target.value))}
+                  className="input pr-10 font-black"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-[#777]">
+                  %
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-[#777]">
+                El margen observado en productos costeados es{" "}
+                {realMargin.toFixed(1)}%. Ya descuenta IVA de venta, recetas,
+                mermas y comisión estimada.
+              </p>
+            </Field>
+          </div>
+
+          {coverage < 95 && (
+            <div className="mt-4 flex gap-3 rounded-xl border border-[#ead8a6] bg-[#fff4d4] p-4 text-xs leading-5 text-[#755b16]">
+              <AlertTriangle className="mt-0.5 shrink-0" size={17} />
+              <p>
+                <b>Cobertura de costos: {coverage.toFixed(0)}%.</b> La
+                proyección aplica el margen conocido también a la parte aún no
+                costeada. Ganará precisión al completar los productos restantes.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={`card p-5 ${operatingResult >= 0 ? "border-[#b9d0b8] bg-[#e8f0e6]" : "border-[#ead8a6] bg-[#fff4d4]"}`}
+        >
+          <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+            Resultado estimado
+          </p>
+          <p
+            className={`money mt-3 text-4xl font-black ${operatingResult >= 0 ? "text-[#235b45]" : "text-[#9a3f22]"}`}
+          >
+            {formatClp(Math.round(operatingResult))}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-[#666]">
+            Resultado operacional mensual antes de impuesto a la renta.
+          </p>
+          <div className="mt-5 space-y-3 border-t border-black/10 pt-4 text-sm">
+            <ProjectionRow label="Ventas brutas" value={monthlySales} />
+            <ProjectionRow label="Contribución estimada" value={contribution} />
+            <ProjectionRow label="Costos fijos" value={-fixedCosts} />
+          </div>
+          <div className="mt-4 rounded-xl bg-white/65 p-4">
+            <p className="text-[10px] font-bold uppercase text-[#777]">
+              Punto de equilibrio mensual
+            </p>
+            <p className="money mt-1 text-xl font-black">
+              {formatClp(Math.round(breakEvenSales))}
+            </p>
+            <p className="mt-1 text-[11px] text-[#777]">
+              Ventas necesarias para cubrir los costos fijos con este margen.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {scenarios.map((scenario) => (
+          <button
+            type="button"
+            key={scenario.label}
+            onClick={() => setMonthlySales(Math.round(scenario.sales))}
+            className="card p-5 text-left transition hover:border-[#9eb7a0]"
+          >
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+              {scenario.label}
+            </p>
+            <p className="money mt-2 text-xl font-black">
+              {formatClp(Math.round(scenario.sales))}
+            </p>
+            <p
+              className={`money mt-2 text-sm font-black ${scenario.result >= 0 ? "text-[#235b45]" : "text-[#9a3f22]"}`}
+            >
+              Resultado {formatClp(Math.round(scenario.result))}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <div className="card mt-4 overflow-hidden">
+        <div className="border-b border-[#e7e6de] p-5">
+          <h3 className="font-black">Mezcla real de ventas por categoría</h3>
+          <p className="mt-1 text-xs text-[#777]">
+            Así se repartiría la venta mensual si tus clientes mantienen la
+            misma preferencia observada.
+          </p>
+        </div>
+        <div className="divide-y divide-[#ecebe3]">
+          {businessPulse.categoryMix.map((item) => (
+            <div
+              key={item.category}
+              className="grid gap-3 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)_130px] sm:items-center"
+            >
+              <b className="text-sm">{item.category}</b>
+              <div className="h-2 overflow-hidden rounded-full bg-[#eceee7]">
+                <div
+                  className="h-full rounded-full bg-[#235b45]"
+                  style={{ width: `${Math.min(100, item.percentage)}%` }}
+                />
+              </div>
+              <div className="sm:text-right">
+                <b className="money text-sm">
+                  {formatClp(
+                    Math.round((monthlySales * item.percentage) / 100),
+                  )}
+                </b>
+                <span className="ml-2 text-[11px] text-[#777]">
+                  {item.percentage.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-4 text-[11px] leading-5 text-[#777]">
+        Esta herramienta orienta decisiones operacionales. No reemplaza la
+        contabilidad y todavía no descuenta el impuesto a la renta ni calcula la
+        liquidación mensual exacta de IVA.
+      </p>
+    </section>
+  );
+}
+
+function ProjectionRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[#666]">{label}</span>
+      <b className="money">
+        {value < 0 ? "−" : ""}
+        {formatClp(Math.round(Math.abs(value)))}
+      </b>
+    </div>
+  );
+}
+
+function LegacyProjectionsView({
   analyses,
   fixedCosts,
   settings,

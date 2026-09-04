@@ -81,6 +81,8 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
   const sessionIds = (sessionsResult.data || []).map((session) => session.id);
   let costedSales = 0;
   let estimatedContribution = 0;
+  const categoryTotals = new Map<string, number>();
+  let categorizedSales = 0;
   if (sessionIds.length) {
     const { data: sales, error: salesError } = await supabase
       .from("sales")
@@ -94,6 +96,14 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
     for (const sale of sales || []) {
       for (const item of sale.sale_items || []) {
         const analysis = analysisMap.get(item.product_id);
+        if (analysis) {
+          const subtotal = Number(item.line_total);
+          categoryTotals.set(
+            analysis.category,
+            (categoryTotals.get(analysis.category) || 0) + subtotal,
+          );
+          categorizedSales += subtotal;
+        }
         if (!analysis?.complete) continue;
         const subtotal = Number(item.line_total);
         const quantity = Number(item.quantity);
@@ -122,11 +132,19 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       ? Math.min(100, (costedSales / totalSales) * 100)
       : 0,
     projectedMonthlyContribution,
+    observedContributionPercentage: contributionOnGrossPercentage * 100,
     monthlyFixedCosts: costing.monthlyFixedCosts,
     projectedMonthlyOperatingResult,
     operatingDaysMonth,
     firstObservedAt: observed[0]?.openedAt,
     lastObservedAt: observed.at(-1)?.openedAt,
+    categoryMix: [...categoryTotals.entries()]
+      .map(([category, total]) => ({
+        category,
+        total,
+        percentage: categorizedSales ? (total / categorizedSales) * 100 : 0,
+      }))
+      .sort((a, b) => b.total - a.total),
   };
 }
 
