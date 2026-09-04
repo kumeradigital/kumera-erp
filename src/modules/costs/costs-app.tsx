@@ -1205,6 +1205,9 @@ function ProjectionsView({
   const realMargin = businessPulse.observedContributionPercentage;
   const [monthlySales, setMonthlySales] = useState(realMonthlySales);
   const [margin, setMargin] = useState(Number(realMargin.toFixed(1)));
+  const dailySales = Math.round(
+    monthlySales / businessPulse.operatingDaysMonth,
+  );
   const contribution = monthlySales * (margin / 100);
   const operatingResult = contribution - fixedCosts;
   const breakEvenSales = margin > 0 ? fixedCosts / (margin / 100) : 0;
@@ -1260,7 +1263,40 @@ function ProjectionsView({
             </button>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <Field label="Venta diaria promedio">
+              <input
+                type="number"
+                min="0"
+                step="10000"
+                value={dailySales}
+                onChange={(event) =>
+                  setMonthlySales(
+                    Number(event.target.value) *
+                      businessPulse.operatingDaysMonth,
+                  )
+                }
+                className="input money font-black"
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[250000, 300000, 350000, 400000].map((amount) => (
+                  <button
+                    type="button"
+                    key={amount}
+                    onClick={() =>
+                      setMonthlySales(amount * businessPulse.operatingDaysMonth)
+                    }
+                    className="rounded-lg border border-[#d7d7ce] bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#59635b] hover:border-[#235b45]"
+                  >
+                    {formatClp(amount)}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-[#777]">
+                Escríbelo directamente o usa uno de los ejemplos. Se multiplica
+                por {businessPulse.operatingDaysMonth} días abiertos.
+              </p>
+            </Field>
             <Field label="Venta mensual estimada">
               <input
                 type="number"
@@ -1273,8 +1309,8 @@ function ProjectionsView({
                 className="input money font-black"
               />
               <p className="mt-2 text-[11px] leading-4 text-[#777]">
-                El ERP propone {formatClp(realMonthlySales)} según el ritmo
-                actual. Puedes escribir otro monto para simular.
+                Se actualiza automáticamente al cambiar la venta diaria. También
+                puedes escribir aquí un total mensual.
               </p>
             </Field>
             <Field label="Margen de contribución estimado">
