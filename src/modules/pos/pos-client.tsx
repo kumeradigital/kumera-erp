@@ -34,7 +34,6 @@ import {
   registerSpecialSaleAction,
   reconcileCashSessionAction,
   registerSaleAction,
-  registerUnitProductionAction,
 } from "./actions";
 import {
   paymentLabels,
@@ -94,7 +93,6 @@ export function PosClient({
     null,
   );
   const [recordingProduction, setRecordingProduction] = useState(false);
-  const [recordingEmpanadas, setRecordingEmpanadas] = useState(false);
   const [recordingDelivery, setRecordingDelivery] = useState(false);
   const [recordingSpecialSale, setRecordingSpecialSale] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
@@ -262,10 +260,10 @@ export function PosClient({
               })}
             </div>
             <button
-              onClick={() => setRecordingEmpanadas(true)}
+              onClick={() => setManagingAvailability(true)}
               className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#235b45] text-white"
-              title="Agregar producción de empanadas"
-              aria-label="Agregar producción de empanadas"
+              title="Ajustar cantidades de empanadas"
+              aria-label="Ajustar cantidades de empanadas"
             >
               <Plus size={15} />
             </button>
@@ -437,20 +435,12 @@ export function PosClient({
               <Layers3 size={15} /> Pan
             </button>
           )}
-          {empanadaProducts.length > 0 && (
-            <button
-              onClick={() => setRecordingEmpanadas(true)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#235b45] px-3 py-2 text-xs font-black text-white"
-            >
-              <Plus size={15} /> Empanadas
-            </button>
-          )}
           {availability.length > 0 && (
             <button
               onClick={() => setManagingAvailability(true)}
               className="flex items-center justify-center gap-2 rounded-xl border border-[#235b45] bg-white px-3 py-2 text-xs font-black text-[#235b45]"
             >
-              <ClipboardList size={15} /> Disponibilidad
+              <ClipboardList size={15} /> Ajustar empanadas
             </button>
           )}
         </div>
@@ -625,13 +615,6 @@ export function PosClient({
           onClose={() => setRecordingProduction(false)}
         />
       )}
-      {recordingEmpanadas && (
-        <UnitProductionDialog
-          sessionId={session.id}
-          products={empanadaProducts}
-          onClose={() => setRecordingEmpanadas(false)}
-        />
-      )}
       {recordingDelivery && (
         <PedidosYaDialog
           sessionId={session.id}
@@ -647,114 +630,6 @@ export function PosClient({
         />
       )}
     </main>
-  );
-}
-
-function UnitProductionDialog({
-  sessionId,
-  products,
-  onClose,
-}: {
-  sessionId: string;
-  products: Product[];
-  onClose: () => void;
-}) {
-  const [quantities, setQuantities] = useState<Record<string, string>>({});
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
-      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-xl md:rounded-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
-              Caja activa
-            </p>
-            <h2 className="mt-1 text-2xl font-black">
-              Producción de empanadas
-            </h2>
-            <p className="mt-2 text-sm text-[#747970]">
-              Anota solamente las unidades recién horneadas. Se sumarán a las
-              disponibles.
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="Cerrar">
-            <X />
-          </button>
-        </div>
-        <form
-          className="mt-5"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            setBusy(true);
-            try {
-              await registerUnitProductionAction(
-                sessionId,
-                products.map((product) => ({
-                  product_id: product.id,
-                  quantity: Number(quantities[product.id] || 0),
-                })),
-                note,
-              );
-              location.reload();
-            } catch (error) {
-              alert(
-                error instanceof Error
-                  ? error.message
-                  : "No se pudo registrar la producción",
-              );
-              setBusy(false);
-            }
-          }}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            {products.map((product) => (
-              <label
-                key={product.id}
-                className="rounded-2xl border border-[#deded5] bg-white p-4 text-sm font-black"
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span>{product.name}</span>
-                  <span className="text-xs text-[#235b45]">
-                    {product.availability?.availableQuantity || 0} disponibles
-                  </span>
-                </span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  value={quantities[product.id] || ""}
-                  onChange={(event) =>
-                    setQuantities((current) => ({
-                      ...current,
-                      [product.id]: event.target.value,
-                    }))
-                  }
-                  className="input mt-3"
-                  placeholder="0"
-                />
-              </label>
-            ))}
-          </div>
-          <label className="mt-4 block text-xs font-bold">
-            Nota opcional
-            <input
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              className="input mt-2"
-              placeholder="Ej: Segunda hornada"
-            />
-          </label>
-          <button
-            disabled={busy}
-            className="mt-5 h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-50"
-          >
-            {busy ? "Guardando…" : "Sumar a disponibilidad"}
-          </button>
-        </form>
-      </div>
-    </div>
   );
 }
 
