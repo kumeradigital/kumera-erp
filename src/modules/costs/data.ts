@@ -31,8 +31,20 @@ async function context() {
   return { supabase, businessId: membership.business_id };
 }
 
-export async function getCostingData() {
+export async function getCostingData(options?: {
+  includeArchivedProducts?: boolean;
+}) {
   const { supabase, businessId } = await context();
+  let productQuery = supabase
+    .from("products")
+    .select(
+      "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,deleted_at,product_categories(name)",
+    )
+    .eq("business_id", businessId)
+    .order("name");
+  if (!options?.includeArchivedProducts) {
+    productQuery = productQuery.is("deleted_at", null);
+  }
   const [
     ingredientResult,
     priceResult,
@@ -72,14 +84,7 @@ export async function getCostingData() {
       .select("id,recipe_id,ingredient_id,subrecipe_id,quantity,unit")
       .eq("business_id", businessId)
       .order("position"),
-    supabase
-      .from("products")
-      .select(
-        "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,product_categories(name)",
-      )
-      .eq("business_id", businessId)
-      .is("deleted_at", null)
-      .order("name"),
+    productQuery,
     supabase
       .from("cost_settings")
       .select("*")
@@ -192,6 +197,7 @@ export async function getCostingData() {
       targetMarginPercentage: Number(row.target_margin_percentage),
       isSalesFamily: row.is_sales_family,
       familyProductId: row.family_product_id || undefined,
+      archived: Boolean(row.deleted_at),
     };
   });
 
@@ -262,7 +268,9 @@ export async function getCostingData() {
     if (!analysis.isSalesFamily) return analysis;
     const mix = productionMix.get(analysis.id);
     const members = products.filter(
-      (product) => product.familyProductId === analysis.id,
+      (product) =>
+        product.familyProductId === analysis.id &&
+        (analysis.archived || !product.archived),
     );
     const totalWeight = mix
       ? [...mix.values()].reduce((sum, value) => sum + value, 0)

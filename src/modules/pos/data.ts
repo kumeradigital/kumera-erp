@@ -54,7 +54,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       .select("operating_days_month")
       .eq("business_id", businessId)
       .maybeSingle(),
-    getCostingData(),
+    getCostingData({ includeArchivedProducts: true }),
   ]);
   if (sessionsResult.error) throw sessionsResult.error;
   if (settingsResult.error) throw settingsResult.error;

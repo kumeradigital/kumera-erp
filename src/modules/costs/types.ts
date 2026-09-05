@@ -84,6 +84,7 @@ export type CostProduct = {
   targetMarginPercentage: number;
   isSalesFamily: boolean;
   familyProductId?: string;
+  archived?: boolean;
 };
 
 export type ProductCostAnalysis = CostProduct & {
