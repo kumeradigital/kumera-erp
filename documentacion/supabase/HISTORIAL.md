@@ -1,5 +1,15 @@
 # Historial del esquema Supabase
 
+## 2026-09-05.1 — Reservas pagadas y ventas con precio acordado
+
+- Migración: `0034_add_special_sales.sql`.
+- La caja permite registrar ventas especiales con uno o varios productos, cantidad y precio negociado por unidad o kilogramo.
+- Cada venta conserva cliente opcional, nota y fecha comprometida de entrega.
+- El ingreso queda en la jornada en que se recibió el pago y se concilia junto con las demás ventas.
+- Una entrega futura no descuenta la disponibilidad de empanadas de la jornada actual; una entrega para hoy sí lo hace.
+- Los productos vendidos mantienen su detalle para costos, márgenes y reportes, usando el precio realmente acordado.
+- Aplicado en producción: sí, mediante el SQL Editor de Supabase.
+
 ## 2026-08-13.1 — Comisión mixta automática en ventas con tarjeta
 
 - Migración: `0019_add_mixed_card_fees.sql`.

@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Clock,
   HandCoins,
+  Handshake,
   Layers3,
   Minus,
   Plus,
@@ -30,6 +31,7 @@ import {
   updateProductionBatchAction,
   registerCashWithdrawalAction,
   registerPedidosYaOrderAction,
+  registerSpecialSaleAction,
   reconcileCashSessionAction,
   registerSaleAction,
   registerUnitProductionAction,
@@ -94,6 +96,7 @@ export function PosClient({
   const [recordingProduction, setRecordingProduction] = useState(false);
   const [recordingEmpanadas, setRecordingEmpanadas] = useState(false);
   const [recordingDelivery, setRecordingDelivery] = useState(false);
+  const [recordingSpecialSale, setRecordingSpecialSale] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const visibleProducts = products.filter(
     (product) => category === "Todos" || product.category === category,
@@ -205,9 +208,11 @@ export function PosClient({
                       })}
                     </p>
                     <p className="truncate text-[10px] font-bold text-[#235b45]">
-                      {sale.payment === "unclassified"
-                        ? "Por conciliar"
-                        : paymentLabels[sale.payment]}
+                      {sale.kind === "special_order" && sale.scheduledFor
+                        ? `Especial · entrega ${formatCivilDate(sale.scheduledFor)}`
+                        : sale.payment === "unclassified"
+                          ? "Por conciliar"
+                          : paymentLabels[sale.payment]}
                     </p>
                   </div>
                   <b className="money text-sm">{formatClp(sale.total)}</b>
@@ -412,6 +417,12 @@ export function PosClient({
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setRecordingSpecialSale(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#235b45] bg-[#edf4e9] px-3 py-2 text-xs font-black text-[#235b45]"
+          >
+            <Handshake size={15} /> Venta especial
+          </button>
           <button
             onClick={() => setRecordingDelivery(true)}
             className="flex items-center justify-center gap-2 rounded-xl border border-[#d91f4b] bg-white px-3 py-2 text-xs font-black text-[#d91f4b]"
@@ -628,6 +639,13 @@ export function PosClient({
           onClose={() => setRecordingDelivery(false)}
         />
       )}
+      {recordingSpecialSale && (
+        <SpecialSaleDialog
+          sessionId={session.id}
+          products={deliveryProducts}
+          onClose={() => setRecordingSpecialSale(false)}
+        />
+      )}
     </main>
   );
 }
@@ -734,6 +752,215 @@ function UnitProductionDialog({
           >
             {busy ? "Guardando…" : "Sumar a disponibilidad"}
           </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function SpecialSaleDialog({
+  sessionId,
+  products,
+  onClose,
+}: {
+  sessionId: string;
+  products: Product[];
+  onClose: () => void;
+}) {
+  const [category, setCategory] = useState("Todos");
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [prices, setPrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries(products.map((product) => [product.id, product.price])),
+  );
+  const [scheduledFor, setScheduledFor] = useState(todayInSantiago());
+  const [customerName, setCustomerName] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const categories = [
+    "Todos",
+    ...new Set(products.map((product) => product.category)),
+  ];
+  const selected = products.filter((product) => cart[product.id]);
+  const total = selected.reduce(
+    (sum, product) => sum + Math.round(prices[product.id] * cart[product.id]),
+    0,
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-5 md:max-w-4xl md:rounded-3xl md:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#235b45]">
+              Reserva o precio acordado
+            </p>
+            <h2 className="mt-1 text-2xl font-black">
+              Registrar venta especial
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[#747970]">
+              Para pedidos pagados, ventas mayoristas o acuerdos con un precio
+              diferente. Se registra hoy y la fecha indica cuándo se entrega.
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <label className="text-xs font-bold">
+            Cliente (opcional)
+            <input
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+              className="input mt-2"
+              placeholder="Ej: María Pérez"
+            />
+          </label>
+          <label className="text-xs font-bold">
+            Fecha de entrega
+            <input
+              type="date"
+              required
+              value={scheduledFor}
+              onChange={(event) => setScheduledFor(event.target.value)}
+              className="input mt-2"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {categories.map((item) => (
+            <button
+              type="button"
+              key={item}
+              onClick={() => setCategory(item)}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-black ${category === item ? "bg-[#235b45] text-white" : "border bg-white"}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {products
+            .filter(
+              (product) =>
+                category === "Todos" || product.category === category,
+            )
+            .map((product) => {
+              const quantity = cart[product.id] || 0;
+              return (
+                <div
+                  key={product.id}
+                  className={`rounded-2xl border p-3 ${quantity ? "border-[#8eaf93] bg-[#edf4e9]" : "border-[#deded5] bg-white"}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <b className="text-sm">{product.name}</b>
+                    <span className="whitespace-nowrap text-[10px] text-[#777]">
+                      Normal {formatClp(product.price)}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <label className="text-[10px] font-bold uppercase text-[#777]">
+                      Cantidad
+                      <input
+                        type="number"
+                        min="0"
+                        step={product.saleUnit === "kg" ? "0.001" : "1"}
+                        value={quantity || ""}
+                        onChange={(event) =>
+                          setCart((current) => ({
+                            ...current,
+                            [product.id]: Number(event.target.value),
+                          }))
+                        }
+                        className="input mt-1 h-10"
+                        placeholder="0"
+                      />
+                    </label>
+                    <label className="text-[10px] font-bold uppercase text-[#777]">
+                      Precio acordado
+                      <input
+                        type="number"
+                        min="1"
+                        value={prices[product.id]}
+                        onChange={(event) =>
+                          setPrices((current) => ({
+                            ...current,
+                            [product.id]: Number(event.target.value),
+                          }))
+                        }
+                        className="input mt-1 h-10"
+                      />
+                    </label>
+                  </div>
+                  <p className="money mt-2 text-right text-xs font-black text-[#235b45]">
+                    {quantity
+                      ? formatClp(Math.round(quantity * prices[product.id]))
+                      : `por ${product.saleUnit === "kg" ? "kg" : "unidad"}`}
+                  </p>
+                </div>
+              );
+            })}
+        </div>
+
+        <form
+          className="sticky bottom-0 mt-5 rounded-2xl border border-[#d9dfd4] bg-[#fffef9] p-4 shadow-[0_-8px_24px_rgba(35,45,35,.08)]"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            try {
+              const result = await registerSpecialSaleAction(
+                sessionId,
+                scheduledFor,
+                customerName,
+                note,
+                selected.map((product) => ({
+                  product_id: product.id,
+                  quantity: cart[product.id],
+                  unit_price: prices[product.id],
+                })),
+              );
+              if (!result.ok) throw new Error(result.error);
+              location.reload();
+            } catch (error) {
+              alert(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo registrar la venta especial",
+              );
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+            <label className="text-xs font-bold">
+              Nota (opcional)
+              <input
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                className="input mt-2 bg-white"
+                placeholder="Ej: 28 empanadas pagadas para el día 18"
+              />
+            </label>
+            <div className="sm:px-4 sm:pb-2 sm:text-right">
+              <span className="text-[10px] font-bold uppercase text-[#777]">
+                Total acordado
+              </span>
+              <b className="money block text-2xl">{formatClp(total)}</b>
+            </div>
+            <button
+              disabled={busy || !total || !scheduledFor}
+              className="h-12 rounded-xl bg-[#235b45] px-6 font-black text-white disabled:opacity-40"
+            >
+              {busy ? "Registrando…" : "Registrar pagada"}
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] leading-4 text-[#777]">
+            Esta venta quedará incluida en el cierre de hoy. Si la entrega es
+            futura, no descontará la disponibilidad de empanadas de hoy.
+          </p>
         </form>
       </div>
     </div>
@@ -2484,4 +2711,18 @@ function PaymentDialog({
       </div>
     </div>
   );
+}
+
+function todayInSantiago() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function formatCivilDate(value: string) {
+  const [, month, day] = value.split("-");
+  return `${day}/${month}`;
 }

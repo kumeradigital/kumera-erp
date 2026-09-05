@@ -1,5 +1,6 @@
 import { createClient } from "@/server/supabase/server";
 import { getCostingData } from "@/modules/costs/data";
+import { weightedCommissionPercentage } from "@/modules/costs/calculations";
 import type {
   BusinessPulse,
   CashSession,
@@ -81,6 +82,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
   const sessionIds = (sessionsResult.data || []).map((session) => session.id);
   let costedSales = 0;
   let estimatedContribution = 0;
+  const weightedCardFee = weightedCommissionPercentage(costing.settings);
   const categoryTotals = new Map<string, number>();
   let categorizedSales = 0;
   if (sessionIds.length) {
@@ -110,7 +112,8 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
         costedSales += subtotal;
         estimatedContribution +=
           subtotal / (1 + costing.settings.vatRate / 100) -
-          analysis.variableCost * quantity;
+          (analysis.physicalCost + analysis.wasteCost) * quantity -
+          subtotal * (weightedCardFee / 100);
       }
     }
   }
@@ -382,7 +385,7 @@ export async function getRecentSessionSales(
   const { data, error } = await supabase
     .from("sales")
     .select(
-      "id,sale_number,total,cash_rounding_amount,payment_method,created_at",
+      "id,sale_number,total,cash_rounding_amount,payment_method,created_at,sale_kind,scheduled_for,customer_name",
     )
     .eq("business_id", businessId)
     .eq("cash_session_id", sessionId)
@@ -400,6 +403,9 @@ export async function getRecentSessionSales(
         : 0),
     payment: sale.payment_method as SalePaymentMethod,
     createdAt: sale.created_at,
+    kind: sale.sale_kind as "regular" | "special_order",
+    scheduledFor: sale.scheduled_for || undefined,
+    customerName: sale.customer_name || undefined,
   }));
 }
 

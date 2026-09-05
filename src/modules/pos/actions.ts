@@ -329,6 +329,50 @@ export async function registerPedidosYaOrderAction(
   revalidatePath("/ventas");
   return { ok: true as const, id: data as string };
 }
+
+export async function registerSpecialSaleAction(
+  sessionId: string,
+  scheduledFor: string,
+  customerName: string,
+  note: string,
+  items: { product_id: string; quantity: number; unit_price: number }[],
+) {
+  const ctx = await context();
+  const normalized = items.map((item) => ({
+    product_id: item.product_id,
+    quantity: Number(Number(item.quantity).toFixed(3)),
+    unit_price: Math.round(Number(item.unit_price)),
+  }));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledFor))
+    return { ok: false as const, error: "Fecha de entrega inválida" };
+  if (
+    !sessionId ||
+    !normalized.length ||
+    normalized.some(
+      (item) =>
+        !item.product_id ||
+        !Number.isFinite(item.quantity) ||
+        item.quantity <= 0 ||
+        !Number.isInteger(item.unit_price) ||
+        item.unit_price <= 0,
+    )
+  )
+    return {
+      ok: false as const,
+      error: "La venta especial no contiene productos válidos",
+    };
+  const { data, error } = await ctx.supabase.rpc("register_special_sale", {
+    p_session: sessionId,
+    p_scheduled_for: scheduledFor,
+    p_customer_name: customerName.trim(),
+    p_note: note.trim(),
+    p_items: normalized,
+  });
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
+  return { ok: true as const, id: data as string };
+}
 export async function registerCashWithdrawalAction(
   sessionId: string,
   amount: number,

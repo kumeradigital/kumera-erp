@@ -64,6 +64,9 @@ export type RecentSale = {
   total: number;
   payment: SalePaymentMethod;
   createdAt: string;
+  kind: "regular" | "special_order";
+  scheduledFor?: string;
+  customerName?: string;
 };
 export type DeliveryOrder = {
   id: string;
