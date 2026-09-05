@@ -833,8 +833,9 @@ function SpecialSaleDialog({
             </button>
           </div>
           <p className="mt-3 text-[11px] leading-4 text-[#777]">
-            Esta venta quedará incluida en el cierre de hoy. Si la entrega es
-            futura, no descontará la disponibilidad de empanadas de hoy.
+            Esta venta quedará incluida en el cierre de hoy. Las ventas
+            especiales no modifican la disponibilidad de empanadas de caja,
+            porque ese contador se usa solamente para ventas presenciales.
           </p>
         </form>
       </div>

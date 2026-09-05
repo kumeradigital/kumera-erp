@@ -1,5 +1,12 @@
 # Historial del esquema Supabase
 
+## 2026-09-05.3 — Disponibilidad exclusiva para ventas presenciales
+
+- Migración: `0036_decouple_special_sales_from_daily_stock.sql`.
+- Las ventas especiales y reservas no validan ni descuentan la disponibilidad diaria de empanadas.
+- El contador de empanadas de caja queda reservado exclusivamente para ventas presenciales.
+- Aplicado en producción: sí, mediante el SQL Editor de Supabase.
+
 ## 2026-09-05.2 — Corrección del abono esperado en ventas especiales
 
 - Migración: `0035_fix_special_sale_deposit.sql`.
