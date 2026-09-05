@@ -1,8 +1,8 @@
 # Supabase — Manual operativo de ERP KUMERA
 
 **Estado del documento:** vigente  
-**Versión del esquema:** `2026-09-05.1`
-**Última migración incluida:** `supabase/migrations/0034_add_special_sales.sql`
+**Versión del esquema:** `2026-09-05.2`
+**Última migración incluida:** `supabase/migrations/0035_fix_special_sale_deposit.sql`
 
 Esta carpeta es la referencia humana para conectar y mantener Supabase. La fuente técnica de verdad continúa siendo:
 

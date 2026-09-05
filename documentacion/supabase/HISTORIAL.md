@@ -1,5 +1,12 @@
 # Historial del esquema Supabase
 
+## 2026-09-05.2 — Corrección del abono esperado en ventas especiales
+
+- Migración: `0035_fix_special_sale_deposit.sql`.
+- Las reservas pagadas y completan el abono esperado obligatorio de la venta.
+- Como el medio de pago se concilia al cierre, inicialmente el abono esperado corresponde al total acordado y no aplica una comisión inventada.
+- Aplicado en producción: sí, mediante el SQL Editor de Supabase.
+
 ## 2026-09-05.1 — Reservas pagadas y ventas con precio acordado
 
 - Migración: `0034_add_special_sales.sql`.
