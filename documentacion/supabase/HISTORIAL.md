@@ -1,5 +1,13 @@
 # Historial del esquema Supabase
 
+## 2026-09-06.2 — Inventario contado únicamente en unidades
+
+- Migración: `0038_inventory_counts_as_units.sql`.
+- Todas las materias primas se cuentan como unidades, bolsas o bultos completos.
+- Se eliminan de la interfaz las alternativas de gramos, kilos, mililitros y litros.
+- Las cantidades son manuales y enteras; siguen sin existir movimientos automáticos.
+- Aplicado en producción: sí, mediante el SQL Editor de Supabase.
+
 ## 2026-09-06.1 — Inventario manual de materias primas
 
 - Migración: `0037_add_manual_ingredient_inventory.sql`.

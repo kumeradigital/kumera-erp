@@ -3,21 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, Search, Warehouse } from "lucide-react";
 import { saveInventoryAction } from "./actions";
-import type { InventoryItem, InventoryUnit } from "./types";
-
-function allowedUnits(item: InventoryItem): InventoryUnit[] {
-  if (item.baseUnit === "g") return ["kg", "g"];
-  if (item.baseUnit === "ml") return ["l", "ml"];
-  return ["unit"];
-}
-
-const unitLabels: Record<InventoryUnit, string> = {
-  g: "g",
-  kg: "kg",
-  ml: "ml",
-  l: "litros",
-  unit: "unidades",
-};
+import type { InventoryItem } from "./types";
 
 export function InventoryClient({ items }: { items: InventoryItem[] }) {
   const [values, setValues] = useState(
@@ -25,9 +11,9 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
       Object.fromEntries(
         items.map((item) => [
           item.id,
-          { quantity: item.quantity?.toString() || "", unit: item.unit },
+          { quantity: item.quantity?.toString() || "" },
         ]),
-      ) as Record<string, { quantity: string; unit: InventoryUnit }>,
+      ) as Record<string, { quantity: string }>,
   );
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todas");
@@ -58,7 +44,6 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
             values[item.id].quantity === ""
               ? null
               : Number(values[item.id].quantity),
-          unit: values[item.id].unit,
         })),
       );
       if (!result.ok) throw new Error(result.error);
@@ -127,67 +112,46 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
       </div>
 
       <section className="card mt-4 overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,1fr)_170px_150px] gap-3 border-b bg-[#f0f1e8] px-5 py-3 text-[11px] font-black uppercase tracking-wider text-[#6f746c] md:grid">
+        <div className="hidden grid-cols-[minmax(0,1fr)_220px] gap-3 border-b bg-[#f0f1e8] px-5 py-3 text-[11px] font-black uppercase tracking-wider text-[#6f746c] md:grid">
           <span>Materia prima</span>
-          <span>Cantidad actual</span>
-          <span>Unidad</span>
+          <span>Cantidad actual (unidades)</span>
         </div>
         {visible.length ? (
           visible.map((item) => (
             <div
               key={item.id}
-              className="grid gap-3 border-b border-[#e8e8df] px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_170px_150px] md:items-center md:px-5"
+              className="grid gap-3 border-b border-[#e8e8df] px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_220px] md:items-center md:px-5"
             >
               <div className="min-w-0">
                 <p className="truncate font-black">{item.name}</p>
                 <p className="mt-1 text-xs text-[#777]">{item.category}</p>
               </div>
               <label className="text-[10px] font-black uppercase text-[#777] md:text-transparent">
-                Cantidad actual
-                <input
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  inputMode="decimal"
-                  value={values[item.id].quantity}
-                  onChange={(event) => {
-                    setValues((current) => ({
-                      ...current,
-                      [item.id]: {
-                        ...current[item.id],
-                        quantity: event.target.value,
-                      },
-                    }));
-                    setDirty(true);
-                    setSaved(false);
-                  }}
-                  className="input mt-1 text-base font-black text-[#252824] md:mt-0"
-                  placeholder="Sin contar"
-                />
-              </label>
-              <label className="text-[10px] font-black uppercase text-[#777] md:text-transparent">
-                Unidad
-                <select
-                  value={values[item.id].unit}
-                  onChange={(event) => {
-                    setValues((current) => ({
-                      ...current,
-                      [item.id]: {
-                        ...current[item.id],
-                        unit: event.target.value as InventoryUnit,
-                      },
-                    }));
-                    setDirty(true);
-                    setSaved(false);
-                  }}
-                  className="input mt-1 text-[#252824] md:mt-0"
-                >
-                  {allowedUnits(item).map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unitLabels[unit]}
-                    </option>
-                  ))}
-                </select>
+                Cantidad actual en unidades
+                <div className="mt-1 flex items-center gap-3 md:mt-0">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    value={values[item.id].quantity}
+                    onChange={(event) => {
+                      setValues((current) => ({
+                        ...current,
+                        [item.id]: {
+                          quantity: event.target.value,
+                        },
+                      }));
+                      setDirty(true);
+                      setSaved(false);
+                    }}
+                    className="input text-base font-black text-[#252824]"
+                    placeholder="Sin contar"
+                  />
+                  <span className="min-w-16 text-sm font-bold normal-case text-[#687467]">
+                    unidades
+                  </span>
+                </div>
               </label>
             </div>
           ))

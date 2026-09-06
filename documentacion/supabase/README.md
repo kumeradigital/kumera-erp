@@ -1,8 +1,8 @@
 # Supabase — Manual operativo de ERP KUMERA
 
 **Estado del documento:** vigente  
-**Versión del esquema:** `2026-09-06.1`
-**Última migración incluida:** `supabase/migrations/0037_add_manual_ingredient_inventory.sql`
+**Versión del esquema:** `2026-09-06.2`
+**Última migración incluida:** `supabase/migrations/0038_inventory_counts_as_units.sql`
 
 Esta carpeta es la referencia humana para conectar y mantener Supabase. La fuente técnica de verdad continúa siendo:
 
