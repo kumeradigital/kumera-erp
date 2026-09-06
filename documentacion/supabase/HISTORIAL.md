@@ -1,5 +1,14 @@
 # Historial del esquema Supabase
 
+## 2026-09-06.4 — Insumos manuales fuera de recetas
+
+- Migración: `0040_add_manual_inventory_supplies.sql`.
+- Nueva tabla `inventory_supplies` para aseo, embalaje, papelería, mantención y otros artículos.
+- Los insumos manuales comparten proveedor, agrupación y controles de stock con las materias primas.
+- Estos artículos no participan en recetas, costos de productos ni movimientos automáticos.
+- La migración no altera materias primas ni cantidades de inventario existentes.
+- Aplicado en producción: sí, mediante el SQL Editor de Supabase.
+
 ## 2026-09-06.3 — Inventario agrupado por proveedor
 
 - Migración: `0039_add_inventory_supplier.sql`.

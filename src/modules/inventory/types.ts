@@ -10,6 +10,7 @@ export type InventorySupplier = (typeof inventorySuppliers)[number];
 
 export type InventoryItem = {
   id: string;
+  kind: "ingredient" | "supply";
   name: string;
   category: string;
   quantity?: number;

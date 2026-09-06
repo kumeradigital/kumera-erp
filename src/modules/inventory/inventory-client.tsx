@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Minus, Plus, Search, Truck, Warehouse } from "lucide-react";
-import { saveInventoryAction } from "./actions";
+import { Check, Minus, Plus, Search, Truck, Warehouse, X } from "lucide-react";
+import { createInventorySupplyAction, saveInventoryAction } from "./actions";
 import {
   inventorySuppliers,
   type InventoryItem,
@@ -15,6 +15,13 @@ type InventoryValue = {
 };
 
 const supplierGroups = [...inventorySuppliers, "Sin proveedor"] as const;
+const supplyCategories = [
+  "Aseo",
+  "Embalaje",
+  "Papelería",
+  "Mantención",
+  "Otros",
+] as const;
 
 export function InventoryClient({ items }: { items: InventoryItem[] }) {
   const [values, setValues] = useState(
@@ -31,6 +38,14 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newSupply, setNewSupply] = useState({
+    name: "",
+    category: "Aseo",
+    quantity: "0",
+    supplier: "" as InventorySupplier | "",
+  });
   const categories = [
     "Todas",
     ...new Set(items.map((item) => item.category).sort()),
@@ -82,6 +97,7 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
       const result = await saveInventoryAction(
         items.map((item) => ({
           ingredientId: item.id,
+          kind: item.kind,
           quantity: values[item.id].quantity,
           supplier: values[item.id].supplier,
         })),
@@ -101,6 +117,25 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
     }
   }
 
+  async function createSupply() {
+    setCreating(true);
+    try {
+      const result = await createInventorySupplyAction({
+        name: newSupply.name,
+        category: newSupply.category,
+        quantity: Number(newSupply.quantity),
+        supplier: newSupply.supplier || null,
+      });
+      if (!result.ok) throw new Error(result.error);
+      window.location.reload();
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "No se pudo crear el insumo",
+      );
+      setCreating(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -114,14 +149,22 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
             automáticamente por ventas, recetas o compras.
           </p>
         </div>
-        <button
-          onClick={save}
-          disabled={busy || !dirty}
-          className="flex h-12 items-center gap-2 rounded-xl bg-[#235b45] px-5 text-sm font-black text-white disabled:opacity-45"
-        >
-          <Check size={17} />
-          {busy ? "Guardando…" : saved ? "Guardado" : "Guardar cambios"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex h-12 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-5 text-sm font-black text-[#235b45]"
+          >
+            <Plus size={17} /> Nuevo insumo
+          </button>
+          <button
+            onClick={save}
+            disabled={busy || !dirty}
+            className="flex h-12 items-center gap-2 rounded-xl bg-[#235b45] px-5 text-sm font-black text-white disabled:opacity-45"
+          >
+            <Check size={17} />
+            {busy ? "Guardando…" : saved ? "Guardado" : "Guardar cambios"}
+          </button>
+        </div>
       </div>
 
       <div className="card mt-7 p-4">
@@ -175,7 +218,8 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
                     <div className="min-w-0">
                       <p className="truncate font-black">{item.name}</p>
                       <p className="mt-1 text-xs text-[#777]">
-                        {item.category}
+                        {item.category} ·{" "}
+                        {item.kind === "supply" ? "Insumo" : "Materia prima"}
                       </p>
                     </div>
 
@@ -246,9 +290,120 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
       </div>
 
       <div className="mt-4 flex items-center gap-2 text-xs text-[#747970]">
-        <Warehouse size={16} /> {items.length} materias primas agrupadas por
-        proveedor
+        <Warehouse size={16} /> {items.length} artículos agrupados por proveedor
       </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-6 md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.18em] text-[#687467]">
+                  Inventario manual
+                </p>
+                <h2 className="mt-2 text-2xl font-black">Nuevo insumo</h2>
+                <p className="mt-1 text-sm text-[#747970]">
+                  Para aseo, embalaje, oficina u otros artículos que no forman
+                  parte de una receta.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreate(false)}
+                className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-[#f0f1e8]"
+                aria-label="Cerrar"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <label className="block text-sm font-black">
+                Nombre
+                <input
+                  value={newSupply.name}
+                  onChange={(event) =>
+                    setNewSupply((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  className="input mt-2"
+                  placeholder="Ej. Lavaloza"
+                  autoFocus
+                />
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-black">
+                  Categoría
+                  <select
+                    value={newSupply.category}
+                    onChange={(event) =>
+                      setNewSupply((current) => ({
+                        ...current,
+                        category: event.target.value,
+                      }))
+                    }
+                    className="input mt-2"
+                  >
+                    {supplyCategories.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm font-black">
+                  Stock inicial
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    value={newSupply.quantity}
+                    onChange={(event) =>
+                      setNewSupply((current) => ({
+                        ...current,
+                        quantity: event.target.value,
+                      }))
+                    }
+                    className="input mt-2"
+                  />
+                </label>
+              </div>
+              <label className="block text-sm font-black">
+                Proveedor
+                <select
+                  value={newSupply.supplier}
+                  onChange={(event) =>
+                    setNewSupply((current) => ({
+                      ...current,
+                      supplier: event.target.value as InventorySupplier | "",
+                    }))
+                  }
+                  className="input mt-2"
+                >
+                  <option value="">Sin proveedor</option>
+                  {inventorySuppliers.map((supplier) => (
+                    <option key={supplier}>{supplier}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              onClick={createSupply}
+              disabled={
+                creating ||
+                newSupply.name.trim().length < 2 ||
+                !newSupply.quantity
+              }
+              className="mt-6 h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-45"
+            >
+              {creating ? "Creando…" : "Agregar al inventario"}
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
