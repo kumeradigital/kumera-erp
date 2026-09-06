@@ -1,20 +1,29 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Minus, Plus, Search, Truck, Warehouse, X } from "lucide-react";
-import { createInventorySupplyAction, saveInventoryAction } from "./actions";
 import {
-  inventorySuppliers,
-  type InventoryItem,
-  type InventorySupplier,
-} from "./types";
+  Check,
+  Minus,
+  Plus,
+  Search,
+  Trash2,
+  Truck,
+  Warehouse,
+  X,
+} from "lucide-react";
+import {
+  archiveInventoryItemAction,
+  createInventoryProviderAction,
+  createInventorySupplyAction,
+  saveInventoryAction,
+} from "./actions";
+import type { InventoryItem, InventorySupplier } from "./types";
 
 type InventoryValue = {
   quantity: number | null;
   supplier: InventorySupplier | null;
 };
 
-const supplierGroups = [...inventorySuppliers, "Sin proveedor"] as const;
 const supplyCategories = [
   "Aseo",
   "Embalaje",
@@ -23,7 +32,15 @@ const supplyCategories = [
   "Otros",
 ] as const;
 
-export function InventoryClient({ items }: { items: InventoryItem[] }) {
+export function InventoryClient({
+  items,
+  providers,
+}: {
+  items: InventoryItem[];
+  providers: string[];
+}) {
+  const [catalogItems, setCatalogItems] = useState(items);
+  const [providerOptions, setProviderOptions] = useState(providers);
   const [values, setValues] = useState(
     () =>
       Object.fromEntries(
@@ -48,18 +65,18 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
   });
   const categories = [
     "Todas",
-    ...new Set(items.map((item) => item.category).sort()),
+    ...new Set(catalogItems.map((item) => item.category).sort()),
   ];
 
   const groupedItems = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
-    const visible = items.filter(
+    const visible = catalogItems.filter(
       (item) =>
         (category === "Todas" || item.category === category) &&
         (!term || item.name.toLocaleLowerCase("es").includes(term)),
     );
 
-    return supplierGroups
+    return [...providerOptions, "Sin proveedor"]
       .map((supplier) => ({
         supplier,
         items: visible
@@ -72,7 +89,7 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
           ),
       }))
       .filter((group) => group.items.length > 0);
-  }, [category, items, search, values]);
+  }, [catalogItems, category, providerOptions, search, values]);
 
   function updateItem(id: string, change: Partial<InventoryValue>) {
     setValues((current) => ({
@@ -95,7 +112,7 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
     setSaved(false);
     try {
       const result = await saveInventoryAction(
-        items.map((item) => ({
+        catalogItems.map((item) => ({
           ingredientId: item.id,
           kind: item.kind,
           quantity: values[item.id].quantity,
@@ -127,13 +144,72 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
         supplier: newSupply.supplier || null,
       });
       if (!result.ok) throw new Error(result.error);
-      window.location.reload();
+      setCatalogItems((current) => [...current, result.item]);
+      setValues((current) => ({
+        ...current,
+        [result.item.id]: {
+          quantity: result.item.quantity ?? 0,
+          supplier: result.item.supplier ?? null,
+        },
+      }));
+      setNewSupply({
+        name: "",
+        category: "Aseo",
+        quantity: "0",
+        supplier: "",
+      });
+      setCreating(false);
+      setShowCreate(false);
     } catch (error) {
       alert(
         error instanceof Error ? error.message : "No se pudo crear el insumo",
       );
       setCreating(false);
     }
+  }
+
+  async function addProvider() {
+    const value = window.prompt("Nombre del nuevo proveedor");
+    if (!value?.trim()) return;
+    const result = await createInventoryProviderAction(value);
+    if (!result.ok) {
+      alert(result.error);
+      return;
+    }
+    setProviderOptions((current) =>
+      [...new Set([...current, result.name])].sort((a, b) =>
+        a.localeCompare(b, "es", { sensitivity: "base" }),
+      ),
+    );
+    setNewSupply((current) => ({ ...current, supplier: result.name }));
+  }
+
+  async function archiveItem(item: InventoryItem) {
+    if (
+      !window.confirm(
+        `¿Quitar ${item.name} del inventario?${
+          item.kind === "ingredient"
+            ? " Seguirá disponible en las recetas y costos."
+            : " Quedará archivado."
+        }`,
+      )
+    ) {
+      return;
+    }
+    const result = await archiveInventoryItemAction({
+      id: item.id,
+      kind: item.kind,
+    });
+    if (!result.ok) {
+      alert(result.error);
+      return;
+    }
+    setCatalogItems((current) => current.filter(({ id }) => id !== item.id));
+    setValues((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
   }
 
   return (
@@ -155,6 +231,12 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
             className="flex h-12 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-5 text-sm font-black text-[#235b45]"
           >
             <Plus size={17} /> Nuevo insumo
+          </button>
+          <button
+            onClick={addProvider}
+            className="flex h-12 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-5 text-sm font-black text-[#235b45]"
+          >
+            <Plus size={17} /> Proveedor
           </button>
           <button
             onClick={save}
@@ -213,7 +295,7 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
                 return (
                   <div
                     key={item.id}
-                    className="grid gap-4 border-b border-[#e8e8df] px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_250px_230px] md:items-center md:px-5"
+                    className="grid gap-4 border-b border-[#e8e8df] px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_230px_230px_44px] md:items-center md:px-5"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-black">{item.name}</p>
@@ -240,7 +322,7 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
                         aria-label={`Proveedor de ${item.name}`}
                       >
                         <option value="">Sin proveedor</option>
-                        {inventorySuppliers.map((supplier) => (
+                        {providerOptions.map((supplier) => (
                           <option key={supplier} value={supplier}>
                             {supplier}
                           </option>
@@ -277,6 +359,14 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
                         </button>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => archiveItem(item)}
+                      className="grid size-11 place-items-center rounded-xl text-[#b94d2d] hover:bg-[#fff0ea]"
+                      aria-label={`Quitar ${item.name} del inventario`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 );
               })}
@@ -290,7 +380,8 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
       </div>
 
       <div className="mt-4 flex items-center gap-2 text-xs text-[#747970]">
-        <Warehouse size={16} /> {items.length} artículos agrupados por proveedor
+        <Warehouse size={16} /> {catalogItems.length} artículos agrupados por
+        proveedor
       </div>
 
       {showCreate && (
@@ -382,10 +473,17 @@ export function InventoryClient({ items }: { items: InventoryItem[] }) {
                   className="input mt-2"
                 >
                   <option value="">Sin proveedor</option>
-                  {inventorySuppliers.map((supplier) => (
+                  {providerOptions.map((supplier) => (
                     <option key={supplier}>{supplier}</option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={addProvider}
+                  className="mt-2 text-sm font-black text-[#235b45] underline"
+                >
+                  + Agregar otro proveedor
+                </button>
               </label>
             </div>
 

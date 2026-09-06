@@ -6,7 +6,7 @@ export const inventorySuppliers = [
   "La Oferta",
 ] as const;
 
-export type InventorySupplier = (typeof inventorySuppliers)[number];
+export type InventorySupplier = string;
 
 export type InventoryItem = {
   id: string;

@@ -1,5 +1,15 @@
 # Historial del esquema Supabase
 
+## 2026-09-06.5 — Proveedores configurables y archivo de inventario
+
+- Migración: `0041_manage_inventory_providers_and_archiving.sql`.
+- Nueva tabla por negocio para crear proveedores personalizados.
+- Se conservan y precargan los cinco proveedores originales.
+- Los insumos manuales pueden archivarse y las materias primas pueden ocultarse solo del inventario, sin afectar recetas.
+- La creación de insumos ya no recarga la página completa.
+- La migración no modifica cantidades de stock existentes.
+- Aplicado en producción: 2026-09-06.
+
 ## 2026-09-06.4 — Insumos manuales fuera de recetas
 
 - Migración: `0040_add_manual_inventory_supplies.sql`.
