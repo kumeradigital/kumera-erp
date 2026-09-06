@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
+import { inventorySuppliers, type InventorySupplier } from "./types";
 
 export async function saveInventoryAction(
   items: {
     ingredientId: string;
     quantity: number | null;
+    supplier: InventorySupplier | null;
   }[],
 ) {
   const supabase = await createClient();
@@ -22,6 +24,7 @@ export async function saveInventoryAction(
         ? null
         : Number(Number(item.quantity).toFixed(3)),
     unit: "unit",
+    supplier: item.supplier,
   }));
   if (
     normalized.some(
@@ -29,7 +32,8 @@ export async function saveInventoryAction(
         !item.ingredient_id ||
         (item.quantity != null &&
           (!Number.isFinite(item.quantity) || item.quantity < 0)) ||
-        item.unit !== "unit",
+        item.unit !== "unit" ||
+        (item.supplier != null && !inventorySuppliers.includes(item.supplier)),
     )
   ) {
     return { ok: false as const, error: "Hay cantidades inválidas" };

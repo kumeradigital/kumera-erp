@@ -1,5 +1,14 @@
 # Historial del esquema Supabase
 
+## 2026-09-06.3 — Inventario agrupado por proveedor
+
+- Migración: `0039_add_inventory_supplier.sql`.
+- Cada materia prima puede asociarse a Vanni, Mayorista Central, Distribuidora Ja, Marcelo o La Oferta.
+- El inventario se visualiza agrupado por proveedor y ordenado alfabéticamente dentro de cada grupo.
+- El stock se muestra separado de los controles y se ajusta con botones de suma y resta.
+- La migración no modifica ninguna cantidad de stock ya registrada.
+- Aplicado en producción: sí, mediante el SQL Editor de Supabase.
+
 ## 2026-09-06.2 — Inventario contado únicamente en unidades
 
 - Migración: `0038_inventory_counts_as_units.sql`.

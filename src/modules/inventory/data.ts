@@ -1,5 +1,5 @@
 import { createClient } from "@/server/supabase/server";
-import type { InventoryItem } from "./types";
+import type { InventoryItem, InventorySupplier } from "./types";
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   const supabase = await createClient();
@@ -17,7 +17,9 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
 
   const { data, error } = await supabase
     .from("ingredients")
-    .select("id,name,category,inventory_quantity,inventory_updated_at")
+    .select(
+      "id,name,category,inventory_quantity,inventory_supplier,inventory_updated_at",
+    )
     .eq("business_id", membership.business_id)
     .is("deleted_at", null)
     .order("name");
@@ -32,6 +34,8 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
         row.inventory_quantity == null
           ? undefined
           : Number(row.inventory_quantity),
+      supplier:
+        (row.inventory_supplier as InventorySupplier | null) || undefined,
       updatedAt: row.inventory_updated_at || undefined,
     }))
     .sort((a, b) =>
