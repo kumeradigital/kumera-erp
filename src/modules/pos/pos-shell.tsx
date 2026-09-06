@@ -7,6 +7,7 @@ import {
   LineChart,
   ShoppingCart,
   ReceiptText,
+  Warehouse,
 } from "lucide-react";
 import { signOutAction } from "@/modules/auth/actions";
 export function PosShell({
@@ -14,7 +15,14 @@ export function PosShell({
   active,
 }: {
   children: React.ReactNode;
-  active: "sales" | "closures" | "pos" | "products" | "costs" | "operations";
+  active:
+    | "sales"
+    | "closures"
+    | "pos"
+    | "products"
+    | "costs"
+    | "operations"
+    | "inventory";
 }) {
   return (
     <div className="min-h-screen bg-[#f7f6ee]">
@@ -47,6 +55,12 @@ export function PosShell({
             label="Compras y gastos"
             active={active === "operations"}
             icon={<ReceiptText size={16} />}
+          />
+          <Nav
+            href="/inventario"
+            label="Inventario"
+            active={active === "inventory"}
+            icon={<Warehouse size={16} />}
           />
           <Nav
             href="/ventas"

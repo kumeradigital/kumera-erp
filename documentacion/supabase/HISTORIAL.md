@@ -1,5 +1,13 @@
 # Historial del esquema Supabase
 
+## 2026-09-06.1 — Inventario manual de materias primas
+
+- Migración: `0037_add_manual_ingredient_inventory.sql`.
+- El inventario reutiliza el listado vigente de materias primas del motor de costos.
+- Cada insumo conserva cantidad, unidad y fecha de la última actualización manual.
+- No existen descuentos automáticos por ventas, recetas, producción o compras.
+- Aplicado en producción: sí.
+
 ## 2026-09-05.3 — Disponibilidad exclusiva para ventas presenciales
 
 - Migración: `0036_decouple_special_sales_from_daily_stock.sql`.
