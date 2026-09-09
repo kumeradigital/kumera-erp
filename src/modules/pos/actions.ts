@@ -262,6 +262,43 @@ export async function adjustAvailabilityAction(
   if (error) throw error;
   revalidatePath("/caja");
 }
+
+export async function adjustAvailabilityBatchAction(
+  sessionId: string,
+  adjustments: { productId: string; delta: number }[],
+) {
+  const ctx = await context();
+  const normalized = adjustments.filter((item) => item.delta !== 0);
+  if (
+    !sessionId ||
+    !normalized.length ||
+    normalized.some(
+      (item) =>
+        !item.productId ||
+        !Number.isInteger(item.delta) ||
+        Math.abs(item.delta) > 1000,
+    )
+  )
+    throw new Error("Cantidades de empanadas inválidas");
+
+  const results = await Promise.all(
+    normalized.map((item) =>
+      ctx.supabase.rpc("adjust_product_availability", {
+        p_session: sessionId,
+        p_product: item.productId,
+        p_kind: item.delta > 0 ? "production" : "correction",
+        p_delta: item.delta,
+        p_reason:
+          item.delta > 0
+            ? "Producción guardada desde caja"
+            : "Corrección guardada desde caja",
+      }),
+    ),
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw failed.error;
+  revalidatePath("/caja");
+}
 export async function registerUnitProductionAction(
   sessionId: string,
   quantities: { product_id: string; quantity: number }[],

@@ -26,6 +26,7 @@ import { calculateCardFee, type CardFeeSettings } from "./fees";
 import {
   closeCashSessionAction,
   adjustAvailabilityAction,
+  adjustAvailabilityBatchAction,
   openCashSessionAction,
   registerProductionBatchAction,
   updateProductionBatchAction,
@@ -95,16 +96,15 @@ export function PosClient({
   const [recordingProduction, setRecordingProduction] = useState(false);
   const [recordingDelivery, setRecordingDelivery] = useState(false);
   const [recordingSpecialSale, setRecordingSpecialSale] = useState(false);
-  const [adjustingProductId, setAdjustingProductId] = useState<string | null>(
-    null,
-  );
-  const [availabilityQuantities, setAvailabilityQuantities] = useState<
-    Record<string, number>
-  >(() =>
+  const initialAvailability = () =>
     Object.fromEntries(
       availability.map((item) => [item.productId, item.availableQuantity]),
-    ),
-  );
+    );
+  const [savedAvailabilityQuantities, setSavedAvailabilityQuantities] =
+    useState<Record<string, number>>(initialAvailability);
+  const [availabilityQuantities, setAvailabilityQuantities] =
+    useState<Record<string, number>>(initialAvailability);
+  const [savingAvailability, setSavingAvailability] = useState(false);
   const categories = ["Todos", ...new Set(products.map((p) => p.category))];
   const visibleProducts = products.filter(
     (product) => category === "Todos" || product.category === category,
@@ -127,36 +127,41 @@ export function PosClient({
     availabilityQuantities[product.id] ??
     product.availability?.availableQuantity ??
     0;
-  async function quickAdjustAvailability(product: Product, delta: number) {
-    if (
-      !session ||
-      adjustingProductId ||
-      (delta < 0 && availableFor(product) <= 0)
-    )
-      return;
-    setAdjustingProductId(product.id);
-    try {
-      await adjustAvailabilityAction(
-        session.id,
-        product.id,
-        delta > 0 ? "production" : "correction",
-        delta,
-        delta > 0
-          ? "Ingreso rápido desde caja"
-          : "Corrección rápida desde caja",
-      );
-      setAvailabilityQuantities((current) => ({
+  const availabilityAdjustments = empanadaProducts
+    .map((product) => ({
+      productId: product.id,
+      delta:
+        availableFor(product) -
+        (savedAvailabilityQuantities[product.id] ??
+          product.availability?.availableQuantity ??
+          0),
+    }))
+    .filter((item) => item.delta !== 0);
+  function prepareAvailability(product: Product, delta: number) {
+    setAvailabilityQuantities((current) => {
+      const currentAmount =
+        current[product.id] ?? product.availability?.availableQuantity ?? 0;
+      return {
         ...current,
-        [product.id]: Math.max(0, availableFor(product) + delta),
-      }));
+        [product.id]: Math.max(0, currentAmount + delta),
+      };
+    });
+  }
+  async function saveAvailability() {
+    if (!session || !availabilityAdjustments.length || savingAvailability)
+      return;
+    setSavingAvailability(true);
+    try {
+      await adjustAvailabilityBatchAction(session.id, availabilityAdjustments);
+      setSavedAvailabilityQuantities({ ...availabilityQuantities });
     } catch (error) {
       alert(
         error instanceof Error
           ? error.message
-          : "No se pudo actualizar la cantidad",
+          : "No se pudieron guardar las cantidades",
       );
     } finally {
-      setAdjustingProductId(null);
+      setSavingAvailability(false);
     }
   }
   function add(id: string) {
@@ -288,7 +293,6 @@ export function PosClient({
             <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
               {empanadaProducts.map((product) => {
                 const available = availableFor(product);
-                const adjusting = adjustingProductId === product.id;
                 return (
                   <div
                     key={product.id}
@@ -296,27 +300,30 @@ export function PosClient({
                   >
                     <button
                       type="button"
-                      onClick={() => quickAdjustAvailability(product, -1)}
-                      disabled={adjustingProductId !== null || available === 0}
+                      onClick={() => prepareAvailability(product, -1)}
+                      disabled={savingAvailability || available === 0}
                       className="grid size-7 place-items-center rounded-md border border-[#deded5] text-[#a24628] disabled:opacity-30"
                       aria-label={`Restar una ${product.name}`}
                     >
                       <Minus size={13} />
                     </button>
                     <div className="px-1 text-center">
-                      <span className="block max-w-24 truncate text-[10px] font-bold">
-                        {product.name.replace(/^Empanada\s+(de\s+)?/i, "")}
+                      <span
+                        className="block max-w-20 truncate text-[10px] font-bold"
+                        title={product.name}
+                      >
+                        {shortEmpanadaName(product.name)}
                       </span>
                       <span
                         className={`mt-0.5 block text-sm font-black ${available > 5 ? "text-[#235b45]" : available > 0 ? "text-[#806414]" : "text-[#a24628]"}`}
                       >
-                        {adjusting ? "…" : available}
+                        {available}
                       </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => quickAdjustAvailability(product, 1)}
-                      disabled={adjustingProductId !== null}
+                      onClick={() => prepareAvailability(product, 1)}
+                      disabled={savingAvailability}
                       className="grid size-7 place-items-center rounded-md bg-[#235b45] text-white disabled:opacity-40"
                       aria-label={`Agregar una ${product.name}`}
                     >
@@ -327,8 +334,24 @@ export function PosClient({
               })}
             </div>
             <button
+              type="button"
+              onClick={saveAvailability}
+              disabled={!availabilityAdjustments.length || savingAvailability}
+              className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-[#235b45] px-3 text-[10px] font-black text-white disabled:bg-[#c9d3ca]"
+            >
+              <Check size={13} />
+              {savingAvailability
+                ? "Guardando…"
+                : availabilityAdjustments.length
+                  ? `Guardar (${availabilityAdjustments.length})`
+                  : "Guardado"}
+            </button>
+            <button
               onClick={() => setManagingAvailability(true)}
-              className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[#235b45] bg-white px-2 text-[10px] font-black text-[#235b45]"
+              disabled={
+                savingAvailability || availabilityAdjustments.length > 0
+              }
+              className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[#235b45] bg-white px-2 text-[10px] font-black text-[#235b45] disabled:opacity-40"
               title="Mermas y otros ajustes"
               aria-label="Abrir mermas y otros ajustes de empanadas"
             >
@@ -1586,6 +1609,24 @@ function formatSessionDateTime(value: string) {
     minute: "2-digit",
     timeZone: "America/Santiago",
   });
+}
+
+function shortEmpanadaName(name: string) {
+  const normalized = name
+    .replace(/^Empanada\s+(de\s+)?/i, "")
+    .trim()
+    .toLocaleLowerCase("es");
+  const abbreviations: Record<string, string> = {
+    "hoja queso": "H. queso",
+    "mechada queso": "M. queso",
+    napolitana: "Napoli",
+    "pollo choclo queso": "P. choclo",
+    "queso horno": "Q. horno",
+  };
+  return (
+    abbreviations[normalized] ||
+    normalized.charAt(0).toLocaleUpperCase("es") + normalized.slice(1)
+  );
 }
 
 function AvailabilityDialog({
