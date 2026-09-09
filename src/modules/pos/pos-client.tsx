@@ -4,13 +4,13 @@ import { useState } from "react";
 import {
   Banknote,
   Check,
-  ClipboardList,
   Clock,
   HandCoins,
   Handshake,
   Layers3,
   Minus,
   Plus,
+  Settings,
   ShoppingBag,
   X,
 } from "lucide-react";
@@ -287,9 +287,6 @@ export function PosClient({
         </div>
         {empanadaProducts.length > 0 && (
           <div className="mb-3 flex min-w-0 items-center gap-2 rounded-xl border border-[#d6dfd1] bg-[#f4f7f1] p-2">
-            <p className="hidden shrink-0 pl-1 text-[10px] font-black uppercase tracking-wider text-[#687467] xl:block">
-              Disponibles
-            </p>
             <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
               {empanadaProducts.map((product) => {
                 const available = availableFor(product);
@@ -351,11 +348,11 @@ export function PosClient({
               disabled={
                 savingAvailability || availabilityAdjustments.length > 0
               }
-              className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[#235b45] bg-white px-2 text-[10px] font-black text-[#235b45] disabled:opacity-40"
+              className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#235b45] bg-white text-[#235b45] disabled:opacity-40"
               title="Mermas y otros ajustes"
               aria-label="Abrir mermas y otros ajustes de empanadas"
             >
-              <ClipboardList size={13} /> Más ajustes
+              <Settings size={17} />
             </button>
           </div>
         )}
