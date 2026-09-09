@@ -46,9 +46,9 @@ export type FinancialObligation = {
 };
 export const operationLabels: Record<OperationType, string> = {
   purchase: "Compra de insumos",
-  fixed_cost: "Pago de costo fijo",
-  expense: "Otro gasto",
+  fixed_cost: "Pago recurrente",
+  expense: "Gasto del negocio",
   other_income: "Otro ingreso",
-  owner_contribution: "Aporte del propietario",
-  owner_withdrawal: "Retiro del propietario",
+  owner_contribution: "Aporte de dueño",
+  owner_withdrawal: "Retiro de dueño",
 };

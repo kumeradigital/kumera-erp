@@ -3,7 +3,10 @@ import { useMemo, useState } from "react";
 import { Landmark, Pencil, Plus, Search, WalletCards, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { saveOperationAction, updateOperationAction } from "./actions";
-import { OPERATION_CATEGORIES } from "./categories";
+import {
+  DEFAULT_OPERATION_CATEGORY,
+  OPERATION_CATEGORIES_BY_TYPE,
+} from "./categories";
 import {
   operationLabels,
   type FinancialCutoff,
@@ -400,6 +403,11 @@ function OperationDialog({
   const [category, setCategory] = useState(
     operation?.category || "Materias primas",
   );
+  const categoriesForType: readonly string[] =
+    OPERATION_CATEGORIES_BY_TYPE[type];
+  const visibleFormCategories = categoriesForType.includes(category)
+    ? categoriesForType
+    : [...categoriesForType, category];
   const editing = !!operation;
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
@@ -425,22 +433,14 @@ function OperationDialog({
             <input type="hidden" name="type" value={operation.type} />
           )}
           <label className="block text-xs font-bold">
-            Tipo
+            ¿Qué estás registrando?
             <select
               name="type"
               value={type}
               onChange={(e) => {
                 const next = e.target.value as OperationType;
                 setType(next);
-                setCategory(
-                  next === "fixed_cost"
-                    ? "Servicios básicos"
-                    : next === "owner_withdrawal"
-                      ? "Retiros personales"
-                      : next === "purchase"
-                        ? "Materias primas"
-                        : "Otros",
-                );
+                setCategory(DEFAULT_OPERATION_CATEGORY[next]);
               }}
               disabled={!!operation?.ingredientId}
               className="input mt-2"
@@ -452,6 +452,10 @@ function OperationDialog({
               ))}
             </select>
           </label>
+          <p className="-mt-2 text-xs text-[#747970]">
+            Elige la acción principal. Después verás únicamente los grupos que
+            corresponden a esa acción.
+          </p>
           <label className="block text-xs font-bold">
             Fecha
             <input
@@ -519,14 +523,14 @@ function OperationDialog({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs font-bold">
-              Categoría
+              ¿En qué grupo va?
               <select
                 name="category"
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
                 className="input mt-2"
               >
-                {OPERATION_CATEGORIES.map((item) => (
+                {visibleFormCategories.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </select>
