@@ -92,7 +92,9 @@ export async function getCostingData(options?: {
       .single(),
     supabase
       .from("fixed_costs")
-      .select("id,name,category,amount,period,starts_on,ends_on,active")
+      .select(
+        "id,name,category,amount,period,starts_on,ends_on,active,affects_profitability",
+      )
       .eq("business_id", businessId)
       .order("name"),
     supabase
@@ -231,6 +233,7 @@ export async function getCostingData(options?: {
     startsOn: row.starts_on,
     endsOn: row.ends_on || undefined,
     active: row.active,
+    affectsProfitability: row.affects_profitability,
   }));
   const quantityMap = new Map<string, Record<string, number>>();
   for (const row of scenarioItemResult.data || []) {

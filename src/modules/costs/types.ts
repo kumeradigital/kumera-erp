@@ -110,6 +110,7 @@ export type FixedCost = {
   startsOn: string;
   endsOn?: string;
   active: boolean;
+  affectsProfitability: boolean;
 };
 
 export type Scenario = {

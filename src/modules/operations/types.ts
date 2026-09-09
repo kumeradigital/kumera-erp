@@ -22,6 +22,27 @@ export type Operation = {
   purchaseUnit?: "kg" | "g" | "l" | "ml" | "unit";
   supplier?: string;
   note?: string;
+  financialStatus:
+    "pending" | "verified" | "historical" | "historical_verified";
+};
+
+export type FinancialCutoff = {
+  cutoffAt: string;
+  cutoffDate: string;
+  openingBank: number;
+  openingCash: number;
+  pendingReceivables: number;
+  note?: string;
+};
+
+export type FinancialObligation = {
+  id: string;
+  name: string;
+  amount: number;
+  dueDate: string;
+  kind: "payable" | "loan_payment";
+  recurrence?: "monthly";
+  note?: string;
 };
 export const operationLabels: Record<OperationType, string> = {
   purchase: "Compra de insumos",

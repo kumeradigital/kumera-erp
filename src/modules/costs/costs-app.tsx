@@ -1154,6 +1154,7 @@ function FixedCostsView({
               <b>{cost.name}</b>
               <p className="mt-1 text-xs text-[#777]">
                 {cost.category} · {periodLabel(cost.period)}
+                {!cost.affectsProfitability && " · Sólo flujo de caja"}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -2496,6 +2497,20 @@ function FixedCostDialog({
             className="input"
           />
         </Field>
+        <label className="flex gap-3 rounded-xl bg-[#eff0e8] p-4 text-sm">
+          <input
+            name="affectsProfitability"
+            type="checkbox"
+            defaultChecked={cost?.affectsProfitability ?? true}
+          />
+          <span>
+            <b>Descontar en rentabilidad</b>
+            <span className="mt-1 block text-xs text-[#666c64]">
+              Desactívalo para cuotas de crédito u otras salidas que son sólo
+              flujo de caja. En un crédito, únicamente el interés es gasto.
+            </span>
+          </span>
+        </label>
         <Submit>{cost ? "Guardar cambios" : "Guardar costo fijo"}</Submit>
       </AsyncForm>
     </Dialog>

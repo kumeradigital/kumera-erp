@@ -23,21 +23,32 @@ export async function saveOperationAction(form: FormData) {
   const ingredientId = String(form.get("ingredientId") || "") || null;
   const quantity = ingredientId ? Number(form.get("purchaseQuantity")) : null;
   const unit = ingredientId ? String(form.get("purchaseUnit")) : null;
-  const { error } = await supabase.rpc("record_operational_transaction", {
-    p_date: String(form.get("date")),
-    p_type: type,
-    p_description: String(form.get("description")).trim(),
-    p_category: category,
-    p_payment_method: String(form.get("paymentMethod") || "") || null,
-    p_gross_amount: gross,
-    p_tax_rate: taxRate,
-    p_ingredient_id: ingredientId,
-    p_purchase_quantity: quantity,
-    p_purchase_unit: unit,
-    p_supplier: String(form.get("supplier") || "") || null,
-    p_note: String(form.get("note") || "") || null,
-  });
+  const financialStatus = String(form.get("financialStatus") || "verified");
+  if (!["verified", "pending"].includes(financialStatus))
+    throw new Error("Estado financiero inválido");
+  const { data: transactionId, error } = await supabase.rpc(
+    "record_operational_transaction",
+    {
+      p_date: String(form.get("date")),
+      p_type: type,
+      p_description: String(form.get("description")).trim(),
+      p_category: category,
+      p_payment_method: String(form.get("paymentMethod") || "") || null,
+      p_gross_amount: gross,
+      p_tax_rate: taxRate,
+      p_ingredient_id: ingredientId,
+      p_purchase_quantity: quantity,
+      p_purchase_unit: unit,
+      p_supplier: String(form.get("supplier") || "") || null,
+      p_note: String(form.get("note") || "") || null,
+    },
+  );
   if (error) throw error;
+  const { error: statusError } = await supabase
+    .from("operational_transactions")
+    .update({ financial_status: financialStatus })
+    .eq("id", transactionId);
+  if (statusError) throw statusError;
   revalidatePath("/operacion");
   revalidatePath("/costos");
 }
@@ -60,6 +71,7 @@ export async function updateOperationAction(form: FormData) {
   const type = String(form.get("type"));
   const description = String(form.get("description")).trim();
   const paymentMethod = String(form.get("paymentMethod") || "") || null;
+  const financialStatus = String(form.get("financialStatus") || "verified");
   const taxRate = String(form.get("taxMode")) === "exempt" ? 0 : 19;
   const validTypes = [
     "purchase",
@@ -70,10 +82,18 @@ export async function updateOperationAction(form: FormData) {
     "owner_withdrawal",
   ];
   const validPayments = ["cash", "debit", "credit", "transfer"];
+  const validStatuses = [
+    "verified",
+    "pending",
+    "historical",
+    "historical_verified",
+  ];
   if (!validTypes.includes(type)) throw new Error("Tipo inválido");
   if (!description) throw new Error("Descripción obligatoria");
   if (paymentMethod && !validPayments.includes(paymentMethod))
     throw new Error("Medio de pago inválido");
+  if (!validStatuses.includes(financialStatus))
+    throw new Error("Estado financiero inválido");
   const net = taxRate === 0 ? gross : Math.round(gross / 1.19);
   const { data: existing, error: readError } = await supabase
     .from("operational_transactions")
@@ -97,6 +117,7 @@ export async function updateOperationAction(form: FormData) {
       net_amount: net,
       tax_amount: gross - net,
       tax_rate: taxRate,
+      financial_status: financialStatus,
       supplier: String(form.get("supplier") || "").trim() || null,
       note: String(form.get("note") || "").trim() || null,
       updated_at: new Date().toISOString(),

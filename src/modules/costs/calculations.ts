@@ -177,7 +177,7 @@ export function analyzeProducts(
 
 export function monthlyFixedCost(costs: FixedCost[], operatingDays: number) {
   return costs
-    .filter((cost) => cost.active)
+    .filter((cost) => cost.active && cost.affectsProfitability !== false)
     .reduce((total, cost) => {
       const factor = {
         daily: operatingDays,

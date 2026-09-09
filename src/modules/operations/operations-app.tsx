@@ -1,27 +1,40 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search, X } from "lucide-react";
+import { Landmark, Pencil, Plus, Search, WalletCards, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { saveOperationAction, updateOperationAction } from "./actions";
 import { OPERATION_CATEGORIES } from "./categories";
-import { operationLabels, type Operation, type OperationType } from "./types";
+import {
+  operationLabels,
+  type FinancialCutoff,
+  type FinancialObligation,
+  type Operation,
+  type OperationType,
+} from "./types";
 export function OperationsApp({
   operations,
   ingredients,
   ledger,
+  cutoff,
+  obligations,
   summary,
 }: {
   operations: Operation[];
   ingredients: { id: string; name: string; base_unit: string }[];
   ledger: { status: string; closed_at: string | null } | null;
+  cutoff: FinancialCutoff;
+  obligations: FinancialObligation[];
   summary: {
+    openingBalance: number;
+    expectedBank: number;
+    expectedCash: number;
+    expectedTotal: number;
     salesTotal: number;
     operatingIncome: number;
     operatingExpenses: number;
-    operatingFlow: number;
-    investment: number;
-    recovered: number;
-    pending: number;
+    cardFees: number;
+    withdrawals: number;
+    pendingObligations: number;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -62,11 +75,11 @@ export function OperationsApp({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
-            Operación diaria
+            Control financiero
           </p>
-          <h1 className="mt-2 text-3xl font-black">Compras y gastos</h1>
+          <h1 className="mt-2 text-3xl font-black">Finanzas reales</h1>
           <p className="mt-2 text-sm text-[#747970]">
-            Pagos e ingresos reales posteriores a la puesta en marcha.
+            Saldos esperados desde el último corte conciliado.
           </p>
         </div>
         <button
@@ -77,14 +90,69 @@ export function OperationsApp({
           Movimiento
         </button>
       </div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <Metric l="Ventas cobradas" v={summary.salesTotal} />
-        <Metric l="Egresos operacionales" v={summary.operatingExpenses} />
-        <Metric l="Flujo operacional" v={summary.operatingFlow} />
-        <Metric l="Inversión inicial" v={summary.investment} />
-        <Metric l="Inversión recuperada" v={summary.recovered} />
-        <Metric l="Inversión pendiente" v={summary.pending} />
+      <div className="mt-6 rounded-2xl border border-[#bed5b9] bg-[#edf6e9] p-5">
+        <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+          Corte conciliado al {formatDate(cutoff.cutoffDate)}
+        </p>
+        <p className="mt-2 text-sm text-[#586158]">
+          Partimos con {formatClp(cutoff.openingBank)} en banco y{" "}
+          {formatClp(cutoff.openingCash)} en efectivo. Los pagos posteriores,
+          incluido el impuesto ya pagado, se descuentan sólo cuando están
+          verificados.
+        </p>
       </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
+        <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
+        <Metric l="Efectivo esperado" v={summary.expectedCash} icon="cash" />
+        <Metric l="Ventas conciliadas desde el corte" v={summary.salesTotal} />
+        <Metric
+          l="Egresos verificados desde el corte"
+          v={summary.operatingExpenses}
+        />
+        <Metric
+          l="Compromisos aún pendientes"
+          v={summary.pendingObligations}
+          warning
+        />
+      </div>
+      <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
+        <strong className="text-[#252822]">
+          Esto controla dinero real, no calcula rentabilidad.
+        </strong>{" "}
+        La rentabilidad se calcula aparte en Costos con recetas, comisiones y
+        costos fijos. Un compromiso pendiente no baja el saldo hasta que se
+        paga.
+      </div>
+      {!!obligations.length && (
+        <section className="card mt-6 p-5">
+          <h2 className="font-black">Próximos pagos</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {obligations.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-[#deded5] p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-black">{item.name}</p>
+                    <p className="mt-1 text-xs text-[#777]">
+                      Vence {formatDate(item.dueDate)}
+                      {item.kind === "loan_payment"
+                        ? " · Sólo flujo de caja"
+                        : ""}
+                    </p>
+                  </div>
+                  <p className="money font-black">{formatClp(item.amount)}</p>
+                </div>
+                {item.note && (
+                  <p className="mt-3 text-xs text-[#777]">{item.note}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       {ledger?.status !== "closed" && (
         <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
           Cierra primero la Puesta en marcha para fijar oficialmente la
@@ -142,13 +210,14 @@ export function OperationsApp({
         </p>
       </div>
       <div className="card mt-4 overflow-x-auto">
-        <table className="w-full min-w-[850px] text-left text-sm">
+        <table className="w-full min-w-[980px] text-left text-sm">
           <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
             <tr>
               <th className="p-4">Fecha</th>
               <th>Descripción</th>
               <th>Tipo</th>
               <th>Categoría</th>
+              <th>Estado</th>
               <th>Materia prima</th>
               <th className="text-right">Monto</th>
               <th className="w-24 text-center">Acciones</th>
@@ -210,7 +279,7 @@ function OperationGroup({
   return (
     <>
       <tr className="bg-[#edf3ea] text-[#235b45]">
-        <td colSpan={5} className="p-3 font-black">
+        <td colSpan={6} className="p-3 font-black">
           {operationLabels[type]} · {operations.length} movimientos
         </td>
         <td className="pr-4 text-right font-black">
@@ -246,6 +315,9 @@ function OperationRow({
       <td className="font-bold">{o.description}</td>
       <td>{operationLabels[o.type]}</td>
       <td>{o.category}</td>
+      <td>
+        <StatusBadge status={o.financialStatus} />
+      </td>
       <td>{o.ingredientName || "—"}</td>
       <td
         className={`pr-4 text-right font-black ${income ? "text-[#235b45]" : ""}`}
@@ -265,13 +337,52 @@ function OperationRow({
     </tr>
   );
 }
-function Metric({ l, v }: { l: string; v: number }) {
+
+function StatusBadge({ status }: { status: Operation["financialStatus"] }) {
+  const labels = {
+    verified: "Verificado",
+    pending: "Pendiente",
+    historical: "Histórico",
+    historical_verified: "Histórico verificado",
+  };
+  const active = status === "verified";
   return (
-    <div className="card p-5">
-      <p className="text-xs font-bold uppercase text-[#777]">{l}</p>
+    <span
+      className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold ${active ? "bg-[#e7f2e4] text-[#235b45]" : status === "pending" ? "bg-[#fff3cc] text-[#795f0d]" : "bg-[#eeeeea] text-[#70736c]"}`}
+    >
+      {labels[status]}
+    </span>
+  );
+}
+function Metric({
+  l,
+  v,
+  icon,
+  warning,
+}: {
+  l: string;
+  v: number;
+  icon?: "bank" | "cash";
+  warning?: boolean;
+}) {
+  return (
+    <div
+      className={`card p-5 ${warning ? "border-[#e6d397] bg-[#fff9e8]" : ""}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-bold uppercase text-[#777]">{l}</p>
+        {icon === "bank" && <Landmark size={18} className="text-[#235b45]" />}
+        {icon === "cash" && (
+          <WalletCards size={18} className="text-[#235b45]" />
+        )}
+      </div>
       <p className="money mt-2 text-2xl font-black">{formatClp(v)}</p>
     </div>
   );
+}
+
+function formatDate(date: string) {
+  return new Date(`${date}T12:00:00`).toLocaleDateString("es-CL");
 }
 function OperationDialog({
   ingredients,
@@ -386,6 +497,26 @@ function OperationDialog({
               </select>
             </label>
           </div>
+          <label className="block text-xs font-bold">
+            Estado financiero
+            <select
+              name="financialStatus"
+              defaultValue={operation?.financialStatus || "verified"}
+              className="input mt-2"
+            >
+              <option value="verified">
+                Verificado: el dinero ya se movió
+              </option>
+              <option value="pending">
+                Pendiente: todavía no afecta el saldo
+              </option>
+              {operation?.financialStatus.startsWith("historical") && (
+                <option value={operation.financialStatus}>
+                  Histórico anterior al corte
+                </option>
+              )}
+            </select>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs font-bold">
               Categoría

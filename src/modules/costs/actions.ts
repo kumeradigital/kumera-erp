@@ -379,6 +379,7 @@ export async function saveFixedCostAction(form: FormData) {
     period,
     starts_on: startsOn,
     ends_on: endsOn || null,
+    affects_profitability: form.get("affectsProfitability") === "on",
     updated_at: new Date().toISOString(),
   };
   const result = id
