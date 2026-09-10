@@ -60,7 +60,7 @@ begin
         quantity_change, reason, created_by
       ) values (
         v_business, p_session, v_product,
-        case when v_delta > 0 then 'production' else 'correction' end,
+        (case when v_delta > 0 then 'production' else 'correction' end)::public.availability_movement_type,
         v_delta,
         case when v_delta > 0
           then 'Producción guardada desde caja'
