@@ -2659,8 +2659,11 @@ function PaymentDialog({
           <div className="mt-5 rounded-xl bg-[#eff0e8] p-4 text-sm">
             <div className="flex justify-between">
               <span>
-                Comisión {cardFeeSettings.percentage}% +{" "}
-                {formatClp(cardFeeSettings.fixedAmount)}
+                Comisión{" "}
+                {method === "debit"
+                  ? cardFeeSettings.debitPercentage
+                  : cardFeeSettings.creditPercentage}
+                % + {formatClp(cardFeeSettings.fixedAmount)}
               </span>
               <b className="money">{formatClp(fee.net)}</b>
             </div>
@@ -2670,7 +2673,9 @@ function PaymentDialog({
             </div>
             <div className="mt-3 flex justify-between border-t border-[#d8ddd4] pt-3 font-black text-[#235b45]">
               <span>
-                Abono esperado en {cardFeeSettings.settlementDays} día
+                {cardFeeSettings.settlementDays === 0
+                  ? "Disponible inmediatamente"
+                  : `Abono esperado en ${cardFeeSettings.settlementDays} día`}
               </span>
               <b className="money">{formatClp(fee.deposit)}</b>
             </div>

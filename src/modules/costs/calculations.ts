@@ -8,8 +8,6 @@ import type {
   Recipe,
   RecipeCost,
 } from "./types";
-import { effectiveCardFeePercentage } from "@/modules/pos/fees";
-
 export function toBaseQuantity(
   quantity: number,
   unit: CostUnit,
@@ -104,21 +102,9 @@ export function calculateRecipeCosts(
 }
 
 export function weightedCommissionPercentage(settings: CostSettings) {
-  const cardShare =
-    (settings.expectedDebitPercentage + settings.expectedCreditPercentage) /
-    100;
   return (
-    cardShare *
-    effectiveCardFeePercentage(
-      {
-        model: settings.cardFeeModel,
-        percentage: settings.cardFeePercentage,
-        fixedAmount: settings.cardFeeFixedAmount,
-        vatRate: settings.cardFeeVatRate,
-        settlementDays: settings.cardSettlementDays,
-      },
-      settings.expectedTicketAmount,
-    )
+    (settings.expectedDebitPercentage / 100) * settings.debitFeePercentage +
+    (settings.expectedCreditPercentage / 100) * settings.creditFeePercentage
   );
 }
 

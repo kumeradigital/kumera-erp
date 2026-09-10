@@ -325,7 +325,7 @@ export async function getCardFeeSettings(): Promise<CardFeeSettings> {
   const { data, error } = await supabase
     .from("cost_settings")
     .select(
-      "card_fee_model,card_fee_percentage,card_fee_fixed_amount,card_fee_vat_rate,card_settlement_days",
+      "card_fee_model,card_fee_percentage,card_fee_fixed_amount,card_fee_vat_rate,card_settlement_days,debit_fee_percentage,credit_fee_percentage",
     )
     .eq("business_id", businessId)
     .single();
@@ -333,6 +333,8 @@ export async function getCardFeeSettings(): Promise<CardFeeSettings> {
   return {
     model: data.card_fee_model as CardFeeSettings["model"],
     percentage: Number(data.card_fee_percentage),
+    debitPercentage: Number(data.debit_fee_percentage),
+    creditPercentage: Number(data.credit_fee_percentage),
     fixedAmount: Number(data.card_fee_fixed_amount),
     vatRate: Number(data.card_fee_vat_rate),
     settlementDays: data.card_settlement_days,

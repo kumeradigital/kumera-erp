@@ -4,6 +4,8 @@ import { calculateCardFee } from "@/modules/pos/fees";
 const settings = {
   model: "mixed" as const,
   percentage: 0.79,
+  debitPercentage: 1.19,
+  creditPercentage: 1.99,
   fixedAmount: 65,
   vatRate: 19,
   settlementDays: 1,
@@ -12,19 +14,19 @@ const settings = {
 describe("comisión mixta de tarjetas", () => {
   it("calcula comisión, IVA y abono esperado", () => {
     expect(calculateCardFee(10000, "debit", settings)).toEqual({
-      net: 144,
-      tax: 27,
-      total: 171,
-      deposit: 9829,
+      net: 184,
+      tax: 35,
+      total: 219,
+      deposit: 9781,
     });
   });
 
-  it("aplica la misma tarifa a crédito", () => {
+  it("aplica la tarifa propia de crédito", () => {
     expect(calculateCardFee(3400, "credit", settings)).toEqual({
-      net: 92,
-      tax: 17,
-      total: 109,
-      deposit: 3291,
+      net: 133,
+      tax: 25,
+      total: 158,
+      deposit: 3242,
     });
   });
 

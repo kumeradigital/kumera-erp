@@ -3,6 +3,8 @@ import type { PaymentMethod } from "./types";
 export type CardFeeSettings = {
   model: "none" | "percentage" | "mixed";
   percentage: number;
+  debitPercentage?: number;
+  creditPercentage?: number;
   fixedAmount: number;
   vatRate: number;
   settlementDays: number;
@@ -16,7 +18,11 @@ export function calculateCardFee(
   const card = payment === "debit" || payment === "credit";
   let net = 0;
   if (card && settings.model !== "none") {
-    net = Math.round(total * (settings.percentage / 100));
+    const percentage =
+      payment === "debit"
+        ? (settings.debitPercentage ?? settings.percentage)
+        : (settings.creditPercentage ?? settings.percentage);
+    net = Math.round(total * (percentage / 100));
     if (settings.model === "mixed") net += settings.fixedAmount;
   }
   const tax = Math.round(net * (settings.vatRate / 100));
