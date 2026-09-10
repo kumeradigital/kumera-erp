@@ -1212,7 +1212,7 @@ function ProjectionsView({
   const contribution = monthlySales * (margin / 100);
   const operatingResult = contribution - fixedCosts;
   const breakEvenSales = margin > 0 ? fixedCosts / (margin / 100) : 0;
-  const coverage = businessPulse.costCoveragePercentage;
+  const coverage = businessPulse.recipeCostCoveragePercentage;
 
   function restoreRealData() {
     setMonthlySales(realMonthlySales);
@@ -1341,9 +1341,10 @@ function ProjectionsView({
             <div className="mt-4 flex gap-3 rounded-xl border border-[#ead8a6] bg-[#fff4d4] p-4 text-xs leading-5 text-[#755b16]">
               <AlertTriangle className="mt-0.5 shrink-0" size={17} />
               <p>
-                <b>Cobertura de costos: {coverage.toFixed(0)}%.</b> La
-                proyección aplica el margen conocido también a la parte aún no
-                costeada. Ganará precisión al completar los productos restantes.
+                <b>Cobertura de productos vigentes: {coverage.toFixed(0)}%.</b>{" "}
+                La proyección aplica el margen conocido también a la parte aún
+                no costeada. Las ventas históricas de productos archivados no
+                reducen este indicador.
               </p>
             </div>
           )}

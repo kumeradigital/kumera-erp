@@ -480,7 +480,7 @@ function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
               }
               detail={
                 pulse.profitabilityReady
-                  ? `${pulse.costCoveragePercentage.toFixed(0)}% de ventas con costo identificado`
+                  ? `${pulse.recipeCostCoveragePercentage.toFixed(0)}% de productos vigentes vendidos tiene costo`
                   : "Aún no hay ventas con costeo completo"
               }
             />
@@ -490,6 +490,16 @@ function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
               ? `Estimación con recetas y precios vigentes: contribución mensual ${formatClp(pulse.projectedMonthlyContribution)} menos costos fijos ${formatClp(pulse.monthlyFixedCosts)}. No descuenta impuesto a la renta ni reemplaza la contabilidad.`
               : "La proyección de ventas todavía no representa utilidad. Completa y vincula los costeos de los productos vendidos para estimarla."}
           </p>
+          {pulse.profitabilityReady && (
+            <p className="border-t border-[#e6e5dd] bg-[#fffef9] px-5 pb-3 text-[11px] leading-5 text-[#747970]">
+              Cobertura del registro:{" "}
+              {pulse.productDetailCoveragePercentage.toFixed(0)}% de las ventas
+              tiene productos detallados. El resto,{" "}
+              {formatClp(pulse.salesWithoutProductDetail)}, corresponde a
+              cierres históricos conciliados sin desglose y no significa que
+              falten recetas actuales.
+            </p>
+          )}
         </>
       ) : (
         <div className="p-6 text-center text-sm text-[#777]">

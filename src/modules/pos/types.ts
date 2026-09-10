@@ -90,6 +90,9 @@ export type BusinessPulse = {
   projectedMonthlySales: number;
   profitabilityReady: boolean;
   costCoveragePercentage: number;
+  productDetailCoveragePercentage: number;
+  recipeCostCoveragePercentage: number;
+  salesWithoutProductDetail: number;
   projectedMonthlyContribution: number;
   observedContributionPercentage: number;
   monthlyFixedCosts: number;

@@ -275,18 +275,22 @@ export async function getCostingData(options?: {
         product.familyProductId === analysis.id &&
         (analysis.archived || !product.archived),
     );
-    const totalWeight = mix
-      ? [...mix.values()].reduce((sum, value) => sum + value, 0)
-      : 0;
+    const memberIds = new Set(members.map((member) => member.id));
+    const recordedWeights = [...(mix || [])].filter(
+      ([productId, quantity]) => memberIds.has(productId) && quantity > 0,
+    );
+    const weights = recordedWeights.length
+      ? recordedWeights
+      : members.map((member) => [member.id, 1] as [string, number]);
+    const totalWeight = weights.reduce((sum, [, value]) => sum + value, 0);
     const missing = members
       .map((member) => analysisMap.get(member.id))
       .filter((member) => !member?.complete)
       .map((member) => `${member?.name || "Variedad"} sin costo completo`);
     if (!members.length) missing.push("Familia sin variedades vinculadas");
-    if (!totalWeight) missing.push("Registra una mezcla de producción real");
     const weighted = (field: "physicalCost" | "wasteCost") =>
       totalWeight
-        ? [...(mix || [])].reduce(
+        ? weights.reduce(
             (sum, [productId, quantity]) =>
               sum + (analysisMap.get(productId)?.[field] || 0) * quantity,
             0,
@@ -303,7 +307,9 @@ export async function getCostingData(options?: {
       : 0;
     return {
       ...analysis,
-      recipeName: "Promedio ponderado de producción",
+      recipeName: recordedWeights.length
+        ? "Promedio ponderado de producción"
+        : "Promedio de variedades activas",
       physicalCost,
       wasteCost,
       commissionCost,

@@ -55,7 +55,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       .select("operating_days_month")
       .eq("business_id", businessId)
       .maybeSingle(),
-    getCostingData({ includeArchivedProducts: true }),
+    getCostingData(),
   ]);
   if (sessionsResult.error) throw sessionsResult.error;
   if (settingsResult.error) throw settingsResult.error;
@@ -81,6 +81,8 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
     Number(settingsResult.data?.operating_days_month) || 26;
   const sessionIds = (sessionsResult.data || []).map((session) => session.id);
   let costedSales = 0;
+  let detailedSales = 0;
+  let activeProductSales = 0;
   let estimatedContribution = 0;
   const weightedCardFee = weightedCommissionPercentage(costing.settings);
   const categoryTotals = new Map<string, number>();
@@ -97,9 +99,11 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
     );
     for (const sale of sales || []) {
       for (const item of sale.sale_items || []) {
+        const subtotal = Number(item.line_total);
+        detailedSales += subtotal;
         const analysis = analysisMap.get(item.product_id);
         if (analysis) {
-          const subtotal = Number(item.line_total);
+          activeProductSales += subtotal;
           categoryTotals.set(
             analysis.category,
             (categoryTotals.get(analysis.category) || 0) + subtotal,
@@ -107,7 +111,6 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
           categorizedSales += subtotal;
         }
         if (!analysis?.complete) continue;
-        const subtotal = Number(item.line_total);
         const quantity = Number(item.quantity);
         costedSales += subtotal;
         estimatedContribution +=
@@ -134,6 +137,13 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
     costCoveragePercentage: totalSales
       ? Math.min(100, (costedSales / totalSales) * 100)
       : 0,
+    productDetailCoveragePercentage: totalSales
+      ? Math.min(100, (detailedSales / totalSales) * 100)
+      : 0,
+    recipeCostCoveragePercentage: activeProductSales
+      ? Math.min(100, (costedSales / activeProductSales) * 100)
+      : 0,
+    salesWithoutProductDetail: Math.max(0, totalSales - detailedSales),
     projectedMonthlyContribution,
     observedContributionPercentage: contributionOnGrossPercentage * 100,
     monthlyFixedCosts: costing.monthlyFixedCosts,
