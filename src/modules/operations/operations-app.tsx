@@ -268,6 +268,15 @@ export function OperationsApp({
   );
 }
 
+function todayInChile() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 function OperationGroup({
   type,
   operations,
@@ -463,9 +472,7 @@ function OperationDialog({
               type="date"
               required
               key={operation?.date}
-              defaultValue={
-                operation?.date || new Date().toISOString().slice(0, 10)
-              }
+              defaultValue={operation?.date || todayInChile()}
               className="input mt-2"
             />
           </label>
