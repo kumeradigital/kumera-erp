@@ -293,7 +293,6 @@ export async function adjustAvailabilityBatchAction(
     },
   );
   if (error) throw error;
-  revalidatePath("/caja");
   return (data || {}) as Record<string, number>;
 }
 export async function registerUnitProductionAction(

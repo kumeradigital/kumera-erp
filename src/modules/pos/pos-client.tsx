@@ -152,13 +152,16 @@ export function PosClient({
       return;
     setSavingAvailability(true);
     try {
-      const quantities = empanadaProducts.map((product) => ({
-        productId: product.id,
-        quantity: availableFor(product),
+      const quantities = availabilityAdjustments.map(({ productId }) => ({
+        productId,
+        quantity:
+          availabilityQuantities[productId] ??
+          savedAvailabilityQuantities[productId] ??
+          0,
       }));
       const saved = await adjustAvailabilityBatchAction(session.id, quantities);
-      setAvailabilityQuantities(saved);
-      setSavedAvailabilityQuantities(saved);
+      setAvailabilityQuantities((current) => ({ ...current, ...saved }));
+      setSavedAvailabilityQuantities((current) => ({ ...current, ...saved }));
     } catch (error) {
       alert(
         error instanceof Error
