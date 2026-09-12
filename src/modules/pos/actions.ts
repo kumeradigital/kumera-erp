@@ -3,7 +3,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
 import { CASH_WITHDRAWAL_CATEGORIES } from "@/modules/operations/categories";
 import { getCostingData } from "@/modules/costs/data";
-import { calculateCashPayable, calculateLineTotal } from "./cart";
 import type {
   AvailabilityMovementType,
   PaymentMethod,
@@ -688,45 +687,6 @@ export async function registerSaleAction(
       error: "La venta no contiene productos válidos",
     };
 
-  const productIds = [
-    ...new Set(normalizedItems.map((item) => item.product_id)),
-  ];
-  const { data: currentProducts, error: productsError } = await ctx.supabase
-    .from("products")
-    .select("id,name,price,sale_unit")
-    .eq("business_id", ctx.businessId)
-    .eq("active", true)
-    .is("deleted_at", null)
-    .in("id", productIds);
-  if (productsError)
-    return {
-      ok: false as const,
-      error: "No se pudieron verificar los precios vigentes",
-    };
-  if ((currentProducts || []).length !== productIds.length)
-    return {
-      ok: false as const,
-      error: "Uno de los productos ya no está disponible. Actualiza la caja.",
-    };
-  const productMap = new Map(
-    (currentProducts || []).map((product) => [product.id, product]),
-  );
-  const currentTotal = normalizedItems.reduce((sum, item) => {
-    const product = productMap.get(item.product_id)!;
-    return (
-      sum +
-      calculateLineTotal({
-        price: Number(product.price),
-        quantity: item.quantity,
-      })
-    );
-  }, 0);
-  const cashPayable = calculateCashPayable(currentTotal);
-  if (payment === "cash" && (normalizedCash ?? 0) < cashPayable)
-    return {
-      ok: false as const,
-      error: `El total a pagar en efectivo es $${cashPayable.toLocaleString("es-CL")} después del redondeo legal.`,
-    };
   const { data, error } = await ctx.supabase.rpc("register_sale", {
     p_session: sessionId,
     p_payment: payment,
@@ -734,7 +694,5 @@ export async function registerSaleAction(
     p_items: normalizedItems,
   });
   if (error) return { ok: false as const, error: error.message };
-  revalidatePath("/caja");
-  revalidatePath("/ventas");
   return { ok: true as const, id: data as string };
 }
