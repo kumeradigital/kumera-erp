@@ -1,45 +1,39 @@
 import {
   getCashWithdrawals,
   getDailyAvailability,
-  getDeliveryProducts,
   getLatestCashSession,
   getRecentDeliveryOrders,
-  getOpenCashSession,
+  getPosCatalog,
   getProductionBatches,
-  getProductionFamilies,
-  getProducts,
   getRecentSessionSales,
   getSessionClosingSummary,
 } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { PosClient } from "@/modules/pos/pos-client";
 export default async function PosPage() {
-  const [
-    products,
-    deliveryProducts,
-    session,
-    latestSession,
-    productionFamilies,
-  ] = await Promise.all([
-    getProducts(),
-    getDeliveryProducts(),
-    getOpenCashSession(),
+  const [catalog, latestSession] = await Promise.all([
+    getPosCatalog(),
     getLatestCashSession(),
-    getProductionFamilies(),
   ]);
-  const withdrawals = session ? await getCashWithdrawals(session.id) : [];
-  const recentSales = session ? await getRecentSessionSales(session.id, 3) : [];
-  const recentDeliveryOrders = session
-    ? await getRecentDeliveryOrders(session.id, 1000)
-    : [];
-  const productionBatches = session
-    ? await getProductionBatches(session.id)
-    : [];
-  const closingSummary = session
-    ? await getSessionClosingSummary(session.id)
-    : null;
-  const availability = session ? await getDailyAvailability(session.id) : [];
-  const productsWithAvailability = products.map((product) => ({
+  const session = latestSession?.status === "open" ? latestSession : null;
+  const [
+    withdrawals,
+    recentSales,
+    recentDeliveryOrders,
+    productionBatches,
+    closingSummary,
+    availability,
+  ] = session
+    ? await Promise.all([
+        getCashWithdrawals(session.id),
+        getRecentSessionSales(session.id, 3),
+        getRecentDeliveryOrders(session.id, 1000),
+        getProductionBatches(session.id),
+        getSessionClosingSummary(session.id),
+        getDailyAvailability(session.id),
+      ])
+    : [[], [], [], [], null, []];
+  const productsWithAvailability = catalog.products.map((product) => ({
     ...product,
     availability: availability.find((row) => row.productId === product.id),
   }));
@@ -47,7 +41,7 @@ export default async function PosPage() {
     <PosShell active="pos">
       <PosClient
         products={productsWithAvailability}
-        deliveryProducts={deliveryProducts.map((product) => ({
+        deliveryProducts={catalog.deliveryProducts.map((product) => ({
           ...product,
           availability: availability.find(
             (row) => row.productId === product.id,
@@ -58,7 +52,7 @@ export default async function PosPage() {
         withdrawals={withdrawals}
         recentSales={recentSales}
         recentDeliveryOrders={recentDeliveryOrders}
-        productionFamilies={productionFamilies}
+        productionFamilies={catalog.productionFamilies}
         productionBatches={productionBatches}
         latestSession={latestSession}
         closingSummary={closingSummary}

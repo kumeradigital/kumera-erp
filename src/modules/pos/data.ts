@@ -1,4 +1,5 @@
 import { createClient } from "@/server/supabase/server";
+import { cache } from "react";
 import { getCostingData } from "@/modules/costs/data";
 import { weightedCommissionPercentage } from "@/modules/costs/calculations";
 import type {
@@ -19,7 +20,7 @@ import type {
 } from "./types";
 import type { CardFeeSettings } from "./fees";
 
-async function businessContext() {
+const businessContext = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -33,7 +34,7 @@ async function businessContext() {
     .single();
   if (error) throw error;
   return { supabase, businessId: membership.business_id };
-}
+});
 
 function oneRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return Array.isArray(value) ? value[0] : value || undefined;
@@ -163,6 +164,31 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
 
 export async function getProducts(includeInactive = false): Promise<Product[]> {
   return getProductsByArchive(includeInactive, false);
+}
+
+export async function getPosCatalog(): Promise<{
+  products: Product[];
+  deliveryProducts: Product[];
+  productionFamilies: ProductionFamily[];
+}> {
+  const allProducts = await getProducts(true);
+  return {
+    products: allProducts.filter(
+      (product) => product.active && !product.familyProductId,
+    ),
+    deliveryProducts: allProducts.filter(
+      (product) => product.active && !product.isSalesFamily,
+    ),
+    productionFamilies: allProducts
+      .filter((product) => product.isSalesFamily && product.active)
+      .map((product) => ({
+        product,
+        members: allProducts.filter(
+          (candidate) => candidate.familyProductId === product.id,
+        ),
+      }))
+      .filter((family) => family.members.length > 0),
+  };
 }
 
 export async function getArchivedProducts(): Promise<Product[]> {
