@@ -68,7 +68,7 @@ export async function getOperationsData() {
     supabase
       .from("operational_transactions")
       .select(
-        "id,transaction_date,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,ingredients(name)",
+        "id,transaction_date,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
       )
       .eq("business_id", membership.business_id)
       .order("transaction_date", { ascending: false }),
@@ -85,7 +85,7 @@ export async function getOperationsData() {
       )
       .eq("business_id", membership.business_id)
       .eq("status", "closed")
-      .gte("opened_at", cutoff.cutoffAt),
+      .gt("closed_at", cutoff.cutoffAt),
     supabase
       .from("financial_obligations")
       .select("id,name,amount,due_date,kind,recurrence,status,note")
@@ -124,9 +124,14 @@ export async function getOperationsData() {
     };
   });
 
+  const createdAfterCutoff = new Set(
+    (ops.data || [])
+      .filter((row) => Date.parse(row.created_at) > Date.parse(cutoff.cutoffAt))
+      .map((row) => row.id),
+  );
   const verifiedAfterCutoff = operations.filter(
     (operation) =>
-      operation.date > cutoff.cutoffDate &&
+      createdAfterCutoff.has(operation.id) &&
       operation.financialStatus === "verified",
   );
   const isIncome = (operation: Operation) =>
