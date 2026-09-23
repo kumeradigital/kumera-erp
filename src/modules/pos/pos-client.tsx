@@ -421,7 +421,7 @@ export function PosClient({
           </div>
         )}
         {products.length ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
             {productTiles.map((tile) => {
               if (tile.products.length > 1) {
                 const selectedQuantity = tile.products.reduce(
@@ -438,7 +438,7 @@ export function PosClient({
                     key={tile.key}
                     onClick={() => setSelectingGroup(tile)}
                     disabled={!availableProducts.length}
-                    className="card relative min-h-[88px] overflow-hidden border-[#cbdcc6] bg-[#fbfdf9] text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
+                    className="card relative min-h-[116px] overflow-hidden border-2 border-[#b9cfb8] bg-[#fbfdf9] text-left shadow-sm transition hover:border-[#78977e] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65"
                   >
                     {selectedQuantity > 0 && (
                       <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -448,12 +448,12 @@ export function PosClient({
                       </span>
                     )}
                     <div
-                      className={`flex h-full flex-col justify-between p-3 ${selectedQuantity > 0 ? "pt-9" : "pt-3"}`}
+                      className={`flex h-full flex-col justify-between p-4 ${selectedQuantity > 0 ? "pt-10" : "pt-4"}`}
                     >
-                      <p className="text-[17px] font-black leading-5 text-[#20231f] capitalize">
+                      <p className="text-xl font-black leading-6 tracking-tight text-[#171a17] capitalize">
                         {tile.category}
                       </p>
-                      <p className="mt-2 text-sm font-bold text-[#235b45]">
+                      <p className="mt-3 text-base font-black text-[#235b45]">
                         {tile.products.length} opciones · Abrir
                         {tile.saleUnit === "kg" ? " / kg" : ""}
                       </p>
@@ -471,7 +471,7 @@ export function PosClient({
                   key={p.id}
                   onClick={() => add(p.id)}
                   disabled={soldOut}
-                  className="card relative min-h-[88px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
+                  className="card relative min-h-[116px] overflow-hidden border-2 border-[#deded5] bg-white text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65"
                 >
                   {!!cart[p.id] && (
                     <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -488,12 +488,12 @@ export function PosClient({
                     </span>
                   )}
                   <div
-                    className={`flex h-full flex-col justify-between p-3 ${cart[p.id] || remaining !== null ? "pt-9" : "pt-3"}`}
+                    className={`flex h-full flex-col justify-between p-4 ${cart[p.id] || remaining !== null ? "pt-10" : "pt-4"}`}
                   >
-                    <p className="text-[17px] font-black leading-5 text-[#20231f] capitalize">
+                    <p className="text-xl font-black leading-6 tracking-tight text-[#171a17] capitalize">
                       {p.name}
                     </p>
-                    <p className="money mt-2 text-base font-black text-[#235b45]">
+                    <p className="money mt-3 text-lg font-black text-[#235b45]">
                       {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
                     </p>
                   </div>
