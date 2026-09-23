@@ -203,7 +203,7 @@ async function getProductsByArchive(
   let query = supabase
     .from("products")
     .select(
-      "id,name,description,price,pedidosya_price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,product_categories(name)",
+      "id,name,description,price,pedidosya_price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,cost_recipe_id,product_categories(name)",
     )
     .eq("business_id", businessId)
     .order("position")
@@ -241,6 +241,7 @@ async function getProductsByArchive(
         trackDailyAvailability: row.track_daily_availability,
         isSalesFamily: row.is_sales_family,
         familyProductId: row.family_product_id || undefined,
+        costRecipeId: row.cost_recipe_id || undefined,
       };
     }),
   );

@@ -14,6 +14,7 @@ export type Product = {
   trackDailyAvailability: boolean;
   isSalesFamily: boolean;
   familyProductId?: string;
+  costRecipeId?: string;
   availability?: DailyAvailability;
 };
 export type ProductionFamily = {

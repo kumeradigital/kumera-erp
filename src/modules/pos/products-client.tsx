@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
 import {
+  AlertTriangle,
   ArchiveRestore,
   ImageIcon,
   PackageCheck,
@@ -29,9 +30,9 @@ export function ProductsClient({
   products: Product[];
   archivedProducts: Product[];
 }) {
-  const [section, setSection] = useState<"products" | "families" | "archived">(
-    "products",
-  );
+  const [section, setSection] = useState<
+    "products" | "families" | "uncosted" | "archived"
+  >("products");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,14 +41,20 @@ export function ProductsClient({
   const [customCategory, setCustomCategory] = useState("");
   const [search, setSearch] = useState("");
   const [view, setView] = useCollectionView("products");
+  const uncostedProducts = products.filter(
+    (product) =>
+      product.active && !product.isSalesFamily && !product.costRecipeId,
+  );
   const sectionProducts =
     section === "archived"
       ? archivedProducts
-      : products.filter((product) =>
-          section === "families"
-            ? product.isSalesFamily
-            : !product.isSalesFamily,
-        );
+      : section === "uncosted"
+        ? uncostedProducts
+        : products.filter((product) =>
+            section === "families"
+              ? product.isSalesFamily
+              : !product.isSalesFamily,
+          );
   const isFamilyForm =
     editing?.isSalesFamily || (!editing && section === "families");
   const categories = [
@@ -97,10 +104,12 @@ export function ProductsClient({
               ? "Crea primero cada producto o variedad con su receta y costo."
               : section === "families"
                 ? "Agrupa productos existentes bajo un único producto de venta en caja."
-                : "Recupera productos y familias conservando todos sus datos anteriores."}
+                : section === "uncosted"
+                  ? "Revisa los productos activos que todavía no tienen una receta asociada."
+                  : "Recupera productos y familias conservando todos sus datos anteriores."}
           </p>
         </div>
-        {section !== "archived" && (
+        {(section === "products" || section === "families") && (
           <button
             onClick={() => {
               setEditing(null);
@@ -111,15 +120,16 @@ export function ProductsClient({
             className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
           >
             <Plus size={17} />
-            {section === "products" ? "Producto" : "Familia"}
+            {section === "families" ? "Familia" : "Producto"}
           </button>
         )}
       </div>
-      <div className="mt-7 grid grid-cols-3 gap-2 rounded-2xl bg-[#ecece3] p-1.5">
+      <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#ecece3] p-1.5 md:grid-cols-4">
         {(
           [
             ["products", "Productos individuales"],
             ["families", "Familias de productos"],
+            ["uncosted", "Sin receta"],
             ["archived", "Archivados"],
           ] as const
         ).map(([value, label]) => (
@@ -138,11 +148,38 @@ export function ProductsClient({
                 ? products.filter((p) => !p.isSalesFamily).length
                 : value === "families"
                   ? products.filter((p) => p.isSalesFamily).length
-                  : archivedProducts.length}
+                  : value === "uncosted"
+                    ? uncostedProducts.length
+                    : archivedProducts.length}
             </span>
           </button>
         ))}
       </div>
+      {uncostedProducts.length > 0 && section !== "uncosted" && (
+        <button
+          type="button"
+          onClick={() => {
+            setSection("uncosted");
+            setCategory("Todos");
+            setSearch("");
+          }}
+          className="mt-4 flex w-full items-center justify-between gap-4 rounded-2xl border border-[#e1c978] bg-[#fff8dc] p-4 text-left text-[#735b08]"
+        >
+          <span className="flex items-center gap-3">
+            <AlertTriangle className="shrink-0" size={20} />
+            <span>
+              <b className="block">
+                {uncostedProducts.length} producto
+                {uncostedProducts.length === 1 ? "" : "s"} sin receta
+              </b>
+              <span className="mt-0.5 block text-xs">
+                Estas ventas pueden disminuir la cobertura del cálculo mensual.
+              </span>
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-black underline">Revisar</span>
+        </button>
+      )}
       {sectionProducts.length > 0 && (
         <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
           {categories.map((item) => {
@@ -254,11 +291,13 @@ export function ProductsClient({
                             : "Producto archivado"
                           : section === "families"
                             ? `${products.filter((item) => item.familyProductId === product.id).length} variedades`
-                            : product.familyProductId
-                              ? "Variedad interna"
-                              : product.active
-                                ? "Activo"
-                                : "Oculto"}
+                            : section === "uncosted"
+                              ? "Sin receta"
+                              : product.familyProductId
+                                ? "Variedad interna"
+                                : product.active
+                                  ? "Activo"
+                                  : "Oculto"}
                       </td>
                       <td className="px-4 py-3">
                         <ProductActions
@@ -317,6 +356,11 @@ export function ProductsClient({
                         <PackageCheck size={14} /> Disponibilidad diaria activa
                       </p>
                     )}
+                    {section === "uncosted" && (
+                      <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#fff8dc] px-3 py-2 text-xs font-bold text-[#735b08]">
+                        <AlertTriangle size={14} /> Falta asociar una receta
+                      </p>
+                    )}
                     {p.isSalesFamily && (
                       <div className="mt-3 rounded-xl bg-[#edf4e9] p-3 text-xs text-[#235b45]">
                         <b className="block">
@@ -371,7 +415,9 @@ export function ProductsClient({
                 ? "productos"
                 : section === "families"
                   ? "familias"
-                  : "archivados"}{" "}
+                  : section === "uncosted"
+                    ? "productos sin receta"
+                    : "archivados"}{" "}
               en {category}
             </p>
             <button
