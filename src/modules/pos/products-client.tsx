@@ -187,6 +187,9 @@ export function ProductsClient({
                   <tr>
                     <th className="px-4 py-3">Producto</th>
                     <th className="px-4 py-3">Categoría</th>
+                    {section === "families" && (
+                      <th className="px-4 py-3">Productos de la familia</th>
+                    )}
                     <th className="px-4 py-3">Precio</th>
                     <th className="px-4 py-3">Venta</th>
                     <th className="px-4 py-3">Disponibilidad</th>
@@ -208,6 +211,31 @@ export function ProductsClient({
                       <td className="px-4 py-3 text-[#70756d]">
                         {product.category}
                       </td>
+                      {section === "families" && (
+                        <td className="max-w-[360px] px-4 py-3">
+                          <div className="flex flex-wrap gap-1.5">
+                            {products
+                              .filter(
+                                (item) => item.familyProductId === product.id,
+                              )
+                              .map((item) => (
+                                <span
+                                  key={item.id}
+                                  className="rounded-full bg-[#edf4e9] px-2.5 py-1 text-[11px] font-bold text-[#235b45]"
+                                >
+                                  {item.name}
+                                </span>
+                              ))}
+                            {!products.some(
+                              (item) => item.familyProductId === product.id,
+                            ) && (
+                              <span className="text-xs text-[#8a8e86]">
+                                Sin productos vinculados
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      )}
                       <td className="money px-4 py-3 font-black text-[#235b45]">
                         {formatClp(product.price)}
                       </td>
@@ -299,12 +327,21 @@ export function ProductsClient({
                           }{" "}
                           variedades vinculadas
                         </b>
-                        <span className="mt-1 block leading-5">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           {products
                             .filter((item) => item.familyProductId === p.id)
-                            .map((item) => item.name)
-                            .join(", ") || "Aún sin variedades"}
-                        </span>
+                            .map((item) => (
+                              <span
+                                key={item.id}
+                                className="rounded-full border border-[#cbdcc6] bg-white px-2.5 py-1 text-[11px] font-bold"
+                              >
+                                {item.name}
+                              </span>
+                            ))}
+                          {!products.some(
+                            (item) => item.familyProductId === p.id,
+                          ) && <span>Aún sin productos vinculados</span>}
+                        </div>
                       </div>
                     )}
                     {p.familyProductId && (
