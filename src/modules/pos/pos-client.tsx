@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Banknote,
   Check,
@@ -96,6 +96,11 @@ export function PosClient({
   const [recordingProduction, setRecordingProduction] = useState(false);
   const [recordingDelivery, setRecordingDelivery] = useState(false);
   const [recordingSpecialSale, setRecordingSpecialSale] = useState(false);
+  const [visiblePanels, setVisiblePanels] = useState({
+    recentSales: true,
+    categories: true,
+    empanadas: true,
+  });
   const initialAvailability = () =>
     Object.fromEntries(
       availability.map((item) => [item.productId, item.availableQuantity]),
@@ -105,11 +110,38 @@ export function PosClient({
   const [availabilityQuantities, setAvailabilityQuantities] =
     useState<Record<string, number>>(initialAvailability);
   const [savingAvailability, setSavingAvailability] = useState(false);
-  const categories = ["Todos", ...new Set(products.map((p) => p.category))];
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("kumera-pos-visible-panels");
+      if (saved)
+        setVisiblePanels((current) => ({ ...current, ...JSON.parse(saved) }));
+    } catch {
+      // Keep the complete view if this browser blocks local storage.
+    }
+  }, []);
+  function togglePanel(panel: keyof typeof visiblePanels) {
+    setVisiblePanels((current) => {
+      const next = { ...current, [panel]: !current[panel] };
+      try {
+        localStorage.setItem("kumera-pos-visible-panels", JSON.stringify(next));
+      } catch {
+        // The visual preference can remain session-only.
+      }
+      return next;
+    });
+  }
+  const categories = [
+    "Todos",
+    ...[...new Set(products.map((p) => p.category))].sort((a, b) =>
+      a.localeCompare(b, "es"),
+    ),
+  ];
   const visibleProducts = products.filter(
     (product) => category === "Todos" || product.category === category,
   );
-  const productTiles = [...groupProductsForSale(visibleProducts).values()];
+  const productTiles = [...groupProductsForSale(visibleProducts).values()].sort(
+    (a, b) => a.category.localeCompare(b.category, "es"),
+  );
   const lines = products
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
@@ -237,63 +269,87 @@ export function PosClient({
               </p>
             </div>
           </div>
-          <p className="text-xs text-[#687467]">
-            Efectivo inicial: <b>{formatClp(session.openingCash)}</b>
-          </p>
-        </div>
-        <div className="mb-3 rounded-xl border border-[#dfdfd5] bg-[#fffef9] p-2">
-          <div className="mb-1 flex items-center justify-between px-1">
-            <p className="text-[10px] font-black uppercase tracking-wider text-[#6f746c]">
-              Últimas ventas
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <p className="mr-2 text-xs text-[#687467]">
+              Efectivo inicial: <b>{formatClp(session.openingCash)}</b>
             </p>
-            <span className="text-[10px] text-[#8a8e86]">Jornada actual</span>
+            {(
+              [
+                ["recentSales", "Ventas"],
+                ["categories", "Categorías"],
+                ["empanadas", "Empanadas"],
+              ] as const
+            ).map(([panel, label]) => (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => togglePanel(panel)}
+                aria-pressed={visiblePanels[panel]}
+                title={`${visiblePanels[panel] ? "Ocultar" : "Mostrar"} ${label.toLocaleLowerCase("es")}`}
+                className={`rounded-lg border px-2.5 py-1 text-[10px] font-black transition ${visiblePanels[panel] ? "border-[#235b45] bg-[#235b45] text-white" : "border-[#b9c4b8] bg-white text-[#687467]"}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          {recentSales.length ? (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {recentSales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="flex min-w-[148px] flex-1 items-center justify-between gap-3 rounded-lg bg-[#f1f2e9] px-3 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-[#777]">
-                      #{sale.saleNumber} ·{" "}
-                      {new Date(sale.createdAt).toLocaleTimeString("es-CL", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        timeZone: "America/Santiago",
-                      })}
-                    </p>
-                    <p className="truncate text-[10px] font-bold text-[#235b45]">
-                      {sale.kind === "special_order" && sale.scheduledFor
-                        ? `Especial · entrega ${formatCivilDate(sale.scheduledFor)}`
-                        : sale.payment === "unclassified"
-                          ? "Por conciliar"
-                          : paymentLabels[sale.payment]}
-                    </p>
-                  </div>
-                  <b className="money text-sm">{formatClp(sale.total)}</b>
-                </div>
-              ))}
+        </div>
+        {visiblePanels.recentSales && (
+          <div className="mb-3 rounded-xl border border-[#dfdfd5] bg-[#fffef9] p-2">
+            <div className="mb-1 flex items-center justify-between px-1">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#6f746c]">
+                Últimas ventas
+              </p>
+              <span className="text-[10px] text-[#8a8e86]">Jornada actual</span>
             </div>
-          ) : (
-            <p className="rounded-lg bg-[#f1f2e9] px-3 py-2 text-center text-[11px] text-[#777]">
-              Todavía no hay ventas registradas en esta jornada.
-            </p>
-          )}
-        </div>
-        <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-3">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        {empanadaProducts.length > 0 && (
+            {recentSales.length ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {recentSales.map((sale) => (
+                  <div
+                    key={sale.id}
+                    className="flex min-w-[148px] flex-1 items-center justify-between gap-3 rounded-lg bg-[#f1f2e9] px-3 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-[#777]">
+                        #{sale.saleNumber} ·{" "}
+                        {new Date(sale.createdAt).toLocaleTimeString("es-CL", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: "America/Santiago",
+                        })}
+                      </p>
+                      <p className="truncate text-[10px] font-bold text-[#235b45]">
+                        {sale.kind === "special_order" && sale.scheduledFor
+                          ? `Especial · entrega ${formatCivilDate(sale.scheduledFor)}`
+                          : sale.payment === "unclassified"
+                            ? "Por conciliar"
+                            : paymentLabels[sale.payment]}
+                      </p>
+                    </div>
+                    <b className="money text-sm">{formatClp(sale.total)}</b>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg bg-[#f1f2e9] px-3 py-2 text-center text-[11px] text-[#777]">
+                Todavía no hay ventas registradas en esta jornada.
+              </p>
+            )}
+          </div>
+        )}
+        {visiblePanels.categories && (
+          <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-3">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+        {visiblePanels.empanadas && empanadaProducts.length > 0 && (
           <div className="mb-3 flex min-w-0 items-center gap-2 rounded-xl border border-[#d6dfd1] bg-[#f4f7f1] p-2">
             <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
               {empanadaProducts.map((product) => {
@@ -382,7 +438,7 @@ export function PosClient({
                     key={tile.key}
                     onClick={() => setSelectingGroup(tile)}
                     disabled={!availableProducts.length}
-                    className="card relative min-h-[88px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
+                    className="card relative min-h-[88px] overflow-hidden border-[#cbdcc6] bg-[#fbfdf9] text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     {selectedQuantity > 0 && (
                       <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -391,15 +447,15 @@ export function PosClient({
                           : selectedQuantity}
                       </span>
                     )}
-                    <span className="absolute right-2 top-2 z-10 rounded-full bg-[#235b45] px-2 py-1 text-[9px] font-black text-white shadow-sm">
-                      {tile.products.length} variedades
-                    </span>
-                    <div className="flex h-full flex-col justify-between p-3 pt-9">
+                    <div
+                      className={`flex h-full flex-col justify-between p-3 ${selectedQuantity > 0 ? "pt-9" : "pt-3"}`}
+                    >
                       <p className="text-[17px] font-black leading-5 text-[#20231f]">
                         {tile.category}
                       </p>
-                      <p className="mt-2 text-sm font-black text-[#235b45]">
-                        Elegir variedad {tile.saleUnit === "kg" ? "/ kg" : ""}
+                      <p className="mt-2 text-sm font-bold text-[#235b45]">
+                        {tile.products.length} opciones · Abrir
+                        {tile.saleUnit === "kg" ? " / kg" : ""}
                       </p>
                     </div>
                   </button>
