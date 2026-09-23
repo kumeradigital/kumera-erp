@@ -365,7 +365,7 @@ export function PosClient({
           </div>
         )}
         {products.length ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {productTiles.map((tile) => {
               if (tile.products.length > 1) {
                 const selectedQuantity = tile.products.reduce(
@@ -382,7 +382,7 @@ export function PosClient({
                     key={tile.key}
                     onClick={() => setSelectingGroup(tile)}
                     disabled={!availableProducts.length}
-                    className="card relative min-h-[104px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55 sm:min-h-0"
+                    className="card relative min-h-[88px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
                   >
                     {selectedQuantity > 0 && (
                       <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -391,17 +391,14 @@ export function PosClient({
                           : selectedQuantity}
                       </span>
                     )}
-                    <span className="absolute right-2 top-2 z-10 rounded-full bg-[#235b45] px-2 py-1 text-[9px] font-black text-white shadow-sm sm:px-2.5 sm:text-[11px]">
+                    <span className="absolute right-2 top-2 z-10 rounded-full bg-[#235b45] px-2 py-1 text-[9px] font-black text-white shadow-sm">
                       {tile.products.length} variedades
                     </span>
-                    <div className="hidden h-20 place-items-center bg-[#e5eee2] text-[#235b45] sm:grid">
-                      <Layers3 size={32} />
-                    </div>
-                    <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
-                      <p className="text-sm font-black leading-5 sm:min-h-10">
+                    <div className="flex h-full flex-col justify-between p-3 pt-9">
+                      <p className="text-[17px] font-black leading-5 text-[#20231f]">
                         {tile.category}
                       </p>
-                      <p className="money mt-2 text-base font-black text-[#235b45]">
+                      <p className="mt-2 text-sm font-black text-[#235b45]">
                         Elegir variedad {tile.saleUnit === "kg" ? "/ kg" : ""}
                       </p>
                     </div>
@@ -418,7 +415,7 @@ export function PosClient({
                   key={p.id}
                   onClick={() => add(p.id)}
                   disabled={soldOut}
-                  className="card relative min-h-[104px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55 sm:min-h-0"
+                  className="card relative min-h-[88px] overflow-hidden text-left transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {!!cart[p.id] && (
                     <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -429,24 +426,15 @@ export function PosClient({
                   )}
                   {remaining !== null && (
                     <span
-                      className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm sm:px-2.5 sm:text-[11px] ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
+                      className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
                     >
                       {remaining === 0 ? "Agotado" : `${remaining} disp.`}
                     </span>
                   )}
-                  <div className="hidden h-20 place-items-center bg-[#eaeae1] sm:grid">
-                    {p.imageUrl ? (
-                      <img
-                        src={p.imageUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <ShoppingBag className="text-[#9da198]" />
-                    )}
-                  </div>
-                  <div className="flex h-full flex-col justify-end p-3 pt-10 sm:block sm:h-auto sm:pt-3">
-                    <p className="text-sm font-black leading-5 sm:min-h-10">
+                  <div
+                    className={`flex h-full flex-col justify-between p-3 ${cart[p.id] || remaining !== null ? "pt-9" : "pt-3"}`}
+                  >
+                    <p className="text-[17px] font-black leading-5 text-[#20231f]">
                       {p.name}
                     </p>
                     <p className="money mt-2 text-base font-black text-[#235b45]">
