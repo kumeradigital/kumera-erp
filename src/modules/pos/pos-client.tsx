@@ -342,7 +342,7 @@ export function PosClient({
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold capitalize ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
               >
                 {c}
               </button>
@@ -450,7 +450,7 @@ export function PosClient({
                     <div
                       className={`flex h-full flex-col justify-between p-3 ${selectedQuantity > 0 ? "pt-9" : "pt-3"}`}
                     >
-                      <p className="text-[17px] font-black leading-5 text-[#20231f]">
+                      <p className="text-[17px] font-black leading-5 text-[#20231f] capitalize">
                         {tile.category}
                       </p>
                       <p className="mt-2 text-sm font-bold text-[#235b45]">
@@ -490,7 +490,7 @@ export function PosClient({
                   <div
                     className={`flex h-full flex-col justify-between p-3 ${cart[p.id] || remaining !== null ? "pt-9" : "pt-3"}`}
                   >
-                    <p className="text-[17px] font-black leading-5 text-[#20231f]">
+                    <p className="text-[17px] font-black leading-5 text-[#20231f] capitalize">
                       {p.name}
                     </p>
                     <p className="money mt-2 text-base font-black text-[#235b45]">
@@ -577,7 +577,9 @@ export function PosClient({
               className="flex items-center gap-3 border-b border-[#ecebe4] pb-3"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold">{l.name}</p>
+                <p className="truncate text-sm font-bold capitalize">
+                  {l.name}
+                </p>
                 <p className="money text-xs text-[#777]">
                   {formatClp(calculateLineTotal(l))}
                 </p>
@@ -840,7 +842,7 @@ function SpecialSaleDialog({
               type="button"
               key={item}
               onClick={() => setCategory(item)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-black ${category === item ? "bg-[#235b45] text-white" : "border bg-white"}`}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-black capitalize ${category === item ? "bg-[#235b45] text-white" : "border bg-white"}`}
             >
               {item}
             </button>
@@ -861,7 +863,7 @@ function SpecialSaleDialog({
                   className={`rounded-2xl border p-3 ${quantity ? "border-[#8eaf93] bg-[#edf4e9]" : "border-[#deded5] bg-white"}`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <b className="text-sm">{product.name}</b>
+                    <b className="text-sm capitalize">{product.name}</b>
                     <span className="whitespace-nowrap text-[10px] text-[#777]">
                       Normal {formatClp(product.price)}
                     </span>
@@ -1050,7 +1052,9 @@ function PedidosYaDialog({
                   key={product.id}
                   className="rounded-2xl border border-[#deded5] bg-white p-3"
                 >
-                  <b className="block min-h-10 text-sm">{product.name}</b>
+                  <b className="block min-h-10 text-sm capitalize">
+                    {product.name}
+                  </b>
                   <label className="mt-2 block text-[10px] font-bold uppercase text-[#777]">
                     Precio plataforma
                     <input
@@ -1214,7 +1218,7 @@ function ProductGroupDialog({
       <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-w-lg md:rounded-3xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#777] capitalize">
               {group.category}
               {group.saleUnit === "kg" ? " · venta por kg" : ""}
             </p>
@@ -1249,7 +1253,9 @@ function ProductGroupDialog({
                 disabled={remaining === 0}
                 className="relative min-h-24 rounded-2xl border border-[#dcdcd3] bg-white p-4 text-left active:scale-[.98] disabled:opacity-45"
               >
-                <b className="block pr-2 text-sm leading-5">{product.name}</b>
+                <b className="block pr-2 text-sm leading-5 capitalize">
+                  {product.name}
+                </b>
                 <span className="money mt-3 block text-sm font-black text-[#235b45]">
                   {formatClp(product.price)}
                   {product.saleUnit === "kg" ? "/kg" : ""}
@@ -1718,7 +1724,9 @@ function AvailabilityDialog({
                 {item.availableQuantity}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-black">{item.productName}</p>
+                <p className="truncate font-black capitalize">
+                  {item.productName}
+                </p>
                 <p className="mt-1 text-[11px] text-[#777]">
                   Inicio {item.openingQuantity} · Producción +
                   {item.producedQuantity} · Vendidas {item.soldQuantity} ·
