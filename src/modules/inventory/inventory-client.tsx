@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Check,
+  Copy,
   Minus,
   Plus,
   Search,
@@ -63,6 +64,7 @@ export function InventoryClient({
   const [saved, setSaved] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showShoppingList, setShowShoppingList] = useState(false);
+  const [shoppingListCopied, setShoppingListCopied] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newSupply, setNewSupply] = useState({
     name: "",
@@ -132,6 +134,28 @@ export function InventoryClient({
     (total, group) => total + group.items.length,
     0,
   );
+
+  async function copyShoppingList() {
+    const text = [
+      "*LISTA DE COMPRAS*",
+      ...shoppingGroups.flatMap((group) => [
+        "",
+        `*${group.supplier}*`,
+        ...group.items.map(
+          (item) =>
+            `• ${item.name} — Stock actual: ${item.current} | Comprar: ${item.missing}`,
+        ),
+      ]),
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setShoppingListCopied(true);
+      setTimeout(() => setShoppingListCopied(false), 2500);
+    } catch {
+      alert("No se pudo copiar la lista. Intenta nuevamente.");
+    }
+  }
 
   function updateItem(id: string, change: Partial<InventoryValue>) {
     setValues((current) => ({
@@ -602,7 +626,7 @@ export function InventoryClient({
       {showShoppingList && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="card max-h-[92vh] w-full max-w-2xl overflow-y-auto p-5 md:p-8">
-            <div className="flex items-start justify-between gap-4 border-b border-[#e8e8df] pb-5">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8df] pb-5">
               <div>
                 <p className="text-xs font-black uppercase tracking-[.18em] text-[#687467]">
                   Reposición de inventario
@@ -612,14 +636,30 @@ export function InventoryClient({
                   Solo aparecen productos cuyo stock está bajo el mínimo.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowShoppingList(false)}
-                className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-[#f0f1e8]"
-                aria-label="Cerrar lista de compras"
-              >
-                <X size={22} />
-              </button>
+              <div className="flex items-center gap-2">
+                {shoppingGroups.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={copyShoppingList}
+                    className="flex h-11 items-center gap-2 rounded-xl bg-[#235b45] px-4 text-sm font-black text-white"
+                  >
+                    {shoppingListCopied ? (
+                      <Check size={17} />
+                    ) : (
+                      <Copy size={17} />
+                    )}
+                    {shoppingListCopied ? "Copiado" : "Copiar para WhatsApp"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowShoppingList(false)}
+                  className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-[#f0f1e8]"
+                  aria-label="Cerrar lista de compras"
+                >
+                  <X size={22} />
+                </button>
+              </div>
             </div>
 
             {shoppingGroups.length ? (
@@ -634,13 +674,19 @@ export function InventoryClient({
                       {group.items.map((item) => (
                         <div
                           key={item.id}
-                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[#e8e8df] bg-white px-4 py-3 last:border-0"
+                          className="grid grid-cols-[minmax(0,1fr)_80px_90px] items-center gap-3 border-b border-[#e8e8df] bg-white px-4 py-3 last:border-0"
                         >
                           <div>
                             <p className="font-black">{item.name}</p>
                             <p className="text-xs text-[#747970]">
-                              Hay {item.current} · mínimo {item.minimum}
+                              Mínimo configurado: {item.minimum}
                             </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[9px] font-black uppercase tracking-wide text-[#687467]">
+                              Stock actual
+                            </p>
+                            <p className="text-lg font-black">{item.current}</p>
                           </div>
                           <div className="rounded-xl bg-[#edf2e9] px-4 py-2 text-right">
                             <p className="text-[9px] font-black uppercase tracking-wide text-[#687467]">
