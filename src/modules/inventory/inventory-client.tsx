@@ -6,6 +6,7 @@ import {
   Minus,
   Plus,
   Search,
+  ShoppingCart,
   Trash2,
   Truck,
   Warehouse,
@@ -21,6 +22,7 @@ import type { InventoryItem, InventorySupplier } from "./types";
 
 type InventoryValue = {
   quantity: number | null;
+  minimumQuantity: number;
   supplier: InventorySupplier | null;
 };
 
@@ -46,7 +48,11 @@ export function InventoryClient({
       Object.fromEntries(
         items.map((item) => [
           item.id,
-          { quantity: item.quantity ?? null, supplier: item.supplier ?? null },
+          {
+            quantity: item.quantity ?? null,
+            minimumQuantity: item.minimumQuantity,
+            supplier: item.supplier ?? null,
+          },
         ]),
       ) as Record<string, InventoryValue>,
   );
@@ -56,11 +62,13 @@ export function InventoryClient({
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showShoppingList, setShowShoppingList] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newSupply, setNewSupply] = useState({
     name: "",
     category: "Aseo",
     quantity: "0",
+    minimumQuantity: "0",
     supplier: "" as InventorySupplier | "",
   });
   const categories = [
@@ -91,6 +99,40 @@ export function InventoryClient({
       .filter((group) => group.items.length > 0);
   }, [catalogItems, category, providerOptions, search, values]);
 
+  const shoppingGroups = useMemo(
+    () =>
+      [...providerOptions, "Sin proveedor"]
+        .map((supplier) => ({
+          supplier,
+          items: catalogItems
+            .filter((item) => {
+              const value = values[item.id];
+              return (
+                (value.supplier ?? "Sin proveedor") === supplier &&
+                (value.quantity ?? 0) < value.minimumQuantity
+              );
+            })
+            .map((item) => ({
+              ...item,
+              current: values[item.id].quantity ?? 0,
+              minimum: values[item.id].minimumQuantity,
+              missing:
+                values[item.id].minimumQuantity -
+                (values[item.id].quantity ?? 0),
+            }))
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+            ),
+        }))
+        .filter((group) => group.items.length > 0),
+    [catalogItems, providerOptions, values],
+  );
+
+  const shoppingItemCount = shoppingGroups.reduce(
+    (total, group) => total + group.items.length,
+    0,
+  );
+
   function updateItem(id: string, change: Partial<InventoryValue>) {
     setValues((current) => ({
       ...current,
@@ -116,6 +158,7 @@ export function InventoryClient({
           ingredientId: item.id,
           kind: item.kind,
           quantity: values[item.id].quantity,
+          minimumQuantity: values[item.id].minimumQuantity,
           supplier: values[item.id].supplier,
         })),
       );
@@ -141,6 +184,7 @@ export function InventoryClient({
         name: newSupply.name,
         category: newSupply.category,
         quantity: Number(newSupply.quantity),
+        minimumQuantity: Number(newSupply.minimumQuantity),
         supplier: newSupply.supplier || null,
       });
       if (!result.ok) throw new Error(result.error);
@@ -149,6 +193,7 @@ export function InventoryClient({
         ...current,
         [result.item.id]: {
           quantity: result.item.quantity ?? 0,
+          minimumQuantity: result.item.minimumQuantity,
           supplier: result.item.supplier ?? null,
         },
       }));
@@ -156,6 +201,7 @@ export function InventoryClient({
         name: "",
         category: "Aseo",
         quantity: "0",
+        minimumQuantity: "0",
         supplier: "",
       });
       setCreating(false);
@@ -227,6 +273,17 @@ export function InventoryClient({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            onClick={() => setShowShoppingList(true)}
+            className="flex h-12 items-center gap-2 rounded-xl border border-[#235b45] bg-[#edf2e9] px-5 text-sm font-black text-[#235b45]"
+          >
+            <ShoppingCart size={17} /> Lista de compras
+            {shoppingItemCount > 0 && (
+              <span className="grid min-w-6 place-items-center rounded-full bg-[#235b45] px-1.5 py-0.5 text-xs text-white">
+                {shoppingItemCount}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setShowCreate(true)}
             className="flex h-12 items-center gap-2 rounded-xl border border-[#235b45] bg-white px-5 text-sm font-black text-[#235b45]"
           >
@@ -295,7 +352,7 @@ export function InventoryClient({
                 return (
                   <div
                     key={item.id}
-                    className="grid gap-4 border-b border-[#e8e8df] px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_230px_230px_44px] md:items-center md:px-5"
+                    className="grid gap-4 border-b border-[#e8e8df] px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_210px_200px_150px_44px] md:items-center md:px-5"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-black">{item.name}</p>
@@ -359,6 +416,28 @@ export function InventoryClient({
                         </button>
                       </div>
                     </div>
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#777]">
+                        Stock mínimo
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        value={value.minimumQuantity}
+                        onChange={(event) =>
+                          updateItem(item.id, {
+                            minimumQuantity: Math.max(
+                              0,
+                              Number.parseInt(event.target.value || "0", 10),
+                            ),
+                          })
+                        }
+                        className="input h-11 text-center text-lg font-black text-[#235b45]"
+                        aria-label={`Stock mínimo de ${item.name}`}
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() => archiveItem(item)}
@@ -424,7 +503,7 @@ export function InventoryClient({
                   autoFocus
                 />
               </label>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <label className="block text-sm font-black">
                   Categoría
                   <select
@@ -454,6 +533,23 @@ export function InventoryClient({
                       setNewSupply((current) => ({
                         ...current,
                         quantity: event.target.value,
+                      }))
+                    }
+                    className="input mt-2"
+                  />
+                </label>
+                <label className="block text-sm font-black">
+                  Stock mínimo
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    value={newSupply.minimumQuantity}
+                    onChange={(event) =>
+                      setNewSupply((current) => ({
+                        ...current,
+                        minimumQuantity: event.target.value,
                       }))
                     }
                     className="input mt-2"
@@ -499,6 +595,76 @@ export function InventoryClient({
             >
               {creating ? "Creando…" : "Agregar al inventario"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showShoppingList && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="card max-h-[92vh] w-full max-w-2xl overflow-y-auto p-5 md:p-8">
+            <div className="flex items-start justify-between gap-4 border-b border-[#e8e8df] pb-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.18em] text-[#687467]">
+                  Reposición de inventario
+                </p>
+                <h2 className="mt-2 text-2xl font-black">Lista de compras</h2>
+                <p className="mt-1 text-sm text-[#747970]">
+                  Solo aparecen productos cuyo stock está bajo el mínimo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShoppingList(false)}
+                className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-[#f0f1e8]"
+                aria-label="Cerrar lista de compras"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {shoppingGroups.length ? (
+              <div className="mt-5 space-y-5">
+                {shoppingGroups.map((group) => (
+                  <section key={group.supplier}>
+                    <div className="mb-2 flex items-center gap-2 text-[#235b45]">
+                      <Truck size={17} />
+                      <h3 className="font-black">{group.supplier}</h3>
+                    </div>
+                    <div className="overflow-hidden rounded-2xl border border-[#dfe3d8]">
+                      {group.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[#e8e8df] bg-white px-4 py-3 last:border-0"
+                        >
+                          <div>
+                            <p className="font-black">{item.name}</p>
+                            <p className="text-xs text-[#747970]">
+                              Hay {item.current} · mínimo {item.minimum}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-[#edf2e9] px-4 py-2 text-right">
+                            <p className="text-[9px] font-black uppercase tracking-wide text-[#687467]">
+                              Comprar
+                            </p>
+                            <p className="text-xl font-black text-[#235b45]">
+                              {item.missing}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="my-10 rounded-2xl bg-[#edf2e9] px-5 py-10 text-center">
+                <Check className="mx-auto text-[#235b45]" size={32} />
+                <p className="mt-3 font-black">No falta comprar nada</p>
+                <p className="mt-1 text-sm text-[#747970]">
+                  Todos los productos están en su mínimo o por encima.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

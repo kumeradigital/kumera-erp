@@ -20,7 +20,7 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
       supabase
         .from("ingredients")
         .select(
-          "id,name,category,inventory_quantity,inventory_supplier,inventory_updated_at",
+          "id,name,category,inventory_quantity,inventory_minimum_quantity,inventory_supplier,inventory_updated_at",
         )
         .eq("business_id", membership.business_id)
         .is("deleted_at", null)
@@ -29,7 +29,7 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
       supabase
         .from("inventory_supplies")
         .select(
-          "id,name,category,inventory_quantity,inventory_supplier,updated_at",
+          "id,name,category,inventory_quantity,inventory_minimum_quantity,inventory_supplier,updated_at",
         )
         .eq("business_id", membership.business_id)
         .is("archived_at", null)
@@ -48,6 +48,7 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
         row.inventory_quantity == null
           ? undefined
           : Number(row.inventory_quantity),
+      minimumQuantity: Number(row.inventory_minimum_quantity || 0),
       supplier:
         (row.inventory_supplier as InventorySupplier | null) || undefined,
       updatedAt: row.inventory_updated_at || undefined,
@@ -58,6 +59,7 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
       name: row.name,
       category: row.category,
       quantity: Number(row.inventory_quantity),
+      minimumQuantity: Number(row.inventory_minimum_quantity || 0),
       supplier:
         (row.inventory_supplier as InventorySupplier | null) || undefined,
       updatedAt: row.updated_at,

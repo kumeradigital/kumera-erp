@@ -9,6 +9,7 @@ export async function saveInventoryAction(
     ingredientId: string;
     kind: "ingredient" | "supply";
     quantity: number | null;
+    minimumQuantity: number;
     supplier: InventorySupplier | null;
   }[],
 ) {
@@ -25,6 +26,7 @@ export async function saveInventoryAction(
       item.quantity == null || item.quantity === undefined
         ? null
         : Number(Number(item.quantity).toFixed(3)),
+    minimum_quantity: Number(Number(item.minimumQuantity).toFixed(3)),
     unit: "unit",
     supplier: item.supplier,
   }));
@@ -35,6 +37,8 @@ export async function saveInventoryAction(
         !["ingredient", "supply"].includes(item.item_type) ||
         (item.quantity != null &&
           (!Number.isFinite(item.quantity) || item.quantity < 0)) ||
+        !Number.isInteger(item.minimum_quantity) ||
+        item.minimum_quantity < 0 ||
         item.unit !== "unit" ||
         (item.supplier != null &&
           (item.supplier.trim().length < 2 || item.supplier.length > 100)),
@@ -55,6 +59,7 @@ export async function createInventorySupplyAction(input: {
   name: string;
   category: string;
   quantity: number;
+  minimumQuantity: number;
   supplier: InventorySupplier | null;
 }) {
   const supabase = await createClient();
@@ -71,6 +76,8 @@ export async function createInventorySupplyAction(input: {
     !category ||
     !Number.isInteger(input.quantity) ||
     input.quantity < 0 ||
+    !Number.isInteger(input.minimumQuantity) ||
+    input.minimumQuantity < 0 ||
     (input.supplier != null &&
       (input.supplier.trim().length < 2 || input.supplier.length > 100))
   ) {
@@ -107,9 +114,12 @@ export async function createInventorySupplyAction(input: {
       name,
       category,
       inventory_quantity: input.quantity,
+      inventory_minimum_quantity: input.minimumQuantity,
       inventory_supplier: input.supplier,
     })
-    .select("id,name,category,inventory_quantity,inventory_supplier,updated_at")
+    .select(
+      "id,name,category,inventory_quantity,inventory_minimum_quantity,inventory_supplier,updated_at",
+    )
     .single();
   if (error) {
     return {
@@ -130,6 +140,7 @@ export async function createInventorySupplyAction(input: {
       name: data.name,
       category: data.category,
       quantity: Number(data.inventory_quantity),
+      minimumQuantity: Number(data.inventory_minimum_quantity),
       supplier: data.inventory_supplier || undefined,
       updatedAt: data.updated_at,
     } satisfies InventoryItem,

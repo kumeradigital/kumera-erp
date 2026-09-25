@@ -14,6 +14,7 @@ export type InventoryItem = {
   name: string;
   category: string;
   quantity?: number;
+  minimumQuantity: number;
   supplier?: InventorySupplier;
   updatedAt?: string;
 };
