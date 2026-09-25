@@ -1,4 +1,8 @@
-import { getBusinessPulse, getSalesSummary } from "@/modules/pos/data";
+import {
+  getBusinessPulse,
+  getSalesPace,
+  getSalesSummary,
+} from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { SalesDashboard } from "@/modules/pos/sales-dashboard";
 
@@ -101,13 +105,14 @@ export default async function SalesPage({
   searchParams: Promise<Query>;
 }) {
   const period = resolvePeriod(await searchParams);
-  const [data, pulse] = await Promise.all([
+  const [data, pulse, pace] = await Promise.all([
     getSalesSummary(period.range),
     getBusinessPulse(),
+    period.mode === "today" ? getSalesPace() : Promise.resolve(null),
   ]);
   return (
     <PosShell active="sales">
-      <SalesDashboard {...data} period={period} pulse={pulse} />
+      <SalesDashboard {...data} period={period} pulse={pulse} pace={pace} />
     </PosShell>
   );
 }

@@ -15,6 +15,7 @@ import {
   type BusinessPulse,
   type PaymentMethod,
   type SalePaymentMethod,
+  type SalesPace,
   type SalesSessionPeriod,
   type SaleSummary,
 } from "./types";
@@ -25,6 +26,7 @@ export function SalesDashboard({
   recent,
   period,
   pulse,
+  pace,
 }: {
   summary: SaleSummary;
   sessions: SalesSessionPeriod[];
@@ -36,6 +38,7 @@ export function SalesDashboard({
   }[];
   period: SalesPeriodView;
   pulse: BusinessPulse;
+  pace: SalesPace | null;
 }) {
   const days = workedDays(sessions);
   const dailyAverage = (total: number) => averagePerWorkedDay(total, days);
@@ -62,6 +65,8 @@ export function SalesDashboard({
       <SalesFilters period={period} />
 
       <BusinessPulsePanel pulse={pulse} />
+
+      {pace && <SalesPacePanel pace={pace} />}
 
       <section className="card mt-4 overflow-hidden">
         <div className="border-b border-[#e6e5dd] p-5">
@@ -430,6 +435,137 @@ export function SalesDashboard({
       </section>
     </main>
   );
+}
+
+function SalesPacePanel({ pace }: { pace: SalesPace }) {
+  const difference = pace.differencePercentage;
+  const tone = difference > 10 ? "ahead" : difference < -10 ? "behind" : "even";
+  const toneClasses = {
+    ahead: "bg-[#e5f0e7] text-[#235b45]",
+    even: "bg-[#fff3cd] text-[#765d10]",
+    behind: "bg-[#f9e3dc] text-[#a04429]",
+  }[tone];
+  const statusText =
+    tone === "ahead"
+      ? `${Math.abs(difference).toFixed(0)}% sobre el ritmo habitual`
+      : tone === "behind"
+        ? `${Math.abs(difference).toFixed(0)}% bajo el ritmo habitual`
+        : "En línea con el ritmo habitual";
+  const progress = pace.historicalClosingSales
+    ? Math.min(100, (pace.currentSales / pace.historicalClosingSales) * 100)
+    : 0;
+
+  return (
+    <section className="card mt-4 overflow-hidden border-[#ccd9c7]">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#dce5d8] bg-[#f4f7ef] p-5">
+        <div>
+          <div className="flex items-center gap-2 text-[#235b45]">
+            <TrendingUp size={19} />
+            <h2 className="font-black">Ritmo de venta de hoy</h2>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-[#667066]">
+            Comparación hasta las {pace.asOfLabel} con {pace.comparisonLabel}.
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-3 py-2 text-xs font-black ${toneClasses}`}
+        >
+          {statusText}
+        </span>
+      </div>
+
+      <div className="grid gap-px bg-[#e6e8df] sm:grid-cols-2 xl:grid-cols-4">
+        <PaceValue
+          label="Vendido hasta ahora"
+          value={formatClp(pace.currentSales)}
+          detail={`Acumulado registrado a las ${pace.asOfLabel}`}
+          accent
+        />
+        <PaceValue
+          label="Esperado a esta hora"
+          value={formatClp(pace.expectedSales)}
+          detail={`Mediana de ${pace.comparableDays} jornadas comparables`}
+        />
+        <PaceValue
+          label="Última jornada a esta hora"
+          value={formatClp(pace.previousComparableSales)}
+          detail={
+            pace.previousComparableDate
+              ? `Jornada del ${formatShortDate(pace.previousComparableDate)}`
+              : "Sin jornada anterior"
+          }
+        />
+        <PaceValue
+          label="Proyección al cierre"
+          value={
+            pace.projectedClosingSales
+              ? formatClp(pace.projectedClosingSales)
+              : "Aún insuficiente"
+          }
+          detail={`Cierre histórico típico: ${formatClp(pace.historicalClosingSales)}`}
+        />
+      </div>
+
+      <div className="bg-[#fffef9] px-5 py-4">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="font-bold text-[#596158]">
+            Avance frente al cierre típico
+          </span>
+          <span className="font-black text-[#235b45]">
+            {progress.toFixed(0)}%
+          </span>
+        </div>
+        <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#e8ebe2]">
+          <div
+            className="h-full min-w-1 rounded-full bg-[#6d925d]"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[11px] leading-5 text-[#747970]">
+          A esta hora, el histórico normalmente lleva{" "}
+          {pace.historicalProgressPercentage.toFixed(0)}% de la venta final. La
+          proyección utiliza tickets registrados durante el día y totales
+          conciliados para las jornadas anteriores.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function PaceValue({
+  label,
+  value,
+  detail,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`p-5 ${accent ? "bg-[#edf4e9]" : "bg-[#fffef9]"}`}>
+      <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#777]">
+        {label}
+      </p>
+      <p
+        className={`money mt-2 text-2xl font-black ${accent ? "text-[#235b45]" : ""}`}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-[#777]">{detail}</p>
+    </div>
+  );
+}
+
+function formatShortDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {

@@ -15,6 +15,7 @@ import type {
   RecentSale,
   SalePaymentMethod,
   SaleSummary,
+  SalesPace,
   SalesSessionPeriod,
   SessionClosingSummary,
 } from "./types";
@@ -38,6 +39,218 @@ const businessContext = cache(async () => {
 
 function oneRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return Array.isArray(value) ? value[0] : value || undefined;
+}
+
+const chileDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Santiago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function chileClock(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Santiago",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value || "0";
+  const hour = Number(part("hour"));
+  const minute = Number(part("minute"));
+  return {
+    weekday: part("weekday"),
+    minutes: hour * 60 + minute,
+    label: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+  };
+}
+
+function median(values: number[]) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+export async function getSalesPace(): Promise<SalesPace | null> {
+  const { businessId, supabase } = await businessContext();
+  const now = new Date();
+  const today = chileDateFormatter.format(now);
+  const currentClock = chileClock(now);
+  const since = new Date(
+    now.getTime() - 90 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("cash_sessions")
+    .select(
+      "id,status,opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+    )
+    .eq("business_id", businessId)
+    .gte("opened_at", since)
+    .order("opened_at", { ascending: false });
+  if (sessionsError) throw sessionsError;
+
+  const allSessionRows = sessions || [];
+  const historicalDates = [
+    ...new Set(
+      allSessionRows
+        .filter((session) => session.status === "closed")
+        .map((session) =>
+          chileDateFormatter.format(new Date(session.opened_at)),
+        )
+        .filter((date) => date !== today),
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+  const sameWeekdayDates = historicalDates.filter((date) => {
+    const sessionsForDate = allSessionRows.find(
+      (session) =>
+        chileDateFormatter.format(new Date(session.opened_at)) === date,
+    );
+    return (
+      sessionsForDate &&
+      chileClock(new Date(sessionsForDate.opened_at)).weekday ===
+        currentClock.weekday
+    );
+  });
+  const comparisonDates =
+    sameWeekdayDates.length >= 2
+      ? sameWeekdayDates.slice(0, 8)
+      : historicalDates.slice(0, 8);
+  const relevantDates = new Set([
+    today,
+    ...comparisonDates,
+    ...(historicalDates[0] ? [historicalDates[0]] : []),
+  ]);
+  const sessionRows = allSessionRows.filter((session) =>
+    relevantDates.has(chileDateFormatter.format(new Date(session.opened_at))),
+  );
+  const sessionIds = sessionRows.map((session) => session.id);
+  if (!sessionIds.length) return null;
+
+  const { data: sales, error: salesError } = await supabase
+    .from("sales")
+    .select("cash_session_id,total,created_at")
+    .eq("business_id", businessId)
+    .eq("status", "completed")
+    .in("cash_session_id", sessionIds);
+  if (salesError) throw salesError;
+
+  const salesBySession = new Map<string, { total: number; minute: number }[]>();
+  for (const sale of sales || []) {
+    const rows = salesBySession.get(sale.cash_session_id) || [];
+    rows.push({
+      total: Number(sale.total),
+      minute: chileClock(new Date(sale.created_at)).minutes,
+    });
+    salesBySession.set(sale.cash_session_id, rows);
+  }
+
+  type HistoricalDay = {
+    date: string;
+    weekday: string;
+    atCurrentTime: number;
+    closingTotal: number;
+    progress: number;
+  };
+  const dayMap = new Map<string, HistoricalDay>();
+  let currentSales = 0;
+
+  for (const session of sessionRows) {
+    const date = chileDateFormatter.format(new Date(session.opened_at));
+    const rows = salesBySession.get(session.id) || [];
+    const recordedTotal = rows.reduce((total, row) => total + row.total, 0);
+    const recordedAtCurrentTime = rows
+      .filter((row) => row.minute <= currentClock.minutes)
+      .reduce((total, row) => total + row.total, 0);
+
+    if (date === today) {
+      currentSales += recordedAtCurrentTime;
+      continue;
+    }
+
+    const reconciliation = oneRelation(
+      session.cash_session_reconciliations as
+        | {
+            actual_cash_sales: number | string;
+            actual_debit_sales: number | string;
+            actual_credit_sales: number | string;
+            actual_transfer_sales: number | string;
+          }
+        | {
+            actual_cash_sales: number | string;
+            actual_debit_sales: number | string;
+            actual_credit_sales: number | string;
+            actual_transfer_sales: number | string;
+          }[]
+        | null,
+    );
+    if (session.status !== "closed" || !reconciliation) continue;
+
+    const actualTotal =
+      Number(reconciliation.actual_cash_sales) +
+      Number(reconciliation.actual_debit_sales) +
+      Number(reconciliation.actual_credit_sales) +
+      Number(reconciliation.actual_transfer_sales);
+    if (actualTotal <= 0) continue;
+    const scaledAtCurrentTime = recordedTotal
+      ? (recordedAtCurrentTime / recordedTotal) * actualTotal
+      : 0;
+    const existing = dayMap.get(date);
+    const closingTotal = (existing?.closingTotal || 0) + actualTotal;
+    const atCurrentTime = (existing?.atCurrentTime || 0) + scaledAtCurrentTime;
+    dayMap.set(date, {
+      date,
+      weekday: chileClock(new Date(session.opened_at)).weekday,
+      atCurrentTime,
+      closingTotal,
+      progress: closingTotal ? atCurrentTime / closingTotal : 0,
+    });
+  }
+
+  const allDays = [...dayMap.values()].sort((a, b) =>
+    b.date.localeCompare(a.date),
+  );
+  const sameWeekday = allDays
+    .filter((day) => day.weekday === currentClock.weekday)
+    .slice(0, 8);
+  const comparisonDays =
+    sameWeekday.length >= 2 ? sameWeekday : allDays.slice(0, 8);
+  if (!comparisonDays.length) return null;
+
+  const expectedSales = median(comparisonDays.map((day) => day.atCurrentTime));
+  const historicalClosingSales = median(
+    comparisonDays.map((day) => day.closingTotal),
+  );
+  const historicalProgress = median(
+    comparisonDays.map((day) => day.progress).filter((value) => value > 0),
+  );
+  const previous = allDays[0];
+
+  return {
+    asOfLabel: currentClock.label,
+    currentSales: Math.round(currentSales),
+    expectedSales: Math.round(expectedSales),
+    previousComparableSales: Math.round(previous?.atCurrentTime || 0),
+    previousComparableDate: previous?.date,
+    differencePercentage: expectedSales
+      ? ((currentSales - expectedSales) / expectedSales) * 100
+      : 0,
+    projectedClosingSales: historicalProgress
+      ? Math.round(currentSales / historicalProgress)
+      : 0,
+    historicalClosingSales: Math.round(historicalClosingSales),
+    historicalProgressPercentage: historicalProgress * 100,
+    comparableDays: comparisonDays.length,
+    comparisonLabel:
+      sameWeekday.length >= 2
+        ? `últimos ${comparisonDays.length} ${new Intl.DateTimeFormat("es-CL", { weekday: "long", timeZone: "America/Santiago" }).format(now)}`
+        : `últimas ${comparisonDays.length} jornadas`,
+  };
 }
 
 export async function getBusinessPulse(): Promise<BusinessPulse> {

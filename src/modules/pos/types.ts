@@ -107,6 +107,19 @@ export type BusinessPulse = {
     percentage: number;
   }[];
 };
+export type SalesPace = {
+  asOfLabel: string;
+  currentSales: number;
+  expectedSales: number;
+  previousComparableSales: number;
+  previousComparableDate?: string;
+  differencePercentage: number;
+  projectedClosingSales: number;
+  historicalClosingSales: number;
+  historicalProgressPercentage: number;
+  comparableDays: number;
+  comparisonLabel: string;
+};
 export type SaleSummary = {
   total: number;
   recordedTotal: number;
