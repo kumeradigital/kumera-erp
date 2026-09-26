@@ -1,12 +1,7 @@
 import {
-  getCashWithdrawals,
-  getDailyAvailability,
   getLatestCashSession,
-  getRecentDeliveryOrders,
   getPosCatalog,
-  getProductionBatches,
-  getRecentSessionSales,
-  getSessionClosingSummary,
+  getPosSessionSnapshot,
 } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { PosClient } from "@/modules/pos/pos-client";
@@ -16,23 +11,13 @@ export default async function PosPage() {
     getLatestCashSession(),
   ]);
   const session = latestSession?.status === "open" ? latestSession : null;
-  const [
-    withdrawals,
-    recentSales,
-    recentDeliveryOrders,
-    productionBatches,
-    closingSummary,
-    availability,
-  ] = session
-    ? await Promise.all([
-        getCashWithdrawals(session.id),
-        getRecentSessionSales(session.id, 3),
-        getRecentDeliveryOrders(session.id, 1000),
-        getProductionBatches(session.id),
-        getSessionClosingSummary(session.id),
-        getDailyAvailability(session.id),
-      ])
-    : [[], [], [], [], null, []];
+  const snapshot = session ? await getPosSessionSnapshot(session.id) : null;
+  const withdrawals = snapshot?.withdrawals || [];
+  const recentSales = snapshot?.recentSales || [];
+  const recentDeliveryOrders = snapshot?.deliveryOrders || [];
+  const productionBatches = snapshot?.productionBatches || [];
+  const closingSummary = snapshot?.closingSummary || null;
+  const availability = snapshot?.availability || [];
   const productsWithAvailability = catalog.products.map((product) => ({
     ...product,
     availability: availability.find((row) => row.productId === product.id),

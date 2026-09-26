@@ -547,6 +547,136 @@ export async function getDailyAvailability(
   });
 }
 
+export async function getPosSessionSnapshot(sessionId: string): Promise<{
+  withdrawals: CashWithdrawal[];
+  recentSales: RecentSale[];
+  deliveryOrders: DeliveryOrder[];
+  productionBatches: ProductionBatch[];
+  closingSummary: SessionClosingSummary;
+  availability: DailyAvailability[];
+}> {
+  const { businessId, supabase } = await businessContext();
+  const { data: session, error } = await supabase
+    .from("cash_sessions")
+    .select(
+      "cash_session_withdrawals(id,amount,reason,category,is_business_expense,created_at),sales(id,sale_number,total,cash_rounding_amount,payment_method,created_at,sale_kind,scheduled_for,customer_name,status,sale_items(product_id,product_name,quantity,sale_unit,line_total)),delivery_orders(id,external_order_number,gross_amount,estimated_net_amount,created_at,status),cash_session_production_batches(id,family_product_id,component_product_id,quantity,unit_cost,note,created_at,products!cash_session_production_batches_component_product_id_fkey(name)),cash_session_product_availability(product_id,opening_quantity,available_quantity,produced_quantity,sold_quantity,adjusted_quantity,products(name))",
+    )
+    .eq("business_id", businessId)
+    .eq("id", sessionId)
+    .single();
+  if (error) throw error;
+
+  const completedSales = (session.sales || [])
+    .filter((sale) => sale.status === "completed")
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const byPayment: SessionClosingSummary["byPayment"] = {
+    cash: 0,
+    debit: 0,
+    credit: 0,
+    transfer: 0,
+  };
+  const transactionsByPayment: SessionClosingSummary["transactionsByPayment"] =
+    {
+      cash: 0,
+      debit: 0,
+      credit: 0,
+      transfer: 0,
+    };
+  const productTotals = new Map<
+    string,
+    SessionClosingSummary["products"][number]
+  >();
+  for (const sale of completedSales) {
+    const method = sale.payment_method as SalePaymentMethod;
+    if (method !== "unclassified") {
+      byPayment[method] +=
+        Number(sale.total) +
+        (method === "cash" ? Number(sale.cash_rounding_amount || 0) : 0);
+      transactionsByPayment[method] += 1;
+    }
+    for (const item of sale.sale_items || []) {
+      const current = productTotals.get(item.product_name);
+      productTotals.set(item.product_name, {
+        productId: item.product_id || undefined,
+        name: item.product_name,
+        quantity: (current?.quantity || 0) + Number(item.quantity),
+        saleUnit: item.sale_unit,
+        total: (current?.total || 0) + Number(item.line_total),
+      });
+    }
+  }
+
+  return {
+    withdrawals: (session.cash_session_withdrawals || [])
+      .map((item) => ({
+        id: item.id,
+        amount: Number(item.amount),
+        reason: item.reason,
+        category: item.category,
+        isBusinessExpense: item.is_business_expense,
+        createdAt: item.created_at,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    recentSales: completedSales.slice(0, 3).map((sale) => ({
+      id: sale.id,
+      saleNumber: Number(sale.sale_number),
+      total:
+        Number(sale.total) +
+        (sale.payment_method === "cash"
+          ? Number(sale.cash_rounding_amount || 0)
+          : 0),
+      payment: sale.payment_method as SalePaymentMethod,
+      createdAt: sale.created_at,
+      kind: sale.sale_kind as "regular" | "special_order",
+      scheduledFor: sale.scheduled_for || undefined,
+      customerName: sale.customer_name || undefined,
+    })),
+    deliveryOrders: (session.delivery_orders || [])
+      .filter((order) => order.status === "completed")
+      .map((order) => ({
+        id: order.id,
+        orderNumber: order.external_order_number || undefined,
+        grossAmount: Number(order.gross_amount),
+        estimatedNetAmount: Number(order.estimated_net_amount),
+        createdAt: order.created_at,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    productionBatches: (session.cash_session_production_batches || [])
+      .map((row) => ({
+        id: row.id,
+        familyProductId: row.family_product_id,
+        componentProductId: row.component_product_id,
+        componentName: oneRelation(row.products)?.name || "Producto",
+        quantity: Number(row.quantity),
+        unitCost: Number(row.unit_cost),
+        note: row.note || undefined,
+        createdAt: row.created_at,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    availability: (session.cash_session_product_availability || []).map(
+      (row) => ({
+        productId: row.product_id,
+        productName: oneRelation(row.products)?.name || "Producto",
+        openingQuantity: Number(row.opening_quantity),
+        availableQuantity: Number(row.available_quantity),
+        producedQuantity: Number(row.produced_quantity),
+        soldQuantity: Number(row.sold_quantity),
+        adjustedQuantity: Number(row.adjusted_quantity),
+      }),
+    ),
+    closingSummary: {
+      byPayment,
+      transactionsByPayment,
+      recordedTotal: completedSales.reduce(
+        (sum, sale) => sum + Number(sale.total),
+        0,
+      ),
+      recordedTransactions: completedSales.length,
+      products: [...productTotals.values()].sort((a, b) => b.total - a.total),
+    },
+  };
+}
+
 export async function getOpenCashSession(): Promise<CashSession | null> {
   const { businessId, supabase } = await businessContext();
   const { data, error } = await supabase
