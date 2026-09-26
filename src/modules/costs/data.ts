@@ -1,4 +1,5 @@
 import { createClient } from "@/server/supabase/server";
+import { cache } from "react";
 import {
   analyzeProducts,
   calculateRecipeCosts,
@@ -15,7 +16,7 @@ import type {
   Scenario,
 } from "./types";
 
-async function context() {
+const context = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -29,11 +30,9 @@ async function context() {
     .single();
   if (error) throw error;
   return { supabase, businessId: membership.business_id };
-}
+});
 
-export async function getCostingData(options?: {
-  includeArchivedProducts?: boolean;
-}) {
+const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
   const { supabase, businessId } = await context();
   let productQuery = supabase
     .from("products")
@@ -42,7 +41,7 @@ export async function getCostingData(options?: {
     )
     .eq("business_id", businessId)
     .order("name");
-  if (!options?.includeArchivedProducts) {
+  if (!includeArchivedProducts) {
     productQuery = productQuery.is("deleted_at", null);
   }
   const [
@@ -336,4 +335,10 @@ export async function getCostingData(options?: {
     ),
     scenarios,
   };
+});
+
+export async function getCostingData(options?: {
+  includeArchivedProducts?: boolean;
+}) {
+  return getCostingDataCached(Boolean(options?.includeArchivedProducts));
 }

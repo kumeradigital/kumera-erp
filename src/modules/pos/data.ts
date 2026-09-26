@@ -263,7 +263,8 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       )
       .eq("business_id", businessId)
       .eq("status", "closed")
-      .order("opened_at", { ascending: true }),
+      .order("opened_at", { ascending: false })
+      .limit(60),
     supabase
       .from("cost_settings")
       .select("operating_days_month")
@@ -273,20 +274,22 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
   ]);
   if (sessionsResult.error) throw sessionsResult.error;
   if (settingsResult.error) throw settingsResult.error;
-  const observed = (sessionsResult.data || []).flatMap((session) => {
-    const reconciliation = oneRelation(session.cash_session_reconciliations);
-    if (!reconciliation) return [];
-    return [
-      {
-        openedAt: session.opened_at,
-        total:
-          Number(reconciliation.actual_cash_sales) +
-          Number(reconciliation.actual_debit_sales) +
-          Number(reconciliation.actual_credit_sales) +
-          Number(reconciliation.actual_transfer_sales),
-      },
-    ];
-  });
+  const observed = [...(sessionsResult.data || [])]
+    .reverse()
+    .flatMap((session) => {
+      const reconciliation = oneRelation(session.cash_session_reconciliations);
+      if (!reconciliation) return [];
+      return [
+        {
+          openedAt: session.opened_at,
+          total:
+            Number(reconciliation.actual_cash_sales) +
+            Number(reconciliation.actual_debit_sales) +
+            Number(reconciliation.actual_credit_sales) +
+            Number(reconciliation.actual_transfer_sales),
+        },
+      ];
+    });
   const totalSales = observed.reduce((sum, day) => sum + day.total, 0);
   const averageDailySales = observed.length
     ? Math.round(totalSales / observed.length)
@@ -428,36 +431,45 @@ async function getProductsByArchive(
     query = query.eq("active", true).is("family_product_id", null);
   const { data, error } = await query;
   if (error) throw error;
-  return Promise.all(
-    (data || []).map(async (row) => {
-      let imageUrl: string | undefined;
-      if (row.image_path) {
-        const signed = await supabase.storage
-          .from("product-images")
-          .createSignedUrl(row.image_path, 3600);
-        imageUrl = signed.data?.signedUrl;
-      }
-      const category = Array.isArray(row.product_categories)
-        ? row.product_categories[0]?.name
-        : (row.product_categories as { name: string } | null)?.name;
-      return {
-        id: row.id,
-        name: row.name,
-        description: row.description || undefined,
-        price: Number(row.price),
-        pedidosYaPrice:
-          row.pedidosya_price == null ? undefined : Number(row.pedidosya_price),
-        saleUnit: row.sale_unit,
-        category: category || "Sin categoría",
-        imageUrl,
-        active: row.active,
-        trackDailyAvailability: row.track_daily_availability,
-        isSalesFamily: row.is_sales_family,
-        familyProductId: row.family_product_id || undefined,
-        costRecipeId: row.cost_recipe_id || undefined,
-      };
-    }),
-  );
+  const imagePaths = [
+    ...new Set(
+      (data || []).flatMap((row) => (row.image_path ? [row.image_path] : [])),
+    ),
+  ];
+  const signedUrls = new Map<string, string>();
+  if (imagePaths.length) {
+    const signed = await supabase.storage
+      .from("product-images")
+      .createSignedUrls(imagePaths, 3600);
+    for (const item of signed.data || []) {
+      if (item.path && item.signedUrl)
+        signedUrls.set(item.path, item.signedUrl);
+    }
+  }
+  return (data || []).map((row) => {
+    const imageUrl = row.image_path
+      ? signedUrls.get(row.image_path)
+      : undefined;
+    const category = Array.isArray(row.product_categories)
+      ? row.product_categories[0]?.name
+      : (row.product_categories as { name: string } | null)?.name;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || undefined,
+      price: Number(row.price),
+      pedidosYaPrice:
+        row.pedidosya_price == null ? undefined : Number(row.pedidosya_price),
+      saleUnit: row.sale_unit,
+      category: category || "Sin categoría",
+      imageUrl,
+      active: row.active,
+      trackDailyAvailability: row.track_daily_availability,
+      isSalesFamily: row.is_sales_family,
+      familyProductId: row.family_product_id || undefined,
+      costRecipeId: row.cost_recipe_id || undefined,
+    };
+  });
 }
 
 export async function getDeliveryProducts(): Promise<Product[]> {

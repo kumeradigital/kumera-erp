@@ -29,6 +29,7 @@ export function PosShell({
       <header className="flex h-16 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
         <Link
           href="/caja"
+          prefetch={false}
           className="flex shrink-0 items-center gap-2 md:hidden"
         >
           <span className="grid size-9 place-items-center rounded-xl bg-[#d8f070] font-black text-[#235b45]">
@@ -36,7 +37,11 @@ export function PosShell({
           </span>
           <span className="font-black text-[#235b45]">ERP KUMERA</span>
         </Link>
-        <Link href="/" className="hidden shrink-0 items-center gap-2 md:flex">
+        <Link
+          href="/"
+          prefetch={false}
+          className="hidden shrink-0 items-center gap-2 md:flex"
+        >
           <span className="grid size-9 place-items-center rounded-xl bg-[#d8f070] font-black text-[#235b45]">
             K
           </span>
@@ -117,6 +122,7 @@ function Nav({
   return (
     <Link
       href={href}
+      prefetch={false}
       aria-label={label}
       className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 ${active ? "bg-[#235b45] text-white" : "text-[#62675f] hover:bg-[#eeeFe6]"}`}
     >
