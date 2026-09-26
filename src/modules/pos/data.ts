@@ -938,7 +938,9 @@ export type CashClosure = {
   }[];
 };
 
-export async function getCashClosureHistory(): Promise<CashClosure[]> {
+export async function getCashClosureHistory(
+  limit = 30,
+): Promise<CashClosure[]> {
   const { businessId, supabase } = await businessContext();
   const { data, error } = await supabase
     .from("cash_sessions")
@@ -948,7 +950,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
     .eq("business_id", businessId)
     .eq("status", "closed")
     .order("opened_at", { ascending: false })
-    .limit(30);
+    .limit(Math.min(200, Math.max(1, limit)));
   if (error) throw error;
   return (data || []).map((row) => {
     const cashSales = (row.sales || [])

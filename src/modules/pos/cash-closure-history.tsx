@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, History, Pencil, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { reconcileCashSessionAction } from "./actions";
 import type { CashClosure } from "./data";
 
-export function CashClosureHistory({ closures }: { closures: CashClosure[] }) {
+export function CashClosureHistory({
+  closures,
+  hasMore,
+  nextLimit,
+}: {
+  closures: CashClosure[];
+  hasMore: boolean;
+  nextLimit: number;
+}) {
   const [selected, setSelected] = useState<CashClosure | null>(null);
   return (
     <main className="mx-auto max-w-6xl p-5 md:p-8">
@@ -106,6 +115,15 @@ export function CashClosureHistory({ closures }: { closures: CashClosure[] }) {
                       <b>{formatClp(total)}</b>
                     </div>
                   ))}
+                  {hasMore && (
+                    <Link
+                      href={`/cierres?limit=${nextLimit}`}
+                      prefetch={false}
+                      className="block rounded-xl border border-[#cfd5ca] bg-white px-5 py-3 text-center text-sm font-black text-[#235b45]"
+                    >
+                      Ver 30 cierres anteriores
+                    </Link>
+                  )}
                 </div>
                 <p className="mt-3 text-xs text-[#666]">
                   {closure.reconciliation.reason}
