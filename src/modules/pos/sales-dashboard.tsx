@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { formatClp } from "@/shared/money";
 import { averagePerWorkedDay, workedDays } from "./sales-averages";
 import { SalesFilters, type SalesPeriodView } from "./sales-filters";
@@ -25,8 +26,8 @@ export function SalesDashboard({
   sessions,
   recent,
   period,
-  pulse,
   pace,
+  insights,
 }: {
   summary: SaleSummary;
   sessions: SalesSessionPeriod[];
@@ -37,8 +38,8 @@ export function SalesDashboard({
     createdAt: string;
   }[];
   period: SalesPeriodView;
-  pulse: BusinessPulse;
   pace: SalesPace | null;
+  insights?: ReactNode;
 }) {
   const days = workedDays(sessions);
   const dailyAverage = (total: number) => averagePerWorkedDay(total, days);
@@ -64,7 +65,7 @@ export function SalesDashboard({
 
       <SalesFilters period={period} />
 
-      <BusinessPulsePanel pulse={pulse} />
+      {insights}
 
       {pace && <SalesPacePanel pace={pace} />}
 
@@ -568,7 +569,7 @@ function formatShortDate(value: string) {
   });
 }
 
-function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
+export function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
   const hasData = pulse.observedDays > 0;
   return (
     <section className="card mt-4 overflow-hidden border-[#cddbc8]">

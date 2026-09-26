@@ -818,7 +818,7 @@ export async function getCashClosureHistory(): Promise<CashClosure[]> {
     .eq("business_id", businessId)
     .eq("status", "closed")
     .order("opened_at", { ascending: false })
-    .limit(100);
+    .limit(30);
   if (error) throw error;
   return (data || []).map((row) => {
     const cashSales = (row.sales || [])
