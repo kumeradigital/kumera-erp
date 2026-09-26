@@ -694,5 +694,35 @@ export async function registerSaleAction(
     p_items: normalizedItems,
   });
   if (error) return { ok: false as const, error: error.message };
-  return { ok: true as const, id: data as string };
+  const saleId = data as string;
+  const saleResult = await ctx.supabase
+    .from("sales")
+    .select(
+      "id,sale_number,total,cash_rounding_amount,payment_method,created_at,sale_kind,scheduled_for,customer_name",
+    )
+    .eq("business_id", ctx.businessId)
+    .eq("id", saleId)
+    .single();
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
+  if (saleResult.error) return { ok: true as const, id: saleId };
+  const sale = saleResult.data;
+  return {
+    ok: true as const,
+    id: saleId,
+    sale: {
+      id: sale.id,
+      saleNumber: Number(sale.sale_number),
+      total:
+        Number(sale.total) +
+        (sale.payment_method === "cash"
+          ? Number(sale.cash_rounding_amount || 0)
+          : 0),
+      payment: sale.payment_method,
+      createdAt: sale.created_at,
+      kind: sale.sale_kind,
+      scheduledFor: sale.scheduled_for || undefined,
+      customerName: sale.customer_name || undefined,
+    },
+  };
 }

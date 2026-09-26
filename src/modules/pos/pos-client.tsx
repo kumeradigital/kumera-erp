@@ -83,6 +83,8 @@ export function PosClient({
   closingSummary: SessionClosingSummary | null;
 }) {
   const [cart, setCart] = useState<Cart>({});
+  const [displayedRecentSales, setDisplayedRecentSales] = useState(recentSales);
+  const [liveClosingSummary, setLiveClosingSummary] = useState(closingSummary);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
   const [closing, setClosing] = useState(false);
@@ -159,6 +161,11 @@ export function PosClient({
     availabilityQuantities[product.id] ??
     product.availability?.availableQuantity ??
     0;
+  const liveAvailability = availability.map((item) => ({
+    ...item,
+    availableQuantity:
+      availabilityQuantities[item.productId] ?? item.availableQuantity,
+  }));
   const availabilityAdjustments = empanadaProducts
     .map((product) => ({
       productId: product.id,
@@ -242,9 +249,56 @@ export function PosClient({
         setBusy(false);
         return;
       }
+      const soldLines = [...lines];
       setCart({});
-      alert("Venta registrada");
-      location.reload();
+      for (const line of soldLines) {
+        if (!line.trackDailyAvailability) continue;
+        const reduce = (current: Record<string, number>) => ({
+          ...current,
+          [line.id]: Math.max(
+            0,
+            (current[line.id] ?? line.availability?.availableQuantity ?? 0) -
+              line.quantity,
+          ),
+        });
+        setAvailabilityQuantities(reduce);
+        setSavedAvailabilityQuantities(reduce);
+      }
+      if (result.sale) {
+        setDisplayedRecentSales((current) =>
+          [
+            result.sale!,
+            ...current.filter((sale) => sale.id !== result.sale!.id),
+          ].slice(0, 3),
+        );
+      }
+      setLiveClosingSummary((current) => {
+        if (!current) return current;
+        const products = current.products.map((product) => ({ ...product }));
+        for (const line of soldLines) {
+          const existing = products.find((item) => item.name === line.name);
+          const lineTotal = calculateLineTotal(line);
+          if (existing) {
+            existing.quantity += line.quantity;
+            existing.total += lineTotal;
+          } else {
+            products.push({
+              productId: line.id,
+              name: line.name,
+              quantity: line.quantity,
+              saleUnit: line.saleUnit,
+              total: lineTotal,
+            });
+          }
+        }
+        return {
+          ...current,
+          recordedTotal: current.recordedTotal + total,
+          recordedTransactions: current.recordedTransactions + 1,
+          products: products.sort((a, b) => b.total - a.total),
+        };
+      });
+      setBusy(false);
     } catch (error) {
       alert(error instanceof Error ? error.message : "No se pudo registrar");
       setBusy(false);
@@ -301,9 +355,9 @@ export function PosClient({
               </p>
               <span className="text-[10px] text-[#8a8e86]">Jornada actual</span>
             </div>
-            {recentSales.length ? (
+            {displayedRecentSales.length ? (
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {recentSales.map((sale) => (
+                {displayedRecentSales.map((sale) => (
                   <div
                     key={sale.id}
                     className="flex min-w-[148px] flex-1 items-center justify-between gap-3 rounded-lg bg-[#f1f2e9] px-3 py-1.5"
@@ -702,9 +756,9 @@ export function PosClient({
           session={session}
           withdrawalTotal={withdrawalTotal}
           onClose={() => setClosing(false)}
-          availability={availability}
+          availability={liveAvailability}
           products={products}
-          summary={closingSummary!}
+          summary={liveClosingSummary!}
           productionFamilies={productionFamilies}
           productionBatches={productionBatches}
           deliveryOrders={recentDeliveryOrders}
@@ -713,11 +767,7 @@ export function PosClient({
       {managingAvailability && (
         <AvailabilityDialog
           sessionId={session.id}
-          availability={availability.map((item) => ({
-            ...item,
-            availableQuantity:
-              availabilityQuantities[item.productId] ?? item.availableQuantity,
-          }))}
+          availability={liveAvailability}
           onClose={() => setManagingAvailability(false)}
         />
       )}
