@@ -359,7 +359,19 @@ export async function registerPedidosYaOrderAction(
   if (error) return { ok: false as const, error: error.message };
   revalidatePath("/caja");
   revalidatePath("/ventas");
-  return { ok: true as const, id: data as string };
+  return {
+    ok: true as const,
+    order: {
+      id: data as string,
+      orderNumber: orderNumber.trim() || undefined,
+      grossAmount: normalized.reduce(
+        (sum, item) => sum + Math.round(item.quantity * item.unit_price),
+        0,
+      ),
+      estimatedNetAmount: net,
+      createdAt: new Date().toISOString(),
+    },
+  };
 }
 
 export async function registerSpecialSaleAction(
@@ -401,9 +413,33 @@ export async function registerSpecialSaleAction(
     p_items: normalized,
   });
   if (error) return { ok: false as const, error: error.message };
+  const saleId = data as string;
+  const saleResult = await ctx.supabase
+    .from("sales")
+    .select(
+      "id,sale_number,total,payment_method,created_at,sale_kind,scheduled_for,customer_name",
+    )
+    .eq("business_id", ctx.businessId)
+    .eq("id", saleId)
+    .single();
   revalidatePath("/caja");
   revalidatePath("/ventas");
-  return { ok: true as const, id: data as string };
+  return {
+    ok: true as const,
+    id: saleId,
+    sale: saleResult.data
+      ? {
+          id: saleResult.data.id,
+          saleNumber: Number(saleResult.data.sale_number),
+          total: Number(saleResult.data.total),
+          payment: saleResult.data.payment_method,
+          createdAt: saleResult.data.created_at,
+          kind: saleResult.data.sale_kind,
+          scheduledFor: saleResult.data.scheduled_for || undefined,
+          customerName: saleResult.data.customer_name || undefined,
+        }
+      : undefined,
+  };
 }
 export async function registerCashWithdrawalAction(
   sessionId: string,
@@ -423,18 +459,30 @@ export async function registerCashWithdrawalAction(
     )
   )
     throw new Error("Categoría de retiro inválida");
-  const { error } = await ctx.supabase.from("cash_session_withdrawals").insert({
-    business_id: ctx.businessId,
-    cash_session_id: sessionId,
-    amount,
-    reason: normalizedReason,
-    category,
-    is_business_expense: isBusinessExpense,
-    created_by: ctx.user.id,
-  });
+  const { data, error } = await ctx.supabase
+    .from("cash_session_withdrawals")
+    .insert({
+      business_id: ctx.businessId,
+      cash_session_id: sessionId,
+      amount,
+      reason: normalizedReason,
+      category,
+      is_business_expense: isBusinessExpense,
+      created_by: ctx.user.id,
+    })
+    .select("id,amount,reason,category,is_business_expense,created_at")
+    .single();
   if (error) throw error;
   revalidatePath("/caja");
   revalidatePath("/cierres");
+  return {
+    id: data.id,
+    amount: Number(data.amount),
+    reason: data.reason,
+    category: data.category,
+    isBusinessExpense: data.is_business_expense,
+    createdAt: data.created_at,
+  };
 }
 export async function registerProductionBatchAction(
   sessionId: string,
@@ -470,7 +518,7 @@ export async function registerProductionBatchAction(
   const unitCost = analysis?.complete
     ? analysis.physicalCost + analysis.wasteCost
     : 0;
-  const { error } = await ctx.supabase
+  const { data: batch, error } = await ctx.supabase
     .from("cash_session_production_batches")
     .insert({
       business_id: ctx.businessId,
@@ -481,11 +529,25 @@ export async function registerProductionBatchAction(
       unit_cost: unitCost,
       note: note.trim() || null,
       created_by: ctx.user.id,
-    });
+    })
+    .select("id,created_at")
+    .single();
   if (error) throw error;
   revalidatePath("/caja");
   revalidatePath("/ventas");
-  return { ok: true, costingPending };
+  return {
+    ok: true,
+    costingPending,
+    batch: {
+      id: batch.id,
+      familyProductId,
+      componentProductId,
+      quantity: normalizedQuantity,
+      unitCost,
+      note: note.trim() || undefined,
+      createdAt: batch.created_at,
+    },
+  };
 }
 export async function updateProductionBatchAction(
   batchId: string,
@@ -525,7 +587,7 @@ export async function updateProductionBatchAction(
   const unitCost = analysis?.complete
     ? analysis.physicalCost + analysis.wasteCost
     : 0;
-  const { error } = await ctx.supabase
+  const { data: batch, error } = await ctx.supabase
     .from("cash_session_production_batches")
     .update({
       family_product_id: familyProductId,
@@ -539,7 +601,7 @@ export async function updateProductionBatchAction(
     .eq("id", batchId)
     .eq("cash_session_id", sessionId)
     .eq("business_id", ctx.businessId)
-    .select("id")
+    .select("id,created_at")
     .single();
   if (error)
     throw new Error(
@@ -547,7 +609,19 @@ export async function updateProductionBatchAction(
     );
   revalidatePath("/caja");
   revalidatePath("/ventas");
-  return { ok: true, costingPending };
+  return {
+    ok: true,
+    costingPending,
+    batch: {
+      id: batch.id,
+      familyProductId,
+      componentProductId,
+      quantity: normalizedQuantity,
+      unitCost,
+      note: note.trim() || undefined,
+      createdAt: batch.created_at,
+    },
+  };
 }
 export async function closeCashSessionAction(
   sessionId: string,

@@ -84,6 +84,11 @@ export function PosClient({
 }) {
   const [cart, setCart] = useState<Cart>({});
   const [displayedRecentSales, setDisplayedRecentSales] = useState(recentSales);
+  const [displayedDeliveryOrders, setDisplayedDeliveryOrders] =
+    useState(recentDeliveryOrders);
+  const [displayedWithdrawals, setDisplayedWithdrawals] = useState(withdrawals);
+  const [displayedProductionBatches, setDisplayedProductionBatches] =
+    useState(productionBatches);
   const [liveClosingSummary, setLiveClosingSummary] = useState(closingSummary);
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("Todos");
@@ -148,7 +153,7 @@ export function PosClient({
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
   const total = calculateCartTotal(lines);
-  const withdrawalTotal = withdrawals.reduce(
+  const withdrawalTotal = displayedWithdrawals.reduce(
     (sum, withdrawal) => sum + withdrawal.amount,
     0,
   );
@@ -231,6 +236,49 @@ export function PosClient({
       return next;
     });
   }
+  function applyRecordedSale(
+    sale: RecentSale | undefined,
+    soldLines: (Product & { quantity: number; unitPrice?: number })[],
+    recordedTotal: number,
+  ) {
+    if (sale) {
+      setDisplayedRecentSales((current) =>
+        [sale, ...current.filter((item) => item.id !== sale.id)].slice(0, 3),
+      );
+    }
+    setLiveClosingSummary((current) => {
+      if (!current) return current;
+      const summaryProducts = current.products.map((product) => ({
+        ...product,
+      }));
+      for (const line of soldLines) {
+        const existing = summaryProducts.find(
+          (item) => item.name === line.name,
+        );
+        const lineTotal = Math.round(
+          (line.unitPrice ?? line.price) * line.quantity,
+        );
+        if (existing) {
+          existing.quantity += line.quantity;
+          existing.total += lineTotal;
+        } else {
+          summaryProducts.push({
+            productId: line.id,
+            name: line.name,
+            quantity: line.quantity,
+            saleUnit: line.saleUnit,
+            total: lineTotal,
+          });
+        }
+      }
+      return {
+        ...current,
+        recordedTotal: current.recordedTotal + recordedTotal,
+        recordedTransactions: current.recordedTransactions + 1,
+        products: summaryProducts.sort((a, b) => b.total - a.total),
+      };
+    });
+  }
   async function recordSale() {
     if (!session || !lines.length || busy) return;
     setBusy(true);
@@ -264,40 +312,7 @@ export function PosClient({
         setAvailabilityQuantities(reduce);
         setSavedAvailabilityQuantities(reduce);
       }
-      if (result.sale) {
-        setDisplayedRecentSales((current) =>
-          [
-            result.sale!,
-            ...current.filter((sale) => sale.id !== result.sale!.id),
-          ].slice(0, 3),
-        );
-      }
-      setLiveClosingSummary((current) => {
-        if (!current) return current;
-        const products = current.products.map((product) => ({ ...product }));
-        for (const line of soldLines) {
-          const existing = products.find((item) => item.name === line.name);
-          const lineTotal = calculateLineTotal(line);
-          if (existing) {
-            existing.quantity += line.quantity;
-            existing.total += lineTotal;
-          } else {
-            products.push({
-              productId: line.id,
-              name: line.name,
-              quantity: line.quantity,
-              saleUnit: line.saleUnit,
-              total: lineTotal,
-            });
-          }
-        }
-        return {
-          ...current,
-          recordedTotal: current.recordedTotal + total,
-          recordedTransactions: current.recordedTransactions + 1,
-          products: products.sort((a, b) => b.total - a.total),
-        };
-      });
+      applyRecordedSale(result.sale, soldLines, total);
       setBusy(false);
     } catch (error) {
       alert(error instanceof Error ? error.message : "No se pudo registrar");
@@ -694,10 +709,10 @@ export function PosClient({
                 <HandCoins size={15} /> Anotar retiro
               </button>
             </div>
-            {withdrawals[0] && (
+            {displayedWithdrawals[0] && (
               <p className="mt-2 truncate text-[11px] text-[#777]">
-                Último: {formatClp(withdrawals[0].amount)} ·{" "}
-                {withdrawals[0].reason}
+                Último: {formatClp(displayedWithdrawals[0].amount)} ·{" "}
+                {displayedWithdrawals[0].reason}
               </p>
             )}
           </div>
@@ -760,8 +775,8 @@ export function PosClient({
           products={products}
           summary={liveClosingSummary!}
           productionFamilies={productionFamilies}
-          productionBatches={productionBatches}
-          deliveryOrders={recentDeliveryOrders}
+          productionBatches={displayedProductionBatches}
+          deliveryOrders={displayedDeliveryOrders}
         />
       )}
       {managingAvailability && (
@@ -769,12 +784,24 @@ export function PosClient({
           sessionId={session.id}
           availability={liveAvailability}
           onClose={() => setManagingAvailability(false)}
+          onAdjusted={(productId, delta) => {
+            const update = (current: Record<string, number>) => ({
+              ...current,
+              [productId]: Math.max(0, (current[productId] ?? 0) + delta),
+            });
+            setAvailabilityQuantities(update);
+            setSavedAvailabilityQuantities(update);
+          }}
         />
       )}
       {withdrawing && (
         <CashWithdrawalDialog
           sessionId={session.id}
           onClose={() => setWithdrawing(false)}
+          onRecorded={(withdrawal) => {
+            setDisplayedWithdrawals((current) => [withdrawal, ...current]);
+            setWithdrawing(false);
+          }}
         />
       )}
       {selectingGroup && (
@@ -793,8 +820,15 @@ export function PosClient({
         <ProductionDialog
           sessionId={session.id}
           families={productionFamilies}
-          batches={productionBatches}
+          batches={displayedProductionBatches}
           onClose={() => setRecordingProduction(false)}
+          onRecorded={(batch) => {
+            setDisplayedProductionBatches((current) => [
+              batch,
+              ...current.filter((item) => item.id !== batch.id),
+            ]);
+            setRecordingProduction(false);
+          }}
         />
       )}
       {recordingDelivery && (
@@ -802,6 +836,10 @@ export function PosClient({
           sessionId={session.id}
           products={deliveryProducts}
           onClose={() => setRecordingDelivery(false)}
+          onRecorded={(order) => {
+            setDisplayedDeliveryOrders((current) => [order, ...current]);
+            setRecordingDelivery(false);
+          }}
         />
       )}
       {recordingSpecialSale && (
@@ -809,6 +847,10 @@ export function PosClient({
           sessionId={session.id}
           products={deliveryProducts}
           onClose={() => setRecordingSpecialSale(false)}
+          onRecorded={(sale, soldLines, saleTotal) => {
+            applyRecordedSale(sale, soldLines, saleTotal);
+            setRecordingSpecialSale(false);
+          }}
         />
       )}
     </main>
@@ -819,10 +861,16 @@ function SpecialSaleDialog({
   sessionId,
   products,
   onClose,
+  onRecorded,
 }: {
   sessionId: string;
   products: Product[];
   onClose: () => void;
+  onRecorded: (
+    sale: RecentSale | undefined,
+    lines: (Product & { quantity: number; unitPrice: number })[],
+    total: number,
+  ) => void;
 }) {
   const [category, setCategory] = useState("Todos");
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -980,7 +1028,15 @@ function SpecialSaleDialog({
                 })),
               );
               if (!result.ok) throw new Error(result.error);
-              location.reload();
+              onRecorded(
+                result.sale,
+                selected.map((product) => ({
+                  ...product,
+                  quantity: cart[product.id],
+                  unitPrice: prices[product.id],
+                })),
+                total,
+              );
             } catch (error) {
               alert(
                 error instanceof Error
@@ -1029,10 +1085,12 @@ function PedidosYaDialog({
   sessionId,
   products,
   onClose,
+  onRecorded,
 }: {
   sessionId: string;
   products: Product[];
   onClose: () => void;
+  onRecorded: (order: DeliveryOrder) => void;
 }) {
   const [category, setCategory] = useState("Todos");
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -1169,7 +1227,7 @@ function PedidosYaDialog({
                 })),
               );
               if (!result.ok) throw new Error(result.error);
-              location.reload();
+              onRecorded(result.order);
             } catch (error) {
               alert(
                 error instanceof Error
@@ -1336,11 +1394,13 @@ function ProductionDialog({
   families,
   batches,
   onClose,
+  onRecorded,
 }: {
   sessionId: string;
   families: ProductionFamily[];
   batches: ProductionBatch[];
   onClose: () => void;
+  onRecorded: (batch: ProductionBatch) => void;
 }) {
   const basketTareGrams = 614;
   const [familyId, setFamilyId] = useState(families[0]?.product.id || "");
@@ -1416,7 +1476,13 @@ function ProductionDialog({
                   "Producción guardada. Esta variedad todavía no tiene una receta de costos completa; podrás completarla después sin perder los kilos ingresados.",
                 );
               }
-              location.reload();
+              const component = families
+                .flatMap((item) => item.members)
+                .find((item) => item.id === componentId);
+              onRecorded({
+                ...result.batch,
+                componentName: component?.name || "Producto",
+              });
             } catch (error) {
               alert(
                 error instanceof Error
@@ -1597,9 +1663,11 @@ function ProductionDialog({
 function CashWithdrawalDialog({
   sessionId,
   onClose,
+  onRecorded,
 }: {
   sessionId: string;
   onClose: () => void;
+  onRecorded: (withdrawal: CashWithdrawal) => void;
 }) {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -1614,14 +1682,14 @@ function CashWithdrawalDialog({
           event.preventDefault();
           setBusy(true);
           try {
-            await registerCashWithdrawalAction(
+            const withdrawal = await registerCashWithdrawalAction(
               sessionId,
               Math.round(Number(amount)),
               reason,
               category,
               isBusinessExpense,
             );
-            location.reload();
+            onRecorded(withdrawal);
           } catch (error) {
             alert(
               error instanceof Error
@@ -1738,10 +1806,12 @@ function AvailabilityDialog({
   sessionId,
   availability,
   onClose,
+  onAdjusted,
 }: {
   sessionId: string;
   availability: DailyAvailability[];
   onClose: () => void;
+  onAdjusted: (productId: string, delta: number) => void;
 }) {
   const [adjusting, setAdjusting] = useState<DailyAvailability | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1806,14 +1876,17 @@ function AvailabilityDialog({
                 ) as AvailabilityMovementType;
                 const positive =
                   operation === "production" || operation.endsWith("_add");
+                const delta = positive ? quantity : -quantity;
                 await adjustAvailabilityAction(
                   sessionId,
                   adjusting.productId,
                   kind,
-                  positive ? quantity : -quantity,
+                  delta,
                   String(form.get("reason") || ""),
                 );
-                location.reload();
+                onAdjusted(adjusting.productId, delta);
+                setAdjusting(null);
+                setBusy(false);
               } catch (error) {
                 alert(
                   error instanceof Error
