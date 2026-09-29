@@ -226,13 +226,15 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
         }
       >
         {view === "list" && visible.length > 0 && (
-          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
             <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
               <tr>
                 <th className="px-4 py-3">Materia prima</th>
                 <th className="px-4 py-3">Categoría</th>
                 <th className="px-4 py-3">Unidad base</th>
                 <th className="px-4 py-3">Costo vigente</th>
+                <th className="px-4 py-3">Precio pagado</th>
+                <th className="px-4 py-3">Formato comprado</th>
                 <th className="px-4 py-3">Rendimiento</th>
                 <th className="px-4 py-3">Última compra</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
@@ -252,6 +254,16 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                     {ingredient.latestPrice
                       ? `${formatDecimalMoney(ingredient.latestPrice.costPerBase)} / ${unitLabel(ingredient.baseUnit)}`
                       : "Sin precio"}
+                  </td>
+                  <td className="money px-4 py-3 font-black">
+                    {ingredient.latestPrice
+                      ? formatClp(ingredient.latestPrice.grossAmount)
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3 font-bold text-[#50554e]">
+                    {ingredient.latestPrice
+                      ? `${ingredient.latestPrice.purchaseQuantity} ${unitLabel(ingredient.latestPrice.purchaseUnit)}`
+                      : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <b>{ingredient.usableYieldPercentage || 100}%</b>
@@ -320,6 +332,25 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                     {formatDecimalMoney(ingredient.latestPrice.costPerBase)} /{" "}
                     {unitLabel(ingredient.baseUnit)}
                   </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#d9dbd1] pt-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-[#777]">
+                        Precio pagado
+                      </p>
+                      <p className="money mt-1 font-black">
+                        {formatClp(ingredient.latestPrice.grossAmount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-[#777]">
+                        Formato comprado
+                      </p>
+                      <p className="mt-1 font-black">
+                        {ingredient.latestPrice.purchaseQuantity}{" "}
+                        {unitLabel(ingredient.latestPrice.purchaseUnit)}
+                      </p>
+                    </div>
+                  </div>
                   {(ingredient.usableYieldPercentage || 100) < 100 && (
                     <div className="mt-3 border-t border-[#d9dbd1] pt-3">
                       <p className="text-[10px] font-bold uppercase text-[#777]">
@@ -342,11 +373,11 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                       </p>
                     </div>
                   )}
-                  <p className="mt-1 text-[11px] text-[#777]">
-                    {ingredient.latestPrice.purchaseQuantity}{" "}
-                    {unitLabel(ingredient.latestPrice.purchaseUnit)} por{" "}
-                    {formatClp(ingredient.latestPrice.grossAmount)} ·{" "}
+                  <p className="mt-2 text-[11px] text-[#777]">
                     {formatDate(ingredient.latestPrice.purchaseDate)}
+                    {ingredient.latestPrice.supplier
+                      ? ` · ${ingredient.latestPrice.supplier}`
+                      : ""}
                   </p>
                 </div>
               ) : (
@@ -385,7 +416,8 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
                     {ingredient.prices.map((price) => (
                       <p key={price.id} className="text-[11px] text-[#777]">
                         {formatDate(price.purchaseDate)} ·{" "}
-                        {formatClp(price.grossAmount)} ·{" "}
+                        {price.purchaseQuantity} {unitLabel(price.purchaseUnit)}{" "}
+                        · {formatClp(price.grossAmount)} pagados ·{" "}
                         {formatDecimalMoney(price.costPerBase)}/
                         {unitLabel(ingredient.baseUnit)}
                       </p>
