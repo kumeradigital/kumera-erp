@@ -1759,8 +1759,9 @@ function CashWithdrawalDialog({
           </span>
         </label>
         <p className="mt-3 text-[11px] leading-5 text-[#777]">
-          El retiro disminuirá el efectivo esperado al cerrar la caja. Si fue
-          una compra del negocio, regístrala también en Compras y gastos.
+          El retiro disminuirá el efectivo dentro de esta caja, pero seguirá
+          siendo dinero del negocio hasta que registres su uso. Si fue una
+          compra o un retiro personal, regístralo también en Compras y gastos.
         </p>
         <button
           disabled={busy || !amount || !reason.trim()}

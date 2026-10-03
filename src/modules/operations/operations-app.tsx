@@ -1,6 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Landmark, Pencil, Plus, Search, WalletCards, X } from "lucide-react";
+import {
+  CircleHelp,
+  Landmark,
+  Pencil,
+  Plus,
+  Search,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { saveOperationAction, updateOperationAction } from "./actions";
 import {
@@ -41,6 +49,7 @@ export function OperationsApp({
   };
 }) {
   const [open, setOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [editing, setEditing] = useState<Operation | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -85,13 +94,23 @@ export function OperationsApp({
             Saldos esperados desde el último corte conciliado.
           </p>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
-        >
-          <Plus size={17} />
-          Movimiento
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowGuide(true)}
+            className="flex items-center gap-2 rounded-xl border border-[#bfc8bc] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+          >
+            <CircleHelp size={18} />
+            ¿Cómo registrar correctamente?
+          </button>
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
+          >
+            <Plus size={17} />
+            Movimiento
+          </button>
+        </div>
       </div>
       <div className="mt-6 rounded-2xl border border-[#bed5b9] bg-[#edf6e9] p-5">
         <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
@@ -264,7 +283,101 @@ export function OperationsApp({
           onClose={() => setEditing(null)}
         />
       )}
+      {showGuide && <RegistrationGuide onClose={() => setShowGuide(false)} />}
     </main>
+  );
+}
+
+function RegistrationGuide({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="registration-guide-title"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-2xl md:rounded-3xl md:p-8"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Recordatorio rápido
+            </p>
+            <h2
+              id="registration-guide-title"
+              className="mt-2 text-2xl font-black"
+            >
+              ¿Cómo registrar correctamente?
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar ayuda"
+            className="rounded-lg p-2 hover:bg-[#f0f0e8]"
+          >
+            <X />
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-2xl bg-[#edf6e9] p-4 text-sm text-[#345443]">
+          <strong>Regla principal:</strong> registra cada movimiento una sola
+          vez, el mismo día en que ocurre y desde la cuenta de donde realmente
+          salió el dinero.
+        </div>
+
+        <ol className="mt-5 space-y-3 text-sm text-[#4f554e]">
+          <li>
+            <strong className="text-[#252822]">
+              1. Registra aunque falten datos.
+            </strong>{" "}
+            Si todavía no conoces la categoría, déjalo pendiente, pero no lo
+            omitas.
+          </li>
+          <li>
+            <strong className="text-[#252822]">2. Usa la fecha real.</strong>{" "}
+            Indica monto, beneficiario, descripción y medio de pago verdadero.
+          </li>
+          <li>
+            <strong className="text-[#252822]">3. No dupliques.</strong> Si ya
+            registraste la compra, no vuelvas a ingresarla cuando aparezca en la
+            cartola.
+          </li>
+          <li>
+            <strong className="text-[#252822]">
+              4. Mover dinero no es gastar.
+            </strong>{" "}
+            Pasar dinero entre caja, billetera y cuentas propias es una
+            transferencia interna.
+          </li>
+          <li>
+            <strong className="text-[#252822]">5. Separa los retiros.</strong>{" "}
+            Un retiro personal es retiro del dueño; una compra del negocio es
+            compra o gasto, aunque se pague en efectivo.
+          </li>
+          <li>
+            <strong className="text-[#252822]">
+              6. Identifica el período.
+            </strong>{" "}
+            En la nota indica si corresponde al mes actual, uno anterior o un
+            pago anticipado.
+          </li>
+        </ol>
+
+        <div className="mt-5 rounded-2xl border border-[#e2d49d] bg-[#fff9e8] p-4 text-sm text-[#67571f]">
+          <strong>Al cierre:</strong> compara los movimientos del día con caja,
+          comprobantes y Mercado Pago. Corrige con una explicación; nunca borres
+          la historia del movimiento.
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 h-12 w-full rounded-xl bg-[#235b45] font-black text-white"
+        >
+          Entendido
+        </button>
+      </section>
+    </div>
   );
 }
 

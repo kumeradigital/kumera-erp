@@ -181,7 +181,7 @@ export async function getOperationsData() {
     .filter(isIncome)
     .reduce((total, operation) => total + operation.gross, 0);
   const expectedCash =
-    cutoff.openingCash + cashSales + signedTotal(cashOperations) - withdrawals;
+    cutoff.openingCash + cashSales + signedTotal(cashOperations);
   const expectedBank =
     cutoff.openingBank + bankSales - cardFees + signedTotal(bankOperations);
 
