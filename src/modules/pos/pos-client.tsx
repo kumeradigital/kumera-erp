@@ -2041,6 +2041,9 @@ function CloseSessionDialog({
 }) {
   const [busy, setBusy] = useState(false);
   const [countedCash, setCountedCash] = useState("");
+  const [documentedCash, setDocumentedCash] = useState(0);
+  const [documentedCashTransactions, setDocumentedCashTransactions] =
+    useState(0);
   const [externalTotals, setExternalTotals] = useState({
     debit: summary.byPayment.debit,
     credit: summary.byPayment.credit,
@@ -2296,6 +2299,10 @@ function CloseSessionDialog({
                   credit: externalTransactions.credit,
                   transfer: externalTransactions.transfer,
                 },
+                documentedCash: {
+                  amount: documentedCash,
+                  transactions: documentedCashTransactions,
+                },
                 waste: waste
                   .filter((item) => Number(item.quantity) > 0)
                   .map((item) => ({
@@ -2338,6 +2345,50 @@ function CloseSessionDialog({
             <b className="money">
               {derivedCashSales >= 0 ? formatClp(derivedCashSales) : "Inválido"}
             </b>
+          </div>
+          <div className="rounded-xl border border-[#c9d7e4] bg-[#f3f7fb] p-4">
+            <p className="text-xs font-black uppercase tracking-wider text-[#355c76]">
+              Control tributario del efectivo
+            </p>
+            <p className="mt-1 text-[10px] leading-4 text-[#667783]">
+              Copia solamente el efectivo que aparece en el resumen de la
+              máquina. No se suma nuevamente a la venta ni cambia el efectivo
+              físico calculado.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="text-xs font-bold">
+                Efectivo boleteado
+                <input
+                  inputMode="numeric"
+                  value={documentedCash}
+                  onChange={(event) =>
+                    setDocumentedCash(
+                      Number(event.target.value.replace(/\D/g, "")),
+                    )
+                  }
+                  className="input mt-2"
+                />
+              </label>
+              <label className="text-xs font-bold">
+                Transacciones
+                <input
+                  inputMode="numeric"
+                  value={documentedCashTransactions}
+                  onChange={(event) =>
+                    setDocumentedCashTransactions(
+                      Number(event.target.value.replace(/\D/g, "")),
+                    )
+                  }
+                  className="input mt-2"
+                />
+              </label>
+            </div>
+            {documentedCash > Math.max(0, derivedCashSales) && (
+              <p className="mt-2 text-xs font-bold text-[#a24628]">
+                El efectivo boleteado no puede superar la venta real en efectivo
+                calculada.
+              </p>
+            )}
           </div>
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-[#777]">
@@ -2579,7 +2630,12 @@ function CloseSessionDialog({
             <input name="note" className="input mt-2" />
           </label>
           <button
-            disabled={busy || derivedCashSales < 0}
+            disabled={
+              busy ||
+              derivedCashSales < 0 ||
+              documentedCash > derivedCashSales ||
+              (documentedCash > 0 && documentedCashTransactions < 1)
+            }
             className="sticky bottom-0 h-13 w-full rounded-xl bg-[#235b45] font-black text-white shadow-[0_-10px_20px_12px_#fffef9] disabled:opacity-50"
           >
             {busy ? "Cerrando..." : "Confirmar cierre"}

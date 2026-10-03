@@ -631,6 +631,7 @@ export async function closeCashSessionAction(
     reason: string;
     actual: Record<PaymentMethod, number>;
     transactions: Record<PaymentMethod, number>;
+    documentedCash: { amount: number; transactions: number };
     waste: {
       product_id?: string;
       product_name: string;
@@ -652,10 +653,20 @@ export async function closeCashSessionAction(
     throw new Error("Efectivo contado inválido");
   const actual = details.actual;
   const transactions = details.transactions;
+  const documentedCash = details.documentedCash;
   if (
     Object.values(actual).some((value) => !Number.isInteger(value) || value < 0)
   )
     throw new Error("Totales del cierre inválidos");
+  if (
+    !Number.isInteger(documentedCash.amount) ||
+    documentedCash.amount < 0 ||
+    !Number.isInteger(documentedCash.transactions) ||
+    documentedCash.transactions < 0 ||
+    documentedCash.amount > actual.cash ||
+    (documentedCash.amount > 0 && documentedCash.transactions === 0)
+  )
+    throw new Error("Efectivo boleteado inválido");
   if (
     details.waste.some(
       (item) => !Number.isFinite(item.quantity) || item.quantity <= 0,
@@ -691,6 +702,16 @@ export async function closeCashSessionAction(
       );
     if (carryoverError) throw carryoverError;
   }
+  const { error: taxCashError } = await ctx.supabase
+    .from("cash_sessions")
+    .update({
+      documented_cash_sales: documentedCash.amount,
+      documented_cash_transactions: documentedCash.transactions,
+    })
+    .eq("id", sessionId)
+    .eq("business_id", ctx.businessId)
+    .eq("status", "open");
+  if (taxCashError) throw taxCashError;
   const { error } = await ctx.supabase.rpc("close_cash_session_with_details", {
     p_session: sessionId,
     p_counted_cash: countedCash,
