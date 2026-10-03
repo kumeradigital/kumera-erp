@@ -45,6 +45,7 @@ Siempre se deben completar estos datos:
 - Una compra de insumos se registra como compra, aunque se pague con efectivo retirado previamente de caja.
 - Una cuota de credito se registra completa en flujo de caja, pero para rentabilidad se separa en capital, intereses, comisiones y gastos asociados.
 - Las remuneraciones, cotizaciones e impuestos se registran por separado.
+- Las remuneraciones se muestran en flujo de caja cuando se pagan, pero en rentabilidad se asignan al mes efectivamente trabajado. Su vencimiento habitual es el dia 5 del mes siguiente.
 - No se vuelve a registrar un gasto solamente porque aparezca despues en la cartola bancaria.
 - Una correccion nunca debe borrar el movimiento original: debe dejar trazabilidad de quien corrigio, cuando y por que.
 
@@ -237,3 +238,4 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-03 | 1. Corte oficial | Se fija el corte al 01-10 00:00 con banco/Mercado Pago $1.549.240, efectivo total $25.000 y abonos pendientes $0. El saldo reconstruido se acepta como supuesto confirmado sin exigir cartola historica. | Completado |
 | 2026-10-03 | 1. Saldos esperados | Despues de los cierres del 1 y 2, los movimientos registrados y la compra del 3 por $12.810, el ERP calcula banco $419.161 y efectivo total $68.840. Compromisos pendientes: $925.000; impuestos aun no incluidos. | Verificado |
 | 2026-10-03 | 1. Retiros de caja | Se corrige el calculo para que mover efectivo desde la caja a otra tenencia del negocio no reduzca el efectivo total. El gasto o retiro personal se descuenta al registrarse como movimiento financiero. | Corregido |
+| 2026-10-03 | 1/6. Periodo de remuneraciones | Los sueldos pagados el 01-10 corresponden al trabajo de septiembre. En caja son egresos de octubre; en rentabilidad pertenecen a septiembre. Se crean compromisos por los sueldos de octubre con vencimiento 05-11 por $1.370.000 en total. | Confirmado |
