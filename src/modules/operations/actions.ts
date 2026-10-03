@@ -123,7 +123,7 @@ export async function saveOperationAction(form: FormData) {
           .from("financial_obligations")
           .insert({
             business_id: paidObligation.business_id,
-            name: paidObligation.name,
+            name: advanceMonthInName(paidObligation.name),
             amount: paidObligation.carry_amount ? gross : null,
             due_date: nextDueDate,
             kind: paidObligation.kind,
@@ -147,6 +147,29 @@ function addOneMonth(value: string) {
   return new Date(Date.UTC(year, month, Math.min(day, lastDay)))
     .toISOString()
     .slice(0, 10);
+}
+
+function advanceMonthInName(value: string) {
+  const months = [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+  ];
+  const normalized = value.toLocaleLowerCase("es");
+  const index = months.findIndex((month) => normalized.includes(month));
+  if (index < 0) return value;
+  const current = months[index];
+  const next = months[(index + 1) % months.length];
+  return value.replace(new RegExp(current, "i"), next);
 }
 
 export async function updateOperationAction(form: FormData) {
