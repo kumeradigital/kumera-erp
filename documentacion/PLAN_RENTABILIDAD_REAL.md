@@ -90,9 +90,12 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 
 ### 2. Auditar las ventas que alimentan el ERP
 
-**Estado:** `[ ] Pendiente`
+**Estado:** `[~] En curso`
 
 - [x] Confirmar que cada jornada usa el cierre conciliado como venta oficial para el analisis operacional.
+- [x] Auditar los cierres del 1 al 3 de octubre contra el detalle registrado en caja.
+- [x] Confirmar que la venta conciliada sin detalle no se considera de costo cero: recibe el margen promedio observado de los productos costeados.
+- [ ] Validar que la mezcla de productos costeados sea representativa antes de confiar en ese margen estimado.
 - [ ] Comparar septiembre con TUU, Mercado Pago y registros de caja.
 - [ ] Identificar jornadas corregidas, incompletas o duplicadas.
 - [ ] Separar efectivo, transferencia, debito, credito, delivery y ventas especiales.
@@ -240,3 +243,5 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-03 | 1. Retiros de caja | Se corrige el calculo para que mover efectivo desde la caja a otra tenencia del negocio no reduzca el efectivo total. El gasto o retiro personal se descuenta al registrarse como movimiento financiero. | Corregido |
 | 2026-10-03 | 1/6. Periodo de remuneraciones | Los sueldos pagados el 01-10 corresponden al trabajo de septiembre. En caja son egresos de octubre; en rentabilidad pertenecen a septiembre. Los sueldos liquidos mensuales confirmados son panadero $920.000, pastelera $620.000 y cajera $500.000. Se crean compromisos por octubre con vencimiento 05-11 por $2.040.000, mas imposiciones por calcular. | Confirmado |
 | 2026-10-03 | 6. Cambio sueldo panadero | El sueldo liquido del panadero en septiembre fue $870.000: quincena $430.000 y saldo $440.000 pagado el 01-10. El nuevo sueldo de $920.000 rige desde octubre y su primer pago vence el 05-11. | Confirmado |
+| 2026-10-03 | 2. Ventas octubre | Cierres 01-03 oct: venta conciliada $1.142.666 versus detalle de productos registrado $1.048.068. Los cierres recuperan $94.598 sin detalle, equivalente a 8,28% de la venta oficial. El ingreso esta protegido, pero esa fraccion necesita una regla de costeo para no sesgar el margen. | En auditoria |
+| 2026-10-03 | 2. Regla actual de estimacion | La proyeccion no asigna costo cero a los $94.598 sin desglose. Calcula el margen observado en ventas con receta y lo extrapola a toda la venta conciliada. La regla evita inflar directamente la utilidad, pero requiere validar cobertura y representatividad de la mezcla costeada. | Confirmado con reserva |
