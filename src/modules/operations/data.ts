@@ -88,7 +88,9 @@ export async function getOperationsData() {
       .gt("closed_at", cutoff.cutoffAt),
     supabase
       .from("financial_obligations")
-      .select("id,name,amount,due_date,kind,recurrence,status,note")
+      .select(
+        "id,name,amount,due_date,kind,recurrence,carry_amount,status,note",
+      )
       .eq("business_id", membership.business_id)
       .eq("status", "pending")
       .order("due_date"),
@@ -189,10 +191,11 @@ export async function getOperationsData() {
     (row) => ({
       id: row.id,
       name: row.name,
-      amount: Number(row.amount),
+      amount: row.amount == null ? null : Number(row.amount),
       dueDate: row.due_date,
       kind: row.kind,
       recurrence: row.recurrence || undefined,
+      carryAmount: Boolean(row.carry_amount),
       note: row.note || undefined,
     }),
   );
@@ -214,7 +217,7 @@ export async function getOperationsData() {
       operatingExpenses,
       withdrawals,
       pendingObligations: obligations.reduce(
-        (total, item) => total + item.amount,
+        (total, item) => total + (item.amount || 0),
         0,
       ),
     },

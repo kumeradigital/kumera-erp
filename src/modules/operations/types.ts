@@ -38,10 +38,11 @@ export type FinancialCutoff = {
 export type FinancialObligation = {
   id: string;
   name: string;
-  amount: number;
+  amount: number | null;
   dueDate: string;
   kind: "payable" | "loan_payment";
   recurrence?: "monthly";
+  carryAmount: boolean;
   note?: string;
 };
 export const operationLabels: Record<OperationType, string> = {

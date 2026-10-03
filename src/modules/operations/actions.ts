@@ -2,6 +2,48 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
 import { OPERATION_CATEGORIES } from "./categories";
+
+export async function saveObligationAction(form: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesión no válida");
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
+  const name = String(form.get("name") || "").trim();
+  const rawAmount = String(form.get("amount") || "").trim();
+  const amount = rawAmount ? Math.round(Number(rawAmount)) : null;
+  const dueDate = String(form.get("dueDate") || "");
+  const kind = String(form.get("kind") || "payable");
+  const recurring = form.get("recurring") === "on";
+  if (!name) throw new Error("Nombre obligatorio");
+  if (amount !== null && (!Number.isFinite(amount) || amount < 1))
+    throw new Error("Monto inválido");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw new Error("Fecha inválida");
+  if (!["payable", "loan_payment"].includes(kind))
+    throw new Error("Tipo de compromiso inválido");
+  const { error } = await supabase.from("financial_obligations").insert({
+    business_id: membership.business_id,
+    name,
+    amount,
+    due_date: dueDate,
+    kind,
+    recurrence: recurring ? "monthly" : null,
+    carry_amount: recurring && form.get("carryAmount") === "on",
+    status: "pending",
+    note: String(form.get("note") || "").trim() || null,
+    created_by: user.id,
+  });
+  if (error) throw error;
+  revalidatePath("/operacion");
+}
+
 export async function saveOperationAction(form: FormData) {
   const supabase = await createClient();
   const {
@@ -60,15 +102,51 @@ export async function saveOperationAction(form: FormData) {
       })
       .eq("id", obligationId)
       .eq("status", "pending")
-      .select("id")
+      .select("id,business_id,name,due_date,kind,recurrence,carry_amount,note")
       .single();
     if (obligationError || !paidObligation)
       throw new Error(
         "El movimiento se guardó, pero no se pudo cerrar el compromiso. Revisa antes de volver a ingresarlo.",
       );
+    if (paidObligation.recurrence === "monthly") {
+      const nextDueDate = addOneMonth(paidObligation.due_date);
+      const { data: existingNext, error: nextReadError } = await supabase
+        .from("financial_obligations")
+        .select("id")
+        .eq("business_id", paidObligation.business_id)
+        .eq("name", paidObligation.name)
+        .eq("due_date", nextDueDate)
+        .maybeSingle();
+      if (nextReadError) throw nextReadError;
+      if (!existingNext) {
+        const { error: nextError } = await supabase
+          .from("financial_obligations")
+          .insert({
+            business_id: paidObligation.business_id,
+            name: paidObligation.name,
+            amount: paidObligation.carry_amount ? gross : null,
+            due_date: nextDueDate,
+            kind: paidObligation.kind,
+            recurrence: "monthly",
+            carry_amount: paidObligation.carry_amount,
+            status: "pending",
+            note: paidObligation.note,
+            created_by: user.id,
+          });
+        if (nextError) throw nextError;
+      }
+    }
   }
   revalidatePath("/operacion");
   revalidatePath("/costos");
+}
+
+function addOneMonth(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, lastDay)))
+    .toISOString()
+    .slice(0, 10);
 }
 
 export async function updateOperationAction(form: FormData) {

@@ -10,7 +10,11 @@ import {
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
-import { saveOperationAction, updateOperationAction } from "./actions";
+import {
+  saveObligationAction,
+  saveOperationAction,
+  updateOperationAction,
+} from "./actions";
 import {
   DEFAULT_OPERATION_CATEGORY,
   OPERATION_CATEGORIES_BY_TYPE,
@@ -50,6 +54,7 @@ export function OperationsApp({
 }) {
   const [open, setOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [addingObligation, setAddingObligation] = useState(false);
   const [editing, setEditing] = useState<Operation | null>(null);
   const [payingObligation, setPayingObligation] =
     useState<FinancialObligation | null>(null);
@@ -150,7 +155,21 @@ export function OperationsApp({
       </div>
       {!!obligations.length && (
         <section className="card mt-6 p-5">
-          <h2 className="font-black">Próximos pagos</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-black">Próximos pagos</h2>
+              <p className="mt-1 text-xs text-[#777]">
+                Incluye montos confirmados y recordatorios por calcular.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAddingObligation(true)}
+              className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
+            >
+              <Plus size={16} /> Compromiso
+            </button>
+          </div>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {obligations.map((item) => (
               <div
@@ -167,7 +186,11 @@ export function OperationsApp({
                         : ""}
                     </p>
                   </div>
-                  <p className="money font-black">{formatClp(item.amount)}</p>
+                  <p className="money font-black">
+                    {item.amount == null
+                      ? "Por calcular"
+                      : formatClp(item.amount)}
+                  </p>
                 </div>
                 {item.note && (
                   <p className="mt-3 text-xs text-[#777]">{item.note}</p>
@@ -182,6 +205,23 @@ export function OperationsApp({
               </div>
             ))}
           </div>
+        </section>
+      )}
+      {!obligations.length && (
+        <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <h2 className="font-black">Próximos pagos</h2>
+            <p className="mt-1 text-sm text-[#777]">
+              No hay compromisos pendientes registrados.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAddingObligation(true)}
+            className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
+          >
+            <Plus size={16} /> Compromiso
+          </button>
         </section>
       )}
       {ledger?.status !== "closed" && (
@@ -300,7 +340,110 @@ export function OperationsApp({
         />
       )}
       {showGuide && <RegistrationGuide onClose={() => setShowGuide(false)} />}
+      {addingObligation && (
+        <ObligationDialog onClose={() => setAddingObligation(false)} />
+      )}
     </main>
+  );
+}
+
+function ObligationDialog({ onClose }: { onClose: () => void }) {
+  const [recurring, setRecurring] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Pago futuro
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Nuevo compromiso</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <form
+          action={async (form) => {
+            await saveObligationAction(form);
+            location.reload();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <label className="block text-xs font-bold">
+            Nombre
+            <input
+              name="name"
+              required
+              className="input mt-2"
+              placeholder="Ej. IVA septiembre"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">
+              Monto, si ya lo conoces
+              <input
+                name="amount"
+                type="number"
+                min="1"
+                className="input mt-2"
+                placeholder="Por calcular"
+              />
+            </label>
+            <label className="text-xs font-bold">
+              Fecha de control o vencimiento
+              <input
+                name="dueDate"
+                type="date"
+                required
+                className="input mt-2"
+              />
+            </label>
+          </div>
+          <label className="block text-xs font-bold">
+            Tipo
+            <select name="kind" className="input mt-2">
+              <option value="payable">Cuenta o impuesto por pagar</option>
+              <option value="loan_payment">Cuota de crédito</option>
+            </select>
+          </label>
+          <label className="flex items-start gap-3 rounded-xl bg-[#f2f2ea] p-3 text-sm">
+            <input
+              type="checkbox"
+              name="recurring"
+              checked={recurring}
+              onChange={(event) => setRecurring(event.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              <b>Se repite todos los meses</b>
+              <span className="mt-1 block text-xs font-normal text-[#777]">
+                Al pagarlo, el sistema creará el compromiso del mes siguiente.
+              </span>
+            </span>
+          </label>
+          {recurring && (
+            <label className="flex items-start gap-3 rounded-xl border border-[#deded5] p-3 text-sm">
+              <input type="checkbox" name="carryAmount" className="mt-1" />
+              <span>
+                <b>Repetir también el mismo monto</b>
+                <span className="mt-1 block text-xs font-normal text-[#777]">
+                  Déjalo desmarcado para IVA, luz y cuentas variables: el mes
+                  siguiente aparecerán “Por calcular”.
+                </span>
+              </span>
+            </label>
+          )}
+          <label className="block text-xs font-bold">
+            Nota opcional
+            <textarea name="note" className="input mt-2 min-h-20 py-3" />
+          </label>
+          <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
+            Guardar compromiso
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -640,7 +783,9 @@ function OperationDialog({
                 name="amount"
                 type="number"
                 required
-                defaultValue={operation?.gross || obligation?.amount}
+                defaultValue={
+                  operation?.gross || obligation?.amount || undefined
+                }
                 className="input mt-2"
               />
             </label>
