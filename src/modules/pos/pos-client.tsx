@@ -146,9 +146,9 @@ export function PosClient({
   const visibleProducts = products.filter(
     (product) => category === "Todos" || product.category === category,
   );
-  const productTiles = [...groupProductsForSale(visibleProducts).values()].sort(
-    (a, b) => a.category.localeCompare(b.category, "es"),
-  );
+  const productTiles = [
+    ...groupProductsForSale(visibleProducts, productionFamilies).values(),
+  ].sort((a, b) => a.category.localeCompare(b.category, "es"));
   const lines = products
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
@@ -1291,9 +1291,26 @@ function PedidosYaDialog({
   );
 }
 
-function groupProductsForSale(products: Product[]) {
+function groupProductsForSale(
+  products: Product[],
+  families: ProductionFamily[],
+) {
   const groups = new Map<string, ProductTile>();
   for (const product of products) {
+    if (product.isSalesFamily && product.sellMembersIndividually) {
+      const members =
+        families.find((family) => family.product.id === product.id)?.members ||
+        [];
+      if (members.length) {
+        groups.set(`family::${product.id}`, {
+          key: `family::${product.id}`,
+          category: product.name,
+          saleUnit: product.saleUnit,
+          products: members,
+        });
+        continue;
+      }
+    }
     const key = `${product.category}::${product.saleUnit}`;
     const current = groups.get(key);
     if (current) current.products.push(product);
@@ -1359,20 +1376,29 @@ function ProductGroupDialog({
                 key={product.id}
                 onClick={() => onSelect(product)}
                 disabled={remaining === 0}
-                className="relative min-h-24 rounded-2xl border border-[#dcdcd3] bg-white p-4 text-left active:scale-[.98] disabled:opacity-45"
+                className="relative min-h-28 overflow-hidden rounded-2xl border border-[#dcdcd3] bg-white text-left active:scale-[.98] disabled:opacity-45"
               >
-                <b className="block pr-2 text-sm leading-5 capitalize">
-                  {product.name}
-                </b>
-                <span className="money mt-3 block text-sm font-black text-[#235b45]">
-                  {formatClp(product.price)}
-                  {product.saleUnit === "kg" ? "/kg" : ""}
-                </span>
-                {remaining !== null && (
-                  <span className="mt-1 block text-[10px] font-bold text-[#777]">
-                    {remaining ? `${remaining} disponibles` : "Agotado"}
-                  </span>
+                {product.imageUrl && (
+                  <img
+                    src={product.imageUrl}
+                    alt=""
+                    className="h-20 w-full object-cover"
+                  />
                 )}
+                <span className="block p-3">
+                  <b className="block pr-2 text-sm leading-5 capitalize">
+                    {product.name}
+                  </b>
+                  <span className="money mt-2 block text-sm font-black text-[#235b45]">
+                    {formatClp(product.price)}
+                    {product.saleUnit === "kg" ? "/kg" : ""}
+                  </span>
+                  {remaining !== null && (
+                    <span className="mt-1 block text-[10px] font-bold text-[#777]">
+                      {remaining ? `${remaining} disponibles` : "Agotado"}
+                    </span>
+                  )}
+                </span>
               </button>
             );
           })}

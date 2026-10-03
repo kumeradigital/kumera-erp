@@ -110,6 +110,13 @@ export function SalesDashboard({
                       </>
                     )}
                   </p>
+                  {session.reconciledSales != null && (
+                    <RegistrationQuality
+                      total={session.reconciledSales}
+                      difference={session.unallocatedDifference || 0}
+                      coverage={session.registrationCoveragePercentage || 0}
+                    />
+                  )}
                 </div>
                 <div className="text-xs text-[#777] sm:text-right">
                   <p>Efectivo inicial</p>
@@ -435,6 +442,39 @@ export function SalesDashboard({
         {!recent.length && <Empty />}
       </section>
     </main>
+  );
+}
+
+function RegistrationQuality({
+  total,
+  difference,
+  coverage,
+}: {
+  total: number;
+  difference: number;
+  coverage: number;
+}) {
+  const differencePercentage = total ? (Math.abs(difference) / total) * 100 : 0;
+  const tone =
+    differencePercentage < 2
+      ? "bg-[#e3f0df] text-[#235b45]"
+      : differencePercentage <= 5
+        ? "bg-[#fff1c7] text-[#795f0d]"
+        : "bg-[#f7dfd7] text-[#9a3f22]";
+  const label =
+    differencePercentage < 2
+      ? "Registro correcto"
+      : differencePercentage <= 5
+        ? "Revisar registro"
+        : "Diferencia alta";
+  return (
+    <div
+      className={`mt-2 inline-flex flex-wrap gap-x-2 rounded-lg px-2.5 py-1.5 text-[10px] font-bold ${tone}`}
+    >
+      <span>{label}</span>
+      <span>{coverage.toFixed(1)}% registrado</span>
+      <span>{formatClp(difference)} sin desglose</span>
+    </div>
   );
 }
 

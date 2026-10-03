@@ -419,7 +419,7 @@ async function getProductsByArchive(
   let query = supabase
     .from("products")
     .select(
-      "id,name,description,price,pedidosya_price,sale_unit,image_path,active,track_daily_availability,is_sales_family,family_product_id,cost_recipe_id,product_categories(name)",
+      "id,name,description,price,pedidosya_price,sale_unit,image_path,active,track_daily_availability,is_sales_family,sell_members_individually,family_product_id,cost_recipe_id,product_categories(name)",
     )
     .eq("business_id", businessId)
     .order("position")
@@ -466,6 +466,7 @@ async function getProductsByArchive(
       active: row.active,
       trackDailyAvailability: row.track_daily_availability,
       isSalesFamily: row.is_sales_family,
+      sellMembersIndividually: Boolean(row.sell_members_individually),
       familyProductId: row.family_product_id || undefined,
       costRecipeId: row.cost_recipe_id || undefined,
     };
@@ -1242,14 +1243,35 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     );
   }
   return {
-    sessions: (reconciledSessions || []).map((session) => ({
-      id: session.id,
-      status: session.status as "open" | "closed",
-      openedAt: session.opened_at,
-      closedAt: session.closed_at || undefined,
-      openingCash: Number(session.opening_cash),
-      autoClosed: Boolean(session.auto_closed),
-    })),
+    sessions: (reconciledSessions || []).map((session) => {
+      const recordedSales = rows
+        .filter((row) => row.cash_session_id === session.id)
+        .reduce((sum, row) => sum + Number(row.total), 0);
+      const reconciliation = reconciliations.get(session.id);
+      const reconciledSales = reconciliation
+        ? Number(reconciliation.actual_cash_sales) +
+          Number(reconciliation.actual_debit_sales) +
+          Number(reconciliation.actual_credit_sales) +
+          Number(reconciliation.actual_transfer_sales)
+        : undefined;
+      const unallocatedDifference =
+        reconciledSales == null ? undefined : reconciledSales - recordedSales;
+      return {
+        id: session.id,
+        status: session.status as "open" | "closed",
+        openedAt: session.opened_at,
+        closedAt: session.closed_at || undefined,
+        openingCash: Number(session.opening_cash),
+        autoClosed: Boolean(session.auto_closed),
+        recordedSales,
+        reconciledSales,
+        unallocatedDifference,
+        registrationCoveragePercentage:
+          reconciledSales && reconciledSales > 0
+            ? Math.min(100, (recordedSales / reconciledSales) * 100)
+            : undefined,
+      };
+    }),
     summary: {
       total,
       recordedTotal,

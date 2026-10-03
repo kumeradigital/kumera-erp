@@ -13,6 +13,7 @@ export type Product = {
   active: boolean;
   trackDailyAvailability: boolean;
   isSalesFamily: boolean;
+  sellMembersIndividually: boolean;
   familyProductId?: string;
   costRecipeId?: string;
   availability?: DailyAvailability;
@@ -83,6 +84,10 @@ export type SalesSessionPeriod = {
   closedAt?: string;
   openingCash: number;
   autoClosed: boolean;
+  recordedSales: number;
+  reconciledSales?: number;
+  unallocatedDifference?: number;
+  registrationCoveragePercentage?: number;
 };
 export type BusinessPulse = {
   observedDays: number;
