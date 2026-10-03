@@ -51,6 +51,8 @@ export function OperationsApp({
   const [open, setOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [editing, setEditing] = useState<Operation | null>(null);
+  const [payingObligation, setPayingObligation] =
+    useState<FinancialObligation | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -170,6 +172,13 @@ export function OperationsApp({
                 {item.note && (
                   <p className="mt-3 text-xs text-[#777]">{item.note}</p>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setPayingObligation(item)}
+                  className="mt-4 w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
+                >
+                  Registrar pago
+                </button>
               </div>
             ))}
           </div>
@@ -281,6 +290,13 @@ export function OperationsApp({
           operation={editing}
           ingredients={ingredients}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {payingObligation && (
+        <OperationDialog
+          obligation={payingObligation}
+          ingredients={ingredients}
+          onClose={() => setPayingObligation(null)}
         />
       )}
       {showGuide && <RegistrationGuide onClose={() => setShowGuide(false)} />}
@@ -513,17 +529,28 @@ function OperationDialog({
   ingredients,
   onClose,
   operation,
+  obligation,
 }: {
   ingredients: { id: string; name: string; base_unit: string }[];
   onClose: () => void;
   operation?: Operation;
+  obligation?: FinancialObligation;
 }) {
+  const obligationCategory = obligation
+    ? obligation.kind === "loan_payment"
+      ? "Gastos administrativos"
+      : obligation.name.toLocaleLowerCase("es").includes("arriendo")
+        ? "Arriendo"
+        : obligation.name.toLocaleLowerCase("es").includes("electric")
+          ? "Servicios básicos"
+          : "Gastos administrativos"
+    : undefined;
   const [type, setType] = useState<OperationType>(
-    operation?.type || "purchase",
+    operation?.type || (obligation ? "fixed_cost" : "purchase"),
   );
   const [ingredient, setIngredient] = useState(operation?.ingredientId || "");
   const [category, setCategory] = useState(
-    operation?.category || "Materias primas",
+    operation?.category || obligationCategory || "Materias primas",
   );
   const categoriesForType: readonly string[] =
     OPERATION_CATEGORIES_BY_TYPE[type];
@@ -536,7 +563,11 @@ function OperationDialog({
       <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
         <div className="flex justify-between">
           <h2 className="text-2xl font-black">
-            {editing ? "Editar movimiento" : "Nuevo movimiento"}
+            {editing
+              ? "Editar movimiento"
+              : obligation
+                ? "Registrar pago pendiente"
+                : "Nuevo movimiento"}
           </h2>
           <button onClick={onClose}>
             <X />
@@ -551,6 +582,9 @@ function OperationDialog({
           className="mt-5 space-y-4"
         >
           {operation && <input type="hidden" name="id" value={operation.id} />}
+          {obligation && (
+            <input type="hidden" name="obligationId" value={obligation.id} />
+          )}
           {operation?.ingredientId && (
             <input type="hidden" name="type" value={operation.type} />
           )}
@@ -564,7 +598,7 @@ function OperationDialog({
                 setType(next);
                 setCategory(DEFAULT_OPERATION_CATEGORY[next]);
               }}
-              disabled={!!operation?.ingredientId}
+              disabled={!!operation?.ingredientId || !!obligation}
               className="input mt-2"
             >
               {Object.entries(operationLabels).map(([v, l]) => (
@@ -589,12 +623,13 @@ function OperationDialog({
               className="input mt-2"
             />
           </label>
+          {obligation && <input type="hidden" name="type" value={type} />}
           <label className="block text-xs font-bold">
             Descripción
             <input
               name="description"
               required
-              defaultValue={operation?.description}
+              defaultValue={operation?.description || obligation?.name}
               className="input mt-2"
             />
           </label>
@@ -605,7 +640,7 @@ function OperationDialog({
                 name="amount"
                 type="number"
                 required
-                defaultValue={operation?.gross}
+                defaultValue={operation?.gross || obligation?.amount}
                 className="input mt-2"
               />
             </label>
@@ -613,7 +648,9 @@ function OperationDialog({
               IVA
               <select
                 name="taxMode"
-                defaultValue={operation?.taxRate === 0 ? "exempt" : "included"}
+                defaultValue={
+                  obligation || operation?.taxRate === 0 ? "exempt" : "included"
+                }
                 className="input mt-2"
               >
                 <option value="included">IVA incluido</option>
@@ -659,7 +696,9 @@ function OperationDialog({
               Medio de pago
               <select
                 name="paymentMethod"
-                defaultValue={operation?.paymentMethod || "cash"}
+                defaultValue={
+                  operation?.paymentMethod || (obligation ? "transfer" : "cash")
+                }
                 className="input mt-2"
               >
                 <option value="cash">Efectivo</option>
@@ -725,12 +764,16 @@ function OperationDialog({
             Nota
             <textarea
               name="note"
-              defaultValue={operation?.note}
+              defaultValue={operation?.note || obligation?.note}
               className="input mt-2 min-h-20 py-3"
             />
           </label>
           <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
-            {editing ? "Guardar corrección" : "Guardar movimiento"}
+            {editing
+              ? "Guardar corrección"
+              : obligation
+                ? "Registrar pago y descontar"
+                : "Guardar movimiento"}
           </button>
         </form>
       </div>

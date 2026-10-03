@@ -49,6 +49,24 @@ export async function saveOperationAction(form: FormData) {
     .update({ financial_status: financialStatus })
     .eq("id", transactionId);
   if (statusError) throw statusError;
+  const obligationId = String(form.get("obligationId") || "");
+  if (obligationId && financialStatus === "verified") {
+    const { data: paidObligation, error: obligationError } = await supabase
+      .from("financial_obligations")
+      .update({
+        status: "paid",
+        amount: gross,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", obligationId)
+      .eq("status", "pending")
+      .select("id")
+      .single();
+    if (obligationError || !paidObligation)
+      throw new Error(
+        "El movimiento se guardó, pero no se pudo cerrar el compromiso. Revisa antes de volver a ingresarlo.",
+      );
+  }
   revalidatePath("/operacion");
   revalidatePath("/costos");
 }
