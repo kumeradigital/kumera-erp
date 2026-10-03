@@ -55,6 +55,17 @@ export async function getOperationsData() {
   if (!cutoffResult.data)
     throw new Error("Falta crear el corte financiero inicial");
 
+  const currentMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const monthStart = `${currentMonth}-01T00:00:00`;
+  const sessionQueryStart =
+    Date.parse(cutoffResult.data.cutoff_at) < Date.parse(monthStart)
+      ? cutoffResult.data.cutoff_at
+      : monthStart;
+
   const cutoff: FinancialCutoff = {
     cutoffAt: cutoffResult.data.cutoff_at,
     cutoffDate: cutoffResult.data.cutoff_date,
@@ -81,11 +92,11 @@ export async function getOperationsData() {
     supabase
       .from("cash_sessions")
       .select(
-        "id,opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,commission_net_amount,commission_tax_amount),cash_session_withdrawals(amount,created_at)",
+        "id,opened_at,closed_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,commission_net_amount,commission_tax_amount),cash_session_withdrawals(amount,created_at)",
       )
       .eq("business_id", membership.business_id)
       .eq("status", "closed")
-      .gt("closed_at", cutoff.cutoffAt),
+      .gte("closed_at", sessionQueryStart),
     supabase
       .from("financial_obligations")
       .select(
@@ -153,6 +164,7 @@ export async function getOperationsData() {
 
   let cashSales = 0;
   let bankSales = 0;
+  let monthlySales = 0;
   let cardFees = 0;
   let withdrawals = 0;
   for (const session of sessions.data || []) {
@@ -161,23 +173,48 @@ export async function getOperationsData() {
         Reconciliation | Reconciliation[] | null,
     );
     if (reconciliation) {
-      cashSales += Number(reconciliation.actual_cash_sales || 0);
-      bankSales +=
+      const sessionCashSales = Number(reconciliation.actual_cash_sales || 0);
+      const sessionBankSales =
         Number(reconciliation.actual_debit_sales || 0) +
         Number(reconciliation.actual_credit_sales || 0) +
         Number(reconciliation.actual_transfer_sales || 0);
-      cardFees +=
-        Number(reconciliation.commission_net_amount || 0) +
-        Number(reconciliation.commission_tax_amount || 0);
+      if (
+        session.closed_at &&
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Santiago",
+          year: "numeric",
+          month: "2-digit",
+        }).format(new Date(session.closed_at)) === currentMonth
+      )
+        monthlySales += sessionCashSales + sessionBankSales;
+      if (
+        session.closed_at &&
+        Date.parse(session.closed_at) > Date.parse(cutoff.cutoffAt)
+      ) {
+        cashSales += sessionCashSales;
+        bankSales += sessionBankSales;
+        cardFees +=
+          Number(reconciliation.commission_net_amount || 0) +
+          Number(reconciliation.commission_tax_amount || 0);
+      }
     }
-    withdrawals += (session.cash_session_withdrawals || []).reduce(
-      (total, withdrawal) => total + Number(withdrawal.amount),
-      0,
-    );
+    if (
+      session.closed_at &&
+      Date.parse(session.closed_at) > Date.parse(cutoff.cutoffAt)
+    )
+      withdrawals += (session.cash_session_withdrawals || []).reduce(
+        (total, withdrawal) => total + Number(withdrawal.amount),
+        0,
+      );
   }
 
-  const operatingExpenses = verifiedAfterCutoff
-    .filter((operation) => !isIncome(operation))
+  const monthlyExpenses = operations
+    .filter(
+      (operation) =>
+        operation.date.slice(0, 7) === currentMonth &&
+        operation.financialStatus === "verified" &&
+        !isIncome(operation),
+    )
     .reduce((total, operation) => total + operation.gross, 0);
   const operatingIncome = verifiedAfterCutoff
     .filter(isIncome)
@@ -199,11 +236,6 @@ export async function getOperationsData() {
       note: row.note || undefined,
     }),
   );
-  const currentMonth = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Santiago",
-    year: "numeric",
-    month: "2-digit",
-  }).format(new Date());
 
   return {
     operations,
@@ -216,10 +248,10 @@ export async function getOperationsData() {
       expectedBank,
       expectedCash,
       expectedTotal: expectedBank + expectedCash,
-      salesTotal: cashSales + bankSales,
+      salesTotal: monthlySales,
       cardFees,
       operatingIncome,
-      operatingExpenses,
+      operatingExpenses: monthlyExpenses,
       withdrawals,
       pendingObligations: obligations.reduce(
         (total, item) =>

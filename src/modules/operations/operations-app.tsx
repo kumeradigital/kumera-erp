@@ -141,9 +141,9 @@ export function OperationsApp({
         <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
         <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
         <Metric l="Efectivo esperado" v={summary.expectedCash} icon="cash" />
-        <Metric l="Ventas conciliadas desde el corte" v={summary.salesTotal} />
+        <Metric l="Ventas conciliadas de este mes" v={summary.salesTotal} />
         <Metric
-          l="Egresos verificados desde el corte"
+          l="Egresos verificados de este mes"
           v={summary.operatingExpenses}
         />
         <Metric
