@@ -62,6 +62,13 @@ export function OperationsApp({
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [groupByType, setGroupByType] = useState(false);
+  const currentMonth = todayInChile().slice(0, 7);
+  const currentObligations = obligations.filter(
+    (item) => item.dueDate.slice(0, 7) <= currentMonth,
+  );
+  const futureObligations = obligations.filter(
+    (item) => item.dueDate.slice(0, 7) > currentMonth,
+  );
   const categories = useMemo(
     () => [...new Set(operations.map((item) => item.category))].sort(),
     [operations],
@@ -140,7 +147,7 @@ export function OperationsApp({
           v={summary.operatingExpenses}
         />
         <Metric
-          l="Compromisos aún pendientes"
+          l="Compromisos de este mes"
           v={summary.pendingObligations}
           warning
         />
@@ -170,40 +177,22 @@ export function OperationsApp({
               <Plus size={16} /> Compromiso
             </button>
           </div>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {obligations.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-[#deded5] p-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-black">{item.name}</p>
-                    <p className="mt-1 text-xs text-[#777]">
-                      Vence {formatDate(item.dueDate)}
-                      {item.kind === "loan_payment"
-                        ? " · Sólo flujo de caja"
-                        : ""}
-                    </p>
-                  </div>
-                  <p className="money font-black">
-                    {item.amount == null
-                      ? "Por calcular"
-                      : formatClp(item.amount)}
-                  </p>
-                </div>
-                {item.note && (
-                  <p className="mt-3 text-xs text-[#777]">{item.note}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setPayingObligation(item)}
-                  className="mt-4 w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
-                >
-                  Registrar pago
-                </button>
-              </div>
-            ))}
+          <div className="mt-4 grid gap-5 lg:grid-cols-2">
+            <ObligationGroup
+              title="Este mes"
+              subtitle="Pagos que todavía corresponden al período actual"
+              obligations={currentObligations}
+              empty="No quedan compromisos con monto conocido para este mes."
+              onPay={setPayingObligation}
+              current
+            />
+            <ObligationGroup
+              title="Mes siguiente"
+              subtitle="Reservas futuras; todavía no están vencidas"
+              obligations={futureObligations}
+              empty="No hay compromisos futuros registrados."
+              onPay={setPayingObligation}
+            />
           </div>
         </section>
       )}
@@ -344,6 +333,64 @@ export function OperationsApp({
         <ObligationDialog onClose={() => setAddingObligation(false)} />
       )}
     </main>
+  );
+}
+
+function ObligationGroup({
+  title,
+  subtitle,
+  obligations,
+  empty,
+  onPay,
+  current = false,
+}: {
+  title: string;
+  subtitle: string;
+  obligations: FinancialObligation[];
+  empty: string;
+  onPay: (obligation: FinancialObligation) => void;
+  current?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${current ? "border-[#d9c888] bg-[#fffaf0]" : "border-[#d9ddd5] bg-[#f7f7f2]"}`}
+    >
+      <p className="font-black">{title}</p>
+      <p className="mt-1 text-xs text-[#777]">{subtitle}</p>
+      <div className="mt-3 space-y-3">
+        {obligations.map((item) => (
+          <div key={item.id} className="rounded-xl border bg-[#fffef9] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-black">{item.name}</p>
+                <p className="mt-1 text-xs text-[#777]">
+                  Vence {formatDate(item.dueDate)}
+                  {item.kind === "loan_payment" ? " · Sólo flujo de caja" : ""}
+                </p>
+              </div>
+              <p className="money font-black">
+                {item.amount == null ? "Por calcular" : formatClp(item.amount)}
+              </p>
+            </div>
+            {item.note && (
+              <p className="mt-3 text-xs text-[#777]">{item.note}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => onPay(item)}
+              className="mt-4 w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
+            >
+              Registrar pago
+            </button>
+          </div>
+        ))}
+        {!obligations.length && (
+          <p className="rounded-xl border border-dashed border-[#cfd3ca] p-4 text-sm text-[#777]">
+            {empty}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

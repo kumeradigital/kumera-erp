@@ -199,6 +199,11 @@ export async function getOperationsData() {
       note: row.note || undefined,
     }),
   );
+  const currentMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
 
   return {
     operations,
@@ -217,7 +222,9 @@ export async function getOperationsData() {
       operatingExpenses,
       withdrawals,
       pendingObligations: obligations.reduce(
-        (total, item) => total + (item.amount || 0),
+        (total, item) =>
+          total +
+          (item.dueDate.slice(0, 7) <= currentMonth ? item.amount || 0 : 0),
         0,
       ),
     },
