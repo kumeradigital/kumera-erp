@@ -149,7 +149,17 @@ export function PosClient({
   const productTiles = [
     ...groupProductsForSale(visibleProducts, productionFamilies).values(),
   ].sort((a, b) => a.category.localeCompare(b.category, "es"));
-  const lines = products
+  const cartProducts = [
+    ...new Map(
+      [
+        ...products,
+        ...productionFamilies
+          .filter((family) => family.product.sellMembersIndividually)
+          .flatMap((family) => family.members),
+      ].map((product) => [product.id, product]),
+    ).values(),
+  ];
+  const lines = cartProducts
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
   const total = calculateCartTotal(lines);
@@ -217,7 +227,8 @@ export function PosClient({
     }
   }
   function add(id: string) {
-    const product = products.find((item) => item.id === id);
+    const product = cartProducts.find((item) => item.id === id);
+    if (!product) return;
     if (product?.saleUnit === "kg") {
       setWeighing(product);
       return;
