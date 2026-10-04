@@ -42,7 +42,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     .eq("business_id", businessId)
     .order("name");
   if (!includeArchivedProducts) {
-    productQuery = productQuery.is("deleted_at", null);
+    productQuery = productQuery.is("deleted_at", null).eq("active", true);
   }
   const [
     ingredientResult,
