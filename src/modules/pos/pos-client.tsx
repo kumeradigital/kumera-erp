@@ -1351,28 +1351,15 @@ function ProductGroupDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-6">
-      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:w-[90vw] md:max-w-6xl md:rounded-3xl md:p-7">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#777] capitalize">
-              {group.category}
-              {group.saleUnit === "kg" ? " · venta por kg" : ""}
-            </p>
-            <h2 className="mt-1 text-2xl font-black">Elige la variedad</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-[#f0f0e8]"
-            aria-label="Cerrar"
-          >
-            <X size={19} />
-          </button>
-        </div>
-        <p className="mt-3 text-xs leading-5 text-[#6f746c]">
-          Cada variedad conserva su propio precio, receta, costo y margen de
-          contribución.
-        </p>
-        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+      <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-16 md:w-[90vw] md:max-w-6xl md:rounded-3xl md:p-5 md:pt-16">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 z-30 grid size-11 place-items-center rounded-full border border-black/5 bg-white/95 shadow-md backdrop-blur-sm md:right-5 md:top-4"
+          aria-label="Cerrar selector de productos"
+        >
+          <X size={21} />
+        </button>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
           {group.products.map((product) => {
             const remaining = product.trackDailyAvailability
               ? Math.max(
@@ -1387,20 +1374,20 @@ function ProductGroupDialog({
                 key={product.id}
                 onClick={() => onSelect(product)}
                 disabled={remaining === 0}
-                className="relative min-h-28 overflow-hidden rounded-2xl border border-[#dcdcd3] bg-white text-left active:scale-[.98] disabled:opacity-45"
+                className="relative h-40 overflow-hidden rounded-2xl border border-[#dcdcd3] bg-[#e9ece5] text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45 sm:h-44"
               >
                 {product.imageUrl && (
                   <img
                     src={product.imageUrl}
-                    alt=""
-                    className="h-20 w-full object-cover"
+                    alt={product.name}
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 )}
-                <span className="block p-3">
-                  <b className="block pr-2 text-sm leading-5 capitalize">
+                <span className="absolute inset-x-2 bottom-2 z-10 block rounded-2xl border border-white/60 bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-sm">
+                  <b className="block text-sm leading-5 capitalize text-[#171a17] sm:text-base">
                     {product.name}
                   </b>
-                  <span className="money mt-2 block text-sm font-black text-[#235b45]">
+                  <span className="money mt-1 block text-sm font-black text-[#235b45]">
                     {formatClp(product.price)}
                     {product.saleUnit === "kg" ? "/kg" : ""}
                   </span>
@@ -1414,13 +1401,6 @@ function ProductGroupDialog({
             );
           })}
         </div>
-        {group.saleUnit === "kg" && (
-          <div className="mt-4 rounded-xl border border-[#ead8a6] bg-[#fff7d9] p-4 text-[11px] leading-5 text-[#6f5b17]">
-            <b>¿La bolsa lleva panes mezclados?</b> Registra y pesa cada
-            variedad por separado. Así el sistema no inventará un costo promedio
-            y los márgenes seguirán siendo confiables.
-          </div>
-        )}
       </div>
     </div>
   );
