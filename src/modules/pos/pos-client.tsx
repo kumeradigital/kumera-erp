@@ -126,6 +126,23 @@ export function PosClient({
       // Keep the complete view if this browser blocks local storage.
     }
   }, []);
+  useEffect(() => {
+    const imageUrls = new Set(
+      [
+        ...products,
+        ...productionFamilies.flatMap((family) => family.members),
+      ].flatMap((product) => (product.imageUrl ? [product.imageUrl] : [])),
+    );
+    const preloaded = [...imageUrls].map((url) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = url;
+      return image;
+    });
+    return () => {
+      for (const image of preloaded) image.src = "";
+    };
+  }, [products, productionFamilies]);
   function togglePanel(panel: keyof typeof visiblePanels) {
     setVisiblePanels((current) => {
       const next = { ...current, [panel]: !current[panel] };

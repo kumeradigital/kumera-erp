@@ -84,7 +84,10 @@ export async function saveProductAction(form: FormData) {
     imagePath = `${ctx.businessId}/${crypto.randomUUID()}-${image.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     const upload = await ctx.supabase.storage
       .from("product-images")
-      .upload(imagePath, image, { contentType: image.type });
+      .upload(imagePath, image, {
+        contentType: image.type,
+        cacheControl: "31536000",
+      });
     if (upload.error) throw upload.error;
   }
   const values = {

@@ -431,24 +431,10 @@ async function getProductsByArchive(
     query = query.eq("active", true).is("family_product_id", null);
   const { data, error } = await query;
   if (error) throw error;
-  const imagePaths = [
-    ...new Set(
-      (data || []).flatMap((row) => (row.image_path ? [row.image_path] : [])),
-    ),
-  ];
-  const signedUrls = new Map<string, string>();
-  if (imagePaths.length) {
-    const signed = await supabase.storage
-      .from("product-images")
-      .createSignedUrls(imagePaths, 3600);
-    for (const item of signed.data || []) {
-      if (item.path && item.signedUrl)
-        signedUrls.set(item.path, item.signedUrl);
-    }
-  }
   return (data || []).map((row) => {
     const imageUrl = row.image_path
-      ? signedUrls.get(row.image_path)
+      ? supabase.storage.from("product-images").getPublicUrl(row.image_path)
+          .data.publicUrl
       : undefined;
     const category = Array.isArray(row.product_categories)
       ? row.product_categories[0]?.name
