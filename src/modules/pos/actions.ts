@@ -761,6 +761,7 @@ export async function registerSaleAction(
   payment: PaymentMethod | "unclassified",
   cashReceived: number | null,
   items: { product_id: string; quantity: number }[],
+  employeeDiscount = false,
 ) {
   const ctx = await context();
   const normalizedItems = items.map((item) => ({
@@ -793,6 +794,7 @@ export async function registerSaleAction(
     p_payment: payment,
     p_cash_received: normalizedCash,
     p_items: normalizedItems,
+    p_employee_discount: employeeDiscount,
   });
   if (error) return { ok: false as const, error: error.message };
   const saleId = data as string;

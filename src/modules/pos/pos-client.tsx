@@ -91,6 +91,7 @@ export function PosClient({
     useState(productionBatches);
   const [liveClosingSummary, setLiveClosingSummary] = useState(closingSummary);
   const [busy, setBusy] = useState(false);
+  const [employeeDiscount, setEmployeeDiscount] = useState(false);
   const [category, setCategory] = useState("Todos");
   const [closing, setClosing] = useState(false);
   const [weighing, setWeighing] = useState<Product | null>(null);
@@ -179,7 +180,14 @@ export function PosClient({
   const lines = cartProducts
     .filter((p) => cart[p.id])
     .map((p) => ({ ...p, quantity: cart[p.id] }));
-  const total = calculateCartTotal(lines);
+  const grossTotal = calculateCartTotal(lines);
+  const discountAmount = employeeDiscount
+    ? lines.reduce(
+        (sum, line) => sum + Math.round(calculateLineTotal(line) * 0.25),
+        0,
+      )
+    : 0;
+  const total = grossTotal - discountAmount;
   const withdrawalTotal = displayedWithdrawals.reduce(
     (sum, withdrawal) => sum + withdrawal.amount,
     0,
@@ -319,14 +327,21 @@ export function PosClient({
           product_id: line.id,
           quantity: line.quantity,
         })),
+        employeeDiscount,
       );
       if (!result.ok) {
         alert(result.error);
         setBusy(false);
         return;
       }
-      const soldLines = [...lines];
+      const soldLines = lines.map((line) => ({
+        ...line,
+        unitPrice: employeeDiscount
+          ? Math.round(line.price * line.quantity * 0.75) / line.quantity
+          : line.price,
+      }));
       setCart({});
+      setEmployeeDiscount(false);
       for (const line of soldLines) {
         if (!line.trackDailyAvailability) continue;
         const reduce = (current: Record<string, number>) => ({
@@ -630,7 +645,10 @@ export function PosClient({
           <div className="flex items-center gap-3">
             {lines.length > 0 && (
               <button
-                onClick={() => setCart({})}
+                onClick={() => {
+                  setCart({});
+                  setEmployeeDiscount(false);
+                }}
                 className="text-xs font-bold text-[#a24628]"
               >
                 Limpiar
@@ -744,6 +762,33 @@ export function PosClient({
               </p>
             )}
           </div>
+          {lines.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setEmployeeDiscount((current) => !current)}
+              className={`mb-3 w-full rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                employeeDiscount
+                  ? "border-[#235b45] bg-[#edf4e9] text-[#235b45]"
+                  : "border-[#deded5] bg-transparent text-[#777]"
+              }`}
+            >
+              {employeeDiscount
+                ? "✓ Descuento empleado aplicado (25%)"
+                : "Aplicar descuento empleado"}
+            </button>
+          )}
+          {employeeDiscount && (
+            <div className="mb-2 space-y-1 text-xs text-[#666]">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span className="money">{formatClp(grossTotal)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-[#235b45]">
+                <span>Descuento empleado 25%</span>
+                <span className="money">−{formatClp(discountAmount)}</span>
+              </div>
+            </div>
+          )}
           <div className="flex items-end justify-between">
             <span className="font-bold">Total</span>
             <span className="money text-3xl font-black">
