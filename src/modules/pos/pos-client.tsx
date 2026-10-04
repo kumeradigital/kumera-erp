@@ -1350,8 +1350,8 @@ function ProductGroupDialog({
   onSelect: (product: Product) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
-      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-w-lg md:rounded-3xl">
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-6">
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:w-[90vw] md:max-w-6xl md:rounded-3xl md:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777] capitalize">
@@ -1372,7 +1372,7 @@ function ProductGroupDialog({
           Cada variedad conserva su propio precio, receta, costo y margen de
           contribución.
         </p>
-        <div className="mt-5 grid grid-cols-2 gap-2">
+        <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
           {group.products.map((product) => {
             const remaining = product.trackDailyAvailability
               ? Math.max(
