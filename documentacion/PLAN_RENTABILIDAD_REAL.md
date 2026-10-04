@@ -100,6 +100,7 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 - [x] Mantener Pan como familia promedio y exigir selección individual dentro de la familia Dulces.
 - [x] Unificar dulces de distintos precios en un solo selector, eliminando la categoría Dulces Pequeños sin perder el precio individual.
 - [x] Sustituir la familia genérica Tartaleta por productos individuales dentro de Tortas/Tartaletas.
+- [x] Separar Familias promedio (Pan y Galletas) de Grupos de caja (Dulces) en administración y cálculos.
 - [ ] Comparar septiembre con TUU, Mercado Pago y registros de caja.
 - [ ] Identificar jornadas corregidas, incompletas o duplicadas.
 - [ ] Separar efectivo, transferencia, debito, credito, delivery y ventas especiales.

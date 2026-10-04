@@ -31,7 +31,7 @@ export function ProductsClient({
   archivedProducts: Product[];
 }) {
   const [section, setSection] = useState<
-    "products" | "families" | "uncosted" | "archived"
+    "products" | "families" | "groups" | "uncosted" | "archived"
   >("products");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -50,13 +50,19 @@ export function ProductsClient({
       ? archivedProducts
       : section === "uncosted"
         ? uncostedProducts
-        : products.filter((product) =>
-            section === "families"
-              ? product.isSalesFamily
-              : !product.isSalesFamily,
-          );
+        : products.filter((product) => {
+            if (section === "families")
+              return product.isSalesFamily && !product.sellMembersIndividually;
+            if (section === "groups")
+              return product.isSalesFamily && product.sellMembersIndividually;
+            return !product.isSalesFamily;
+          });
   const isFamilyForm =
-    editing?.isSalesFamily || (!editing && section === "families");
+    editing?.isSalesFamily ||
+    (!editing && (section === "families" || section === "groups"));
+  const isGroupForm =
+    editing?.sellMembersIndividually || (!editing && section === "groups");
+  const isGroupingSection = section === "families" || section === "groups";
   const categories = [
     "Todos",
     ...new Set(sectionProducts.map((product) => product.category)),
@@ -103,13 +109,15 @@ export function ProductsClient({
             {section === "products"
               ? "Crea primero cada producto o variedad con su receta y costo."
               : section === "families"
-                ? "Agrupa productos existentes bajo un único producto de venta en caja."
-                : section === "uncosted"
-                  ? "Revisa los productos activos que todavía no tienen una receta asociada."
-                  : "Recupera productos y familias conservando todos sus datos anteriores."}
+                ? "Promedia productos que se venden mezclados bajo un mismo precio, como Pan y Galletas."
+                : section === "groups"
+                  ? "Ordena la caja sin mezclar precios, recetas, costos ni estadísticas individuales."
+                  : section === "uncosted"
+                    ? "Revisa los productos activos que todavía no tienen una receta asociada."
+                    : "Recupera productos y familias conservando todos sus datos anteriores."}
           </p>
         </div>
-        {(section === "products" || section === "families") && (
+        {(section === "products" || isGroupingSection) && (
           <button
             onClick={() => {
               setEditing(null);
@@ -120,15 +128,20 @@ export function ProductsClient({
             className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-bold text-white"
           >
             <Plus size={17} />
-            {section === "families" ? "Familia" : "Producto"}
+            {section === "families"
+              ? "Familia promedio"
+              : section === "groups"
+                ? "Grupo de caja"
+                : "Producto"}
           </button>
         )}
       </div>
-      <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#ecece3] p-1.5 md:grid-cols-4">
+      <div className="mt-7 grid grid-cols-2 gap-2 rounded-2xl bg-[#ecece3] p-1.5 md:grid-cols-5">
         {(
           [
             ["products", "Productos individuales"],
-            ["families", "Familias de productos"],
+            ["families", "Familias promedio"],
+            ["groups", "Grupos de caja"],
             ["uncosted", "Sin receta"],
             ["archived", "Archivados"],
           ] as const
@@ -147,10 +160,16 @@ export function ProductsClient({
               {value === "products"
                 ? products.filter((p) => !p.isSalesFamily).length
                 : value === "families"
-                  ? products.filter((p) => p.isSalesFamily).length
-                  : value === "uncosted"
-                    ? uncostedProducts.length
-                    : archivedProducts.length}
+                  ? products.filter(
+                      (p) => p.isSalesFamily && !p.sellMembersIndividually,
+                    ).length
+                  : value === "groups"
+                    ? products.filter(
+                        (p) => p.isSalesFamily && p.sellMembersIndividually,
+                      ).length
+                    : value === "uncosted"
+                      ? uncostedProducts.length
+                      : archivedProducts.length}
             </span>
           </button>
         ))}
@@ -224,8 +243,12 @@ export function ProductsClient({
                   <tr>
                     <th className="px-4 py-3">Producto</th>
                     <th className="px-4 py-3">Categoría</th>
-                    {section === "families" && (
-                      <th className="px-4 py-3">Productos de la familia</th>
+                    {isGroupingSection && (
+                      <th className="px-4 py-3">
+                        {section === "groups"
+                          ? "Productos del grupo"
+                          : "Productos de la familia"}
+                      </th>
                     )}
                     <th className="px-4 py-3">Precio</th>
                     <th className="px-4 py-3">Venta</th>
@@ -248,7 +271,7 @@ export function ProductsClient({
                       <td className="px-4 py-3 text-[#70756d]">
                         {product.category}
                       </td>
-                      {section === "families" && (
+                      {isGroupingSection && (
                         <td className="max-w-[360px] px-4 py-3">
                           <div className="flex flex-wrap gap-1.5">
                             {products
@@ -274,23 +297,31 @@ export function ProductsClient({
                         </td>
                       )}
                       <td className="money px-4 py-3 font-black text-[#235b45]">
-                        {formatClp(product.price)}
+                        {product.sellMembersIndividually
+                          ? "Precios individuales"
+                          : formatClp(product.price)}
                       </td>
                       <td className="px-4 py-3">
-                        {product.saleUnit === "kg" ? "Por kg" : "Por unidad"}
+                        {product.sellMembersIndividually
+                          ? "Selector en caja"
+                          : product.saleUnit === "kg"
+                            ? "Por kg"
+                            : "Por unidad"}
                       </td>
                       <td className="px-4 py-3">
-                        {product.trackDailyAvailability
-                          ? "Diaria"
-                          : "Sin control"}
+                        {product.sellMembersIndividually
+                          ? "Según producto"
+                          : product.trackDailyAvailability
+                            ? "Diaria"
+                            : "Sin control"}
                       </td>
                       <td className="px-4 py-3">
                         {section === "archived"
                           ? product.isSalesFamily
                             ? "Familia archivada"
                             : "Producto archivado"
-                          : section === "families"
-                            ? `${products.filter((item) => item.familyProductId === product.id).length} variedades`
+                          : isGroupingSection
+                            ? `${products.filter((item) => item.familyProductId === product.id).length} ${product.sellMembersIndividually ? "productos" : "variedades"}`
                             : section === "uncosted"
                               ? "Sin receta"
                               : product.familyProductId
@@ -342,8 +373,14 @@ export function ProductsClient({
                         </p>
                       </div>
                       <p className="money font-black text-[#235b45]">
-                        {formatClp(p.price)}{" "}
-                        {p.saleUnit === "kg" ? "/ kg" : "/ un."}
+                        {p.sellMembersIndividually ? (
+                          "Precios individuales"
+                        ) : (
+                          <>
+                            {formatClp(p.price)}{" "}
+                            {p.saleUnit === "kg" ? "/ kg" : "/ un."}
+                          </>
+                        )}
                       </p>
                     </div>
                     {p.description && (
@@ -369,7 +406,9 @@ export function ProductsClient({
                               (item) => item.familyProductId === p.id,
                             ).length
                           }{" "}
-                          variedades vinculadas
+                          {p.sellMembersIndividually
+                            ? "productos en el selector"
+                            : "variedades vinculadas"}
                         </b>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {products
@@ -414,10 +453,12 @@ export function ProductsClient({
               {section === "products"
                 ? "productos"
                 : section === "families"
-                  ? "familias"
-                  : section === "uncosted"
-                    ? "productos sin receta"
-                    : "archivados"}{" "}
+                  ? "familias promedio"
+                  : section === "groups"
+                    ? "grupos de caja"
+                    : section === "uncosted"
+                      ? "productos sin receta"
+                      : "archivados"}{" "}
               en {category}
             </p>
             <button
@@ -435,15 +476,19 @@ export function ProductsClient({
             {section === "products"
               ? "productos"
               : section === "families"
-                ? "familias"
-                : "productos archivados"}
+                ? "familias promedio"
+                : section === "groups"
+                  ? "grupos de caja"
+                  : "productos archivados"}
           </p>
           <p className="mt-2 text-sm text-[#777]">
             {section === "products"
               ? "Crea el primero antes de formar familias."
               : section === "families"
                 ? "Crea una familia y selecciona los productos que la componen."
-                : "Los productos que archives aparecerán aquí para poder restaurarlos."}
+                : section === "groups"
+                  ? "Crea un grupo para ordenar productos individuales dentro de la caja."
+                  : "Los productos que archives aparecerán aquí para poder restaurarlos."}
           </p>
         </div>
       )}
@@ -474,6 +519,13 @@ export function ProductsClient({
               {isFamilyForm && (
                 <input type="hidden" name="isSalesFamily" value="on" />
               )}
+              {isGroupForm && (
+                <input
+                  type="hidden"
+                  name="sellMembersIndividually"
+                  value="on"
+                />
+              )}
               <Field label="Nombre *">
                 <input
                   name="name"
@@ -484,28 +536,44 @@ export function ProductsClient({
                   placeholder="Ej: Empanada de queso"
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Forma de venta *">
-                  <select
-                    name="saleUnit"
-                    className="input"
-                    defaultValue={editing?.saleUnit || "unit"}
-                  >
-                    <option value="unit">Por unidad</option>
-                    <option value="kg">Por kilogramo</option>
-                  </select>
-                </Field>
-                <Field label="Precio final *">
+              {isGroupForm ? (
+                <>
+                  <input type="hidden" name="saleUnit" value="unit" />
                   <input
+                    type="hidden"
                     name="price"
-                    required
-                    inputMode="numeric"
-                    defaultValue={editing?.price}
-                    className="input"
-                    placeholder="Por unidad o kilo"
+                    value={editing?.price || 1}
                   />
-                </Field>
-              </div>
+                  <div className="rounded-xl border border-[#cbdcc6] bg-[#edf4e9] p-4 text-xs leading-5 text-[#235b45]">
+                    <b>Este grupo no tendrá un precio común.</b> En caja abrirá
+                    un selector y cada producto conservará su precio, receta,
+                    costo y estadísticas.
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Forma de venta *">
+                    <select
+                      name="saleUnit"
+                      className="input"
+                      defaultValue={editing?.saleUnit || "unit"}
+                    >
+                      <option value="unit">Por unidad</option>
+                      <option value="kg">Por kilogramo</option>
+                    </select>
+                  </Field>
+                  <Field label="Precio final *">
+                    <input
+                      name="price"
+                      required
+                      inputMode="numeric"
+                      defaultValue={editing?.price}
+                      className="input"
+                      placeholder="Por unidad o kilo"
+                    />
+                  </Field>
+                </div>
+              )}
               {!isFamilyForm && (
                 <Field label="Precio en PedidosYa (opcional)">
                   <input
@@ -586,12 +654,14 @@ export function ProductsClient({
               {isFamilyForm && (
                 <fieldset className="rounded-xl border border-[#dfe4da] p-4">
                   <legend className="px-2 text-xs font-black text-[#235b45]">
-                    Productos que pertenecen a esta familia
+                    {isGroupForm
+                      ? "Productos que aparecen en este grupo"
+                      : "Productos que pertenecen a esta familia"}
                   </legend>
                   <p className="mb-3 text-[11px] leading-5 text-[#777]">
-                    Selecciona productos individuales ya creados. Conservarán
-                    sus recetas y costos, pero se venderán en caja bajo esta
-                    familia.
+                    {isGroupForm
+                      ? "Selecciona productos individuales ya creados. En caja se abrirá el grupo y será obligatorio escoger uno."
+                      : "Selecciona productos individuales ya creados. Sus costos se combinarán para calcular el promedio de la familia."}
                   </p>
                   <div className="grid max-h-44 gap-2 overflow-y-auto sm:grid-cols-2">
                     {products
@@ -638,7 +708,9 @@ export function ProductsClient({
                   : editing
                     ? "Guardar cambios"
                     : isFamilyForm
-                      ? "Guardar familia"
+                      ? isGroupForm
+                        ? "Guardar grupo"
+                        : "Guardar familia"
                       : "Guardar producto"}
               </button>
             </form>

@@ -40,6 +40,8 @@ export async function saveProductAction(form: FormData) {
   const trackDailyAvailability =
     saleUnit === "unit" && form.get("trackDailyAvailability") === "on";
   const isSalesFamily = form.get("isSalesFamily") === "on";
+  const sellMembersIndividually =
+    isSalesFamily && form.get("sellMembersIndividually") === "on";
   const familyMembers = form
     .getAll("familyMembers")
     .map(String)
@@ -95,6 +97,7 @@ export async function saveProductAction(form: FormData) {
     sale_unit: saleUnit,
     track_daily_availability: trackDailyAvailability,
     is_sales_family: isSalesFamily,
+    sell_members_individually: sellMembersIndividually,
     image_path: imagePath,
     updated_at: new Date().toISOString(),
   };
