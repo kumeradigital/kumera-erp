@@ -112,7 +112,7 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 
 ### 3. Auditar materias primas y precios de compra
 
-**Estado:** `[ ] Pendiente`
+**Estado:** `[~] En curso`
 
 - [ ] Revisar nombre, formato comprado, cantidad util y unidad base.
 - [ ] Verificar precio bruto, IVA recuperable y costo neto aplicable.
@@ -255,3 +255,4 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-04 | 2. Efectivo tributario         | Se registra por separado el efectivo boleteado y su cantidad de movimientos. En el cierre del 04-10 fueron $2.678 y 3 movimientos; la venta real en efectivo derivada del conteo fue $40.980. El efectivo boleteado no se suma nuevamente a la venta operacional.                            | Completado                            |
 | 2026-10-04 | 2. Cierres automaticos         | Historial de cierres permite completar o corregir una conciliacion completa: efectivo contado, debito, credito, transferencias, movimientos y efectivo boleteado, sin reabrir la caja ni duplicar ventas.                                                                                    | Completado                            |
 | 2026-10-04 | 2/4. Costeos pendientes        | El dueño completará los costeos pendientes el 06-10-2026. Hasta entonces no se validará como representativa la mezcla costeada ni se cerrará el Punto 2; al completar se recalculará la cobertura ponderada por ventas.                                                                      | Esperando carga de datos              |
+| 2026-10-04 | 3. Diagnostico materias primas | Existen 39 materias primas activas: 38 usadas en recetas, una sin precio y 35 cuyo último precio es anterior a septiembre. Tres carnes conservan rendimiento estimado. Se detecta como decisión crítica confirmar si cada compra permite crédito fiscal, porque el motor usa actualmente el monto neto para costear.                              | En curso                              |
