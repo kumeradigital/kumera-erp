@@ -3,6 +3,60 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
 import { OPERATION_CATEGORIES } from "./categories";
 
+export async function saveFinancialReconciliationAction(form: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesión no válida");
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
+  const bank = Math.round(Number(form.get("bank")));
+  const cash = Math.round(Number(form.get("cash")));
+  const reason = String(form.get("reason") || "").trim();
+  if (![bank, cash].every((value) => Number.isInteger(value) && value >= 0))
+    throw new Error("Los saldos deben ser números positivos");
+  if (reason.length < 3) throw new Error("Explica brevemente la conciliación");
+  const expectedBank = Math.round(Number(form.get("expectedBank")) || 0);
+  const expectedCash = Math.round(Number(form.get("expectedCash")) || 0);
+  const now = new Date();
+  const cutoffDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  const { data: previous } = await supabase
+    .from("financial_cutoffs")
+    .select("pending_receivables")
+    .eq("business_id", membership.business_id)
+    .order("cutoff_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const note = [
+    `Conciliación manual. Antes el ERP esperaba banco ${expectedBank} y efectivo ${expectedCash}.`,
+    `Saldos reales informados: banco ${bank} y efectivo ${cash}.`,
+    reason,
+  ].join(" ");
+  const { error } = await supabase.from("financial_cutoffs").insert({
+    business_id: membership.business_id,
+    cutoff_at: now.toISOString(),
+    cutoff_date: cutoffDate,
+    opening_bank_amount: bank,
+    opening_cash_amount: cash,
+    pending_receivables: Number(previous?.pending_receivables || 0),
+    note,
+    created_by: user.id,
+  });
+  if (error) throw error;
+  revalidatePath("/operacion");
+}
+
 export async function saveObligationAction(form: FormData) {
   const supabase = await createClient();
   const {

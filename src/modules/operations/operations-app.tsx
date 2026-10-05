@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import {
+  saveFinancialReconciliationAction,
   saveObligationAction,
   saveOperationAction,
   updateOperationAction,
@@ -55,6 +56,7 @@ export function OperationsApp({
   const [open, setOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [addingObligation, setAddingObligation] = useState(false);
+  const [reconcilingBalances, setReconcilingBalances] = useState(false);
   const [editing, setEditing] = useState<Operation | null>(null);
   const [payingObligation, setPayingObligation] =
     useState<FinancialObligation | null>(null);
@@ -109,6 +111,14 @@ export function OperationsApp({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setReconcilingBalances(true)}
+            className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+          >
+            <Landmark size={18} />
+            Conciliar saldos reales
+          </button>
           <button
             type="button"
             onClick={() => setShowGuide(true)}
@@ -332,8 +342,117 @@ export function OperationsApp({
       {addingObligation && (
         <ObligationDialog onClose={() => setAddingObligation(false)} />
       )}
+      {reconcilingBalances && (
+        <BalanceReconciliationDialog
+          expectedBank={summary.expectedBank}
+          expectedCash={summary.expectedCash}
+          onClose={() => setReconcilingBalances(false)}
+        />
+      )}
     </main>
   );
+}
+
+function BalanceReconciliationDialog({
+  expectedBank,
+  expectedCash,
+  onClose,
+}: {
+  expectedBank: number;
+  expectedCash: number;
+  onClose: () => void;
+}) {
+  const [bank, setBank] = useState(String(expectedBank));
+  const [cash, setCash] = useState(String(expectedCash));
+  const bankDifference = (Number(bank) || 0) - expectedBank;
+  const cashDifference = (Number(cash) || 0) - expectedCash;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-4">
+      <section className="max-h-[100dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Nuevo corte financiero
+            </p>
+            <h2 className="mt-1 text-2xl font-black">
+              Conciliar saldos reales
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <p className="mt-3 text-sm text-[#6f746c]">
+          Esto no borra movimientos anteriores. Guarda un nuevo punto de partida
+          y deja documentadas las diferencias encontradas.
+        </p>
+        <form
+          action={async (form) => {
+            await saveFinancialReconciliationAction(form);
+            location.reload();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <input type="hidden" name="expectedBank" value={expectedBank} />
+          <input type="hidden" name="expectedCash" value={expectedCash} />
+          <label className="block text-xs font-bold">
+            Saldo bancario real
+            <input
+              name="bank"
+              required
+              min={0}
+              inputMode="numeric"
+              value={bank}
+              onChange={(event) => setBank(event.target.value)}
+              className="input mt-2 text-lg font-black"
+            />
+            <span className="mt-1 block font-normal text-[#777]">
+              ERP: {formatClp(expectedBank)} · Diferencia:{" "}
+              {formatSigned(bankDifference)}
+            </span>
+          </label>
+          <label className="block text-xs font-bold">
+            Efectivo total real
+            <input
+              name="cash"
+              required
+              min={0}
+              inputMode="numeric"
+              value={cash}
+              onChange={(event) => setCash(event.target.value)}
+              className="input mt-2 text-lg font-black"
+            />
+            <span className="mt-1 block font-normal text-[#777]">
+              ERP: {formatClp(expectedCash)} · Diferencia:{" "}
+              {formatSigned(cashDifference)}
+            </span>
+          </label>
+          <label className="block text-xs font-bold">
+            Motivo o referencia
+            <textarea
+              name="reason"
+              required
+              minLength={3}
+              maxLength={500}
+              className="input mt-2 min-h-24 py-3"
+              placeholder="Ej. Saldos comparados con Mercado Pago y conteo físico al cierre"
+            />
+          </label>
+          <div className="rounded-xl bg-[#fff3d5] p-3 text-xs text-[#725b1b]">
+            Después de guardar, las ventas y gastos nuevos se calcularán desde
+            este corte. Úsalo solamente con saldos realmente comprobados.
+          </div>
+          <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
+            Guardar nuevo corte conciliado
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function formatSigned(value: number) {
+  return `${value > 0 ? "+" : ""}${formatClp(value)}`;
 }
 
 function ObligationGroup({
