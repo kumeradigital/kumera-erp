@@ -35,7 +35,9 @@ export function PosShell({
           <span className="grid size-9 place-items-center rounded-xl bg-[#d8f070] font-black text-[#235b45]">
             K
           </span>
-          <span className="font-black text-[#235b45]">ERP KUMERA</span>
+          <span className="hidden font-black text-[#235b45] min-[440px]:inline">
+            ERP KUMERA
+          </span>
         </Link>
         <Link
           href="/"
@@ -98,9 +100,34 @@ export function PosShell({
             icon={<LineChart size={16} />}
           />
         </nav>
+        <nav
+          className="ml-auto flex items-center gap-1 md:hidden"
+          aria-label="Navegación móvil"
+        >
+          <Link
+            href="/caja"
+            prefetch={false}
+            className={`flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black ${active === "pos" ? "bg-[#235b45] text-white" : "bg-[#f0f1e9] text-[#235b45]"}`}
+          >
+            <ShoppingCart size={17} />
+            <span>Caja</span>
+          </Link>
+          <Link
+            href="/operacion"
+            prefetch={false}
+            className={`flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black ${active === "operations" ? "bg-[#235b45] text-white" : "bg-[#f0f1e9] text-[#235b45]"}`}
+          >
+            <ReceiptText size={17} />
+            <span>Gastos</span>
+          </Link>
+        </nav>
         <form action={signOutAction} className="ml-auto shrink-0 md:ml-0">
-          <button className="rounded-lg border border-[#d7d7ce] px-3 py-2 text-xs font-bold text-[#777] hover:text-[#a33d20] md:border-0 md:px-0">
-            Cerrar sesión
+          <button
+            aria-label="Cerrar sesión"
+            className="rounded-lg border border-[#d7d7ce] px-2 py-2 text-xs font-bold text-[#777] hover:text-[#a33d20] md:border-0 md:px-0"
+          >
+            <span className="hidden sm:inline">Cerrar sesión</span>
+            <span className="sm:hidden">Salir</span>
           </button>
         </form>
       </header>
