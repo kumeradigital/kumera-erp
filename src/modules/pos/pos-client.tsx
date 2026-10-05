@@ -2737,8 +2737,8 @@ function OpenSession({
     (product) => product.trackDailyAvailability && product.saleUnit === "unit",
   );
   return (
-    <main className="grid min-h-[calc(100vh-64px)] place-items-center p-5">
-      <div className="card w-full max-w-2xl p-7 text-center">
+    <main className="grid min-h-[calc(100vh-64px)] w-full min-w-0 place-items-center overflow-x-hidden p-3 sm:p-5">
+      <div className="card min-w-0 w-full max-w-2xl p-5 text-center sm:p-7">
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#d8f070] text-[#235b45]">
           <Banknote />
         </div>
@@ -2852,7 +2852,7 @@ function OpenSession({
             />
           </label>
           {trackedProducts.length > 0 && (
-            <fieldset className="rounded-2xl border border-[#dfe3d8] bg-[#f4f6ef] p-4">
+            <fieldset className="min-w-0 rounded-2xl border border-[#dfe3d8] bg-[#f4f6ef] p-3 sm:p-4">
               <legend className="px-2 text-xs font-black uppercase tracking-wider text-[#235b45]">
                 Disponibilidad al abrir
               </legend>
@@ -2860,7 +2860,7 @@ function OpenSession({
                 Indica las unidades listas para vender. Puedes agregar nuevas
                 hornadas durante la jornada.
               </p>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 {trackedProducts.map((product) => (
                   <label
                     key={product.id}

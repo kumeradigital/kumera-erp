@@ -25,8 +25,8 @@ export function PosShell({
     | "inventory";
 }) {
   return (
-    <div className="min-h-screen bg-[#f7f6ee]">
-      <header className="flex h-16 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-[#f7f6ee]">
+      <header className="flex h-16 w-full min-w-0 items-center gap-2 overflow-hidden border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
         <Link
           href="/caja"
           prefetch={false}
@@ -101,7 +101,7 @@ export function PosShell({
           />
         </nav>
         <nav
-          className="ml-auto flex items-center gap-1 md:hidden"
+          className="ml-auto flex min-w-0 items-center gap-1 md:hidden"
           aria-label="Navegación móvil"
         >
           <Link
