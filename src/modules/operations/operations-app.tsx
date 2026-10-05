@@ -425,7 +425,7 @@ function QuickOperationDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="quick-operation-title"
-        className="max-h-[100dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5"
+        className="max-h-[100dvh] w-full min-w-0 overflow-x-hidden overflow-y-auto rounded-t-3xl bg-[#fffef9] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -458,21 +458,16 @@ function QuickOperationDialog({ onClose }: { onClose: () => void }) {
 
           <label className="block text-sm font-black">
             Monto total pagado
-            <div className="relative mt-2">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-[#235b45]">
-                $
-              </span>
-              <input
-                name="amount"
-                type="number"
-                min="1"
-                inputMode="numeric"
-                required
-                autoFocus
-                className="input h-16 pl-9 text-2xl font-black"
-                placeholder="0"
-              />
-            </div>
+            <input
+              name="amount"
+              type="number"
+              min="1"
+              inputMode="numeric"
+              required
+              autoFocus
+              className="input mt-2 h-16 text-2xl font-black"
+              placeholder="$ 0"
+            />
           </label>
 
           <fieldset>
@@ -576,7 +571,7 @@ function QuickOperationDialog({ onClose }: { onClose: () => void }) {
             materia prima desde la factura sin duplicar este gasto.
           </div>
 
-          <button className="min-h-14 w-full rounded-xl bg-[#235b45] text-lg font-black text-white">
+          <button className="sticky bottom-0 min-h-14 w-full rounded-xl bg-[#235b45] text-lg font-black text-white shadow-[0_-10px_18px_10px_#fffef9]">
             Guardar ahora
           </button>
         </form>
