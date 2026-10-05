@@ -756,6 +756,56 @@ export async function reconcileCashSessionAction(
   revalidatePath("/ventas");
   revalidatePath("/cierres");
 }
+
+export async function reconcileClosedCashSessionAction(
+  sessionId: string,
+  details: {
+    countedCash: number;
+    debit: number;
+    credit: number;
+    transfer: number;
+    debitTransactions: number;
+    creditTransactions: number;
+    transferTransactions: number;
+    documentedCash: number;
+    documentedCashTransactions: number;
+    reason: string;
+  },
+) {
+  const ctx = await context();
+  const values = [
+    details.countedCash,
+    details.debit,
+    details.credit,
+    details.transfer,
+    details.debitTransactions,
+    details.creditTransactions,
+    details.transferTransactions,
+    details.documentedCash,
+    details.documentedCashTransactions,
+  ];
+  if (values.some((value) => !Number.isInteger(value) || value < 0))
+    throw new Error("Los montos y movimientos deben ser números positivos");
+  if (details.reason.trim().length < 3)
+    throw new Error("Indica el origen de los totales");
+  const { error } = await ctx.supabase.rpc("reconcile_closed_cash_session", {
+    p_session: sessionId,
+    p_counted_cash: details.countedCash,
+    p_actual_debit: details.debit,
+    p_actual_credit: details.credit,
+    p_actual_transfer: details.transfer,
+    p_debit_transactions: details.debitTransactions,
+    p_credit_transactions: details.creditTransactions,
+    p_transfer_transactions: details.transferTransactions,
+    p_documented_cash: details.documentedCash,
+    p_documented_cash_transactions: details.documentedCashTransactions,
+    p_reason: details.reason.trim(),
+  });
+  if (error) throw error;
+  revalidatePath("/caja");
+  revalidatePath("/ventas");
+  revalidatePath("/cierres");
+}
 export async function registerSaleAction(
   sessionId: string,
   payment: PaymentMethod | "unclassified",

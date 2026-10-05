@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, History, Pencil, X } from "lucide-react";
 import { formatClp } from "@/shared/money";
-import { reconcileCashSessionAction } from "./actions";
+import { reconcileClosedCashSessionAction } from "./actions";
 import type { CashClosure } from "./data";
 
 export function CashClosureHistory({
@@ -65,9 +65,9 @@ export function CashClosureHistory({
                 className="flex items-center gap-2 rounded-xl border border-[#d7d7ce] bg-white px-4 py-2.5 text-xs font-bold"
               >
                 <Pencil size={14} />{" "}
-                {closure.countedCash == null
-                  ? "Completar cierre"
-                  : "Corregir conteo"}
+                {closure.reconciliation == null
+                  ? "Completar conciliación"
+                  : "Corregir conciliación"}
               </button>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
@@ -263,18 +263,26 @@ function CorrectionDialog({
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [countedCash, setCountedCash] = useState(
+    String(closure.countedCash ?? ""),
+  );
+  const actualCash = Math.max(
+    0,
+    (Number(countedCash) || 0) - closure.openingCash + closure.withdrawalTotal,
+  );
+  const reconciliation = closure.reconciliation;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
-      <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl">
+    <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto bg-black/50 md:place-items-center md:p-4">
+      <div className="max-h-[100dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-h-[calc(100dvh-2rem)] md:max-w-xl md:rounded-3xl">
         <div className="flex justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
               Historial de cierres
             </p>
             <h2 className="mt-1 text-2xl font-black">
-              {closure.countedCash == null
-                ? "Completar cierre"
-                : "Corregir conteo"}
+              {reconciliation == null
+                ? "Completar conciliación"
+                : "Corregir conciliación"}
             </h2>
           </div>
           <button onClick={onClose}>
@@ -292,16 +300,29 @@ function CorrectionDialog({
               <b>{formatClp(closure.countedCash)}</b>
             </div>
           )}
+          <div className="mt-2 flex justify-between font-bold text-[#235b45]">
+            <span>Venta real en efectivo calculada</span>
+            <b>{formatClp(actualCash)}</b>
+          </div>
         </div>
         <form
           action={async (form) => {
             setBusy(true);
             try {
-              await reconcileCashSessionAction(
-                closure.id,
-                Number(form.get("countedCash")),
-                String(form.get("reason") || ""),
-              );
+              await reconcileClosedCashSessionAction(closure.id, {
+                countedCash: Number(form.get("countedCash")),
+                debit: Number(form.get("debit")),
+                credit: Number(form.get("credit")),
+                transfer: Number(form.get("transfer")),
+                debitTransactions: Number(form.get("debitTransactions")),
+                creditTransactions: Number(form.get("creditTransactions")),
+                transferTransactions: Number(form.get("transferTransactions")),
+                documentedCash: Number(form.get("documentedCash")),
+                documentedCashTransactions: Number(
+                  form.get("documentedCashTransactions"),
+                ),
+                reason: String(form.get("reason") || ""),
+              });
               location.reload();
             } catch (error) {
               alert(
@@ -319,9 +340,52 @@ function CorrectionDialog({
               required
               inputMode="numeric"
               defaultValue={closure.countedCash ?? ""}
+              onChange={(event) => setCountedCash(event.target.value)}
               className="input mt-2"
             />
           </label>
+          <div className="grid grid-cols-2 gap-3">
+            <MoneyField
+              name="debit"
+              label="Débito"
+              defaultValue={reconciliation?.byPayment.debit ?? 0}
+            />
+            <MoneyField
+              name="debitTransactions"
+              label="Movimientos débito"
+              defaultValue={reconciliation?.transactionsByPayment.debit ?? 0}
+            />
+            <MoneyField
+              name="credit"
+              label="Crédito"
+              defaultValue={reconciliation?.byPayment.credit ?? 0}
+            />
+            <MoneyField
+              name="creditTransactions"
+              label="Movimientos crédito"
+              defaultValue={reconciliation?.transactionsByPayment.credit ?? 0}
+            />
+            <MoneyField
+              name="transfer"
+              label="Transferencias"
+              defaultValue={reconciliation?.byPayment.transfer ?? 0}
+            />
+            <MoneyField
+              name="transferTransactions"
+              label="Movimientos transferencia"
+              defaultValue={reconciliation?.transactionsByPayment.transfer ?? 0}
+            />
+            <MoneyField
+              name="documentedCash"
+              label="Efectivo boleteado"
+              defaultValue={closure.documentedCash}
+            />
+            <MoneyField
+              name="documentedCashTransactions"
+              label="Movimientos efectivo"
+              defaultValue={closure.documentedCashTransactions}
+            />
+          </div>
           <label className="block text-xs font-bold">
             Motivo de la corrección *
             <textarea
@@ -343,6 +407,30 @@ function CorrectionDialog({
         </form>
       </div>
     </div>
+  );
+}
+
+function MoneyField({
+  name,
+  label,
+  defaultValue,
+}: {
+  name: string;
+  label: string;
+  defaultValue: number;
+}) {
+  return (
+    <label className="block text-xs font-bold">
+      {label}
+      <input
+        name={name}
+        required
+        min={0}
+        inputMode="numeric"
+        defaultValue={defaultValue}
+        className="input mt-2"
+      />
+    </label>
   );
 }
 

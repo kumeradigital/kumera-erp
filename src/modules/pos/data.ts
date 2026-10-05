@@ -909,8 +909,11 @@ export type CashClosure = {
   note: string | null;
   reconciliation: {
     byPayment: Record<PaymentMethod, number>;
+    transactionsByPayment: Record<PaymentMethod, number>;
     reason: string;
   } | null;
+  documentedCash: number;
+  documentedCashTransactions: number;
   waste: {
     name: string;
     quantity: number;
@@ -932,7 +935,7 @@ export async function getCashClosureHistory(
   const { data, error } = await supabase
     .from("cash_sessions")
     .select(
-      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,sales(total,cash_rounding_amount,payment_method,status),cash_session_withdrawals(id,amount,reason,category,is_business_expense,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
+      "id,opening_cash,counted_cash,opening_note,closing_note,opened_at,closed_at,auto_closed,documented_cash_sales,documented_cash_transactions,sales(total,cash_rounding_amount,payment_method,status),cash_session_withdrawals(id,amount,reason,category,is_business_expense,created_at),cash_session_adjustments(previous_counted_cash,new_counted_cash,reason,created_at),cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,actual_cash_transactions,actual_debit_transactions,actual_credit_transactions,actual_transfer_transactions,reason),cash_session_product_waste(product_name,quantity,sale_unit,note)",
     )
     .eq("business_id", businessId)
     .eq("status", "closed")
@@ -999,6 +1002,8 @@ export async function getCashClosureHistory(
       countedCash,
       difference: countedCash == null ? null : countedCash - expectedCash,
       note: row.closing_note,
+      documentedCash: Number(row.documented_cash_sales || 0),
+      documentedCashTransactions: Number(row.documented_cash_transactions || 0),
       reconciliation: reconciliation
         ? {
             byPayment: {
@@ -1006,6 +1011,12 @@ export async function getCashClosureHistory(
               debit: Number(reconciliation.actual_debit_sales),
               credit: Number(reconciliation.actual_credit_sales),
               transfer: Number(reconciliation.actual_transfer_sales),
+            },
+            transactionsByPayment: {
+              cash: Number(reconciliation.actual_cash_transactions),
+              debit: Number(reconciliation.actual_debit_transactions),
+              credit: Number(reconciliation.actual_credit_transactions),
+              transfer: Number(reconciliation.actual_transfer_transactions),
             },
             reason: reconciliation.reason,
           }
