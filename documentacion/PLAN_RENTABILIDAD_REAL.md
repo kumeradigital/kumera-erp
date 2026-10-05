@@ -95,7 +95,7 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 - [x] Confirmar que cada jornada usa el cierre conciliado como venta oficial para el analisis operacional.
 - [x] Auditar los cierres del 1 al 3 de octubre contra el detalle registrado en caja.
 - [x] Confirmar que la venta conciliada sin detalle no se considera de costo cero: recibe el margen promedio observado de los productos costeados.
-- [ ] Validar que la mezcla de productos costeados sea representativa antes de confiar en ese margen estimado.
+- [!] Validar que la mezcla de productos costeados sea representativa antes de confiar en ese margen estimado. Los costeos pendientes serán completados por el dueño el 06-10-2026; ese día se recalculará la cobertura ponderada por ventas.
 - [x] Definir control diario de calidad: verde bajo 2%, amarillo entre 2% y 5%, rojo sobre 5% de diferencia sin desglose.
 - [x] Mantener Pan como familia promedio y exigir selección individual dentro de la familia Dulces.
 - [x] Unificar dulces de distintos precios en un solo selector, eliminando la categoría Dulces Pequeños sin perder el precio individual.
@@ -254,3 +254,4 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-04 | 2. Calidad del registro        | El cierre conciliado del 04-10 suma $396.029 y el detalle registrado por productos $387.040. Quedan $8.989 sin desglose: cobertura diaria 97,7%. El ERP muestra verde bajo 2%, amarillo entre 2% y 5% y rojo sobre 5%.                                                                          | Verificado                            |
 | 2026-10-04 | 2. Efectivo tributario         | Se registra por separado el efectivo boleteado y su cantidad de movimientos. En el cierre del 04-10 fueron $2.678 y 3 movimientos; la venta real en efectivo derivada del conteo fue $40.980. El efectivo boleteado no se suma nuevamente a la venta operacional.                            | Completado                            |
 | 2026-10-04 | 2. Cierres automaticos         | Historial de cierres permite completar o corregir una conciliacion completa: efectivo contado, debito, credito, transferencias, movimientos y efectivo boleteado, sin reabrir la caja ni duplicar ventas.                                                                                    | Completado                            |
+| 2026-10-04 | 2/4. Costeos pendientes        | El dueño completará los costeos pendientes el 06-10-2026. Hasta entonces no se validará como representativa la mezcla costeada ni se cerrará el Punto 2; al completar se recalculará la cobertura ponderada por ventas.                                                                      | Esperando carga de datos              |
