@@ -54,6 +54,8 @@ export function OperationsApp({
   };
 }) {
   const [open, setOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [showMobileDashboard, setShowMobileDashboard] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [addingObligation, setAddingObligation] = useState(false);
   const [reconcilingBalances, setReconcilingBalances] = useState(false);
@@ -100,83 +102,173 @@ export function OperationsApp({
     : [];
   return (
     <main className="mx-auto max-w-7xl p-5 md:p-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
-            Control financiero
+      <section className="md:hidden">
+        <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
+          Registro en terreno
+        </p>
+        <h1 className="mt-2 text-3xl font-black">Anotar una compra</h1>
+        <p className="mt-2 text-sm leading-6 text-[#676d65]">
+          Regístrala apenas pagues. Después podrás actualizar los precios de las
+          materias primas usando la factura completa.
+        </p>
+        <button
+          type="button"
+          onClick={() => setQuickOpen(true)}
+          className="mt-5 flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#235b45] px-5 text-lg font-black text-white shadow-sm"
+        >
+          <Plus size={22} /> Registrar compra o gasto
+        </button>
+        <div className="mt-4 rounded-2xl border border-[#d8dfd5] bg-white p-4">
+          <p className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
+            Últimos registros
           </p>
-          <h1 className="mt-2 text-3xl font-black">Finanzas reales</h1>
-          <p className="mt-2 text-sm text-[#747970]">
-            Saldos esperados desde el último corte conciliado.
+          <div className="mt-3 divide-y divide-[#e5e5dc]">
+            {operations.slice(0, 3).map((operation) => (
+              <div
+                key={operation.id}
+                className="flex items-center justify-between gap-3 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-bold">{operation.description}</p>
+                  <p className="mt-1 text-xs text-[#777]">
+                    {formatDate(operation.date)} · {operation.category}
+                  </p>
+                </div>
+                <p className="money shrink-0 font-black">
+                  {formatClp(operation.gross)}
+                </p>
+              </div>
+            ))}
+            {!operations.length && (
+              <p className="py-4 text-sm text-[#777]">
+                Todavía no hay movimientos registrados.
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowMobileDashboard((value) => !value)}
+          className="mt-4 w-full rounded-xl border border-[#bfc8bc] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+        >
+          {showMobileDashboard
+            ? "Ocultar panel financiero"
+            : "Ver panel financiero completo"}
+        </button>
+      </section>
+      <div className={`${showMobileDashboard ? "block" : "hidden"} md:block`}>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
+              Control financiero
+            </p>
+            <h1 className="mt-2 text-3xl font-black">Finanzas reales</h1>
+            <p className="mt-2 text-sm text-[#747970]">
+              Saldos esperados desde el último corte conciliado.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setReconcilingBalances(true)}
+              className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+            >
+              <Landmark size={18} />
+              Conciliar saldos reales
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGuide(true)}
+              className="flex items-center gap-2 rounded-xl border border-[#bfc8bc] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+            >
+              <CircleHelp size={18} />
+              ¿Cómo registrar correctamente?
+            </button>
+            <button
+              onClick={() => setOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
+            >
+              <Plus size={17} />
+              Movimiento
+            </button>
+          </div>
+        </div>
+        <div className="mt-6 rounded-2xl border border-[#bed5b9] bg-[#edf6e9] p-5">
+          <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+            Corte conciliado al {formatDate(cutoff.cutoffDate)}
+          </p>
+          <p className="mt-2 text-sm text-[#586158]">
+            Partimos con {formatClp(cutoff.openingBank)} en banco y{" "}
+            {formatClp(cutoff.openingCash)} en efectivo. Los pagos posteriores,
+            incluido el impuesto ya pagado, se descuentan sólo cuando están
+            verificados.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setReconcilingBalances(true)}
-            className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
-          >
-            <Landmark size={18} />
-            Conciliar saldos reales
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowGuide(true)}
-            className="flex items-center gap-2 rounded-xl border border-[#bfc8bc] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
-          >
-            <CircleHelp size={18} />
-            ¿Cómo registrar correctamente?
-          </button>
-          <button
-            onClick={() => setOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
-          >
-            <Plus size={17} />
-            Movimiento
-          </button>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
+          <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
+          <Metric l="Efectivo esperado" v={summary.expectedCash} icon="cash" />
+          <Metric l="Ventas conciliadas de este mes" v={summary.salesTotal} />
+          <Metric
+            l="Egresos verificados de este mes"
+            v={summary.operatingExpenses}
+          />
+          <Metric
+            l="Compromisos de este mes"
+            v={summary.pendingObligations}
+            warning
+          />
         </div>
-      </div>
-      <div className="mt-6 rounded-2xl border border-[#bed5b9] bg-[#edf6e9] p-5">
-        <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
-          Corte conciliado al {formatDate(cutoff.cutoffDate)}
-        </p>
-        <p className="mt-2 text-sm text-[#586158]">
-          Partimos con {formatClp(cutoff.openingBank)} en banco y{" "}
-          {formatClp(cutoff.openingCash)} en efectivo. Los pagos posteriores,
-          incluido el impuesto ya pagado, se descuentan sólo cuando están
-          verificados.
-        </p>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
-        <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
-        <Metric l="Efectivo esperado" v={summary.expectedCash} icon="cash" />
-        <Metric l="Ventas conciliadas de este mes" v={summary.salesTotal} />
-        <Metric
-          l="Egresos verificados de este mes"
-          v={summary.operatingExpenses}
-        />
-        <Metric
-          l="Compromisos de este mes"
-          v={summary.pendingObligations}
-          warning
-        />
-      </div>
-      <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
-        <strong className="text-[#252822]">
-          Esto controla dinero real, no calcula rentabilidad.
-        </strong>{" "}
-        La rentabilidad se calcula aparte en Costos con recetas, comisiones y
-        costos fijos. Un compromiso pendiente no baja el saldo hasta que se
-        paga.
-      </div>
-      {!!obligations.length && (
-        <section className="card mt-6 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
+          <strong className="text-[#252822]">
+            Esto controla dinero real, no calcula rentabilidad.
+          </strong>{" "}
+          La rentabilidad se calcula aparte en Costos con recetas, comisiones y
+          costos fijos. Un compromiso pendiente no baja el saldo hasta que se
+          paga.
+        </div>
+        {!!obligations.length && (
+          <section className="card mt-6 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-black">Próximos pagos</h2>
+                <p className="mt-1 text-xs text-[#777]">
+                  Incluye montos confirmados y recordatorios por calcular.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingObligation(true)}
+                className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
+              >
+                <Plus size={16} /> Compromiso
+              </button>
+            </div>
+            <div className="mt-4 grid gap-5 lg:grid-cols-2">
+              <ObligationGroup
+                title="Este mes"
+                subtitle="Pagos que todavía corresponden al período actual"
+                obligations={currentObligations}
+                empty="No quedan compromisos con monto conocido para este mes."
+                onPay={setPayingObligation}
+                current
+              />
+              <ObligationGroup
+                title="Mes siguiente"
+                subtitle="Reservas futuras; todavía no están vencidas"
+                obligations={futureObligations}
+                empty="No hay compromisos futuros registrados."
+                onPay={setPayingObligation}
+              />
+            </div>
+          </section>
+        )}
+        {!obligations.length && (
+          <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
             <div>
               <h2 className="font-black">Próximos pagos</h2>
-              <p className="mt-1 text-xs text-[#777]">
-                Incluye montos confirmados y recordatorios por calcular.
+              <p className="mt-1 text-sm text-[#777]">
+                No hay compromisos pendientes registrados.
               </p>
             </div>
             <button
@@ -186,138 +278,107 @@ export function OperationsApp({
             >
               <Plus size={16} /> Compromiso
             </button>
-          </div>
-          <div className="mt-4 grid gap-5 lg:grid-cols-2">
-            <ObligationGroup
-              title="Este mes"
-              subtitle="Pagos que todavía corresponden al período actual"
-              obligations={currentObligations}
-              empty="No quedan compromisos con monto conocido para este mes."
-              onPay={setPayingObligation}
-              current
-            />
-            <ObligationGroup
-              title="Mes siguiente"
-              subtitle="Reservas futuras; todavía no están vencidas"
-              obligations={futureObligations}
-              empty="No hay compromisos futuros registrados."
-              onPay={setPayingObligation}
-            />
-          </div>
-        </section>
-      )}
-      {!obligations.length && (
-        <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
-          <div>
-            <h2 className="font-black">Próximos pagos</h2>
-            <p className="mt-1 text-sm text-[#777]">
-              No hay compromisos pendientes registrados.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setAddingObligation(true)}
-            className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
-          >
-            <Plus size={16} /> Compromiso
-          </button>
-        </section>
-      )}
-      {ledger?.status !== "closed" && (
-        <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
-          Cierra primero la Puesta en marcha para fijar oficialmente la
-          inversión por recuperar.
-        </p>
-      )}
-      <div className="card mt-6 p-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_220px_220px_auto]">
-          <label className="relative">
-            <Search
-              size={17}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]"
-            />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar descripción o proveedor"
-              className="input pl-10"
-            />
-          </label>
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            className="input"
-            aria-label="Filtrar por tipo"
-          >
-            <option value="all">Todos los tipos</option>
-            {Object.entries(operationLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            className="input"
-            aria-label="Filtrar por categoría"
-          >
-            <option value="all">Todas las categorías</option>
-            {categories.map((category) => (
-              <option key={category}>{category}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => setGroupByType((value) => !value)}
-            className={`rounded-xl border px-4 text-sm font-black ${groupByType ? "border-[#235b45] bg-[#eaf3ea] text-[#235b45]" : "border-[#deded5]"}`}
-          >
-            {groupByType ? "Vista normal" : "Agrupar por tipo"}
-          </button>
-        </div>
-        <p className="mt-3 text-xs text-[#777]">
-          {visibleOperations.length} de {operations.length} movimientos
-        </p>
-      </div>
-      <div className="card mt-4 overflow-x-auto">
-        <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
-            <tr>
-              <th className="p-4">Fecha</th>
-              <th>Descripción</th>
-              <th>Tipo</th>
-              <th>Categoría</th>
-              <th>Estado</th>
-              <th>Materia prima</th>
-              <th className="text-right">Monto</th>
-              <th className="w-24 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {groupByType
-              ? groups.map(([type, items]) => (
-                  <OperationGroup
-                    key={type}
-                    type={type}
-                    operations={items}
-                    onEdit={setEditing}
-                  />
-                ))
-              : visibleOperations.map((operation) => (
-                  <OperationRow
-                    key={operation.id}
-                    operation={operation}
-                    onEdit={setEditing}
-                  />
-                ))}
-          </tbody>
-        </table>
-        {!visibleOperations.length && (
-          <p className="p-10 text-center text-sm text-[#777]">
-            No hay movimientos que coincidan con los filtros.
+          </section>
+        )}
+        {ledger?.status !== "closed" && (
+          <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
+            Cierra primero la Puesta en marcha para fijar oficialmente la
+            inversión por recuperar.
           </p>
         )}
+        <div className="card mt-6 p-4">
+          <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_220px_220px_auto]">
+            <label className="relative">
+              <Search
+                size={17}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]"
+              />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar descripción o proveedor"
+                className="input pl-10"
+              />
+            </label>
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value)}
+              className="input"
+              aria-label="Filtrar por tipo"
+            >
+              <option value="all">Todos los tipos</option>
+              {Object.entries(operationLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="input"
+              aria-label="Filtrar por categoría"
+            >
+              <option value="all">Todas las categorías</option>
+              {categories.map((category) => (
+                <option key={category}>{category}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setGroupByType((value) => !value)}
+              className={`rounded-xl border px-4 text-sm font-black ${groupByType ? "border-[#235b45] bg-[#eaf3ea] text-[#235b45]" : "border-[#deded5]"}`}
+            >
+              {groupByType ? "Vista normal" : "Agrupar por tipo"}
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-[#777]">
+            {visibleOperations.length} de {operations.length} movimientos
+          </p>
+        </div>
+        <div className="card mt-4 overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
+              <tr>
+                <th className="p-4">Fecha</th>
+                <th>Descripción</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th>Materia prima</th>
+                <th className="text-right">Monto</th>
+                <th className="w-24 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {groupByType
+                ? groups.map(([type, items]) => (
+                    <OperationGroup
+                      key={type}
+                      type={type}
+                      operations={items}
+                      onEdit={setEditing}
+                    />
+                  ))
+                : visibleOperations.map((operation) => (
+                    <OperationRow
+                      key={operation.id}
+                      operation={operation}
+                      onEdit={setEditing}
+                    />
+                  ))}
+            </tbody>
+          </table>
+          {!visibleOperations.length && (
+            <p className="p-10 text-center text-sm text-[#777]">
+              No hay movimientos que coincidan con los filtros.
+            </p>
+          )}
+        </div>
       </div>
+      {quickOpen && (
+        <QuickOperationDialog onClose={() => setQuickOpen(false)} />
+      )}
       {open && (
         <OperationDialog
           ingredients={ingredients}
@@ -350,6 +411,177 @@ export function OperationsApp({
         />
       )}
     </main>
+  );
+}
+
+function QuickOperationDialog({ onClose }: { onClose: () => void }) {
+  const [type, setType] = useState<"purchase" | "expense">("purchase");
+  const [category, setCategory] = useState("Materias primas");
+  const categories = OPERATION_CATEGORIES_BY_TYPE[type];
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:hidden">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quick-operation-title"
+        className="max-h-[100dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Registro rápido
+            </p>
+            <h2 id="quick-operation-title" className="mt-1 text-2xl font-black">
+              Nueva compra o gasto
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-full bg-[#f0f0e8] p-3"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <form
+          action={async (form) => {
+            await saveOperationAction(form);
+            location.reload();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <input type="hidden" name="date" value={todayInChile()} />
+          <input type="hidden" name="financialStatus" value="verified" />
+
+          <label className="block text-sm font-black">
+            Monto total pagado
+            <div className="relative mt-2">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-[#235b45]">
+                $
+              </span>
+              <input
+                name="amount"
+                type="number"
+                min="1"
+                inputMode="numeric"
+                required
+                autoFocus
+                className="input h-16 pl-9 text-2xl font-black"
+                placeholder="0"
+              />
+            </div>
+          </label>
+
+          <fieldset>
+            <legend className="text-sm font-black">¿Cómo pagaste?</legend>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {[
+                ["debit", "Débito"],
+                ["cash", "Efectivo"],
+                ["credit", "Crédito"],
+                ["transfer", "Transferencia"],
+              ].map(([value, label], index) => (
+                <label key={value} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={value}
+                    defaultChecked={index === 0}
+                    className="peer sr-only"
+                  />
+                  <span className="flex min-h-12 items-center justify-center rounded-xl border border-[#d7dbd3] bg-white px-3 font-bold peer-checked:border-[#235b45] peer-checked:bg-[#e8f2e7] peer-checked:text-[#235b45]">
+                    {label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="block text-sm font-black">
+            ¿Qué compraste o pagaste?
+            <input
+              name="description"
+              required
+              maxLength={160}
+              className="input mt-2 h-14 text-base"
+              placeholder="Ej. Harina e insumos"
+            />
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">
+              Tipo
+              <select
+                name="type"
+                value={type}
+                onChange={(event) => {
+                  const next = event.target.value as "purchase" | "expense";
+                  setType(next);
+                  setCategory(DEFAULT_OPERATION_CATEGORY[next]);
+                }}
+                className="input mt-2"
+              >
+                <option value="purchase">Compra</option>
+                <option value="expense">Gasto</option>
+              </select>
+            </label>
+            <label className="text-xs font-bold">
+              Categoría
+              <select
+                name="category"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="input mt-2"
+              >
+                {categories.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">
+              Documento
+              <select
+                name="taxMode"
+                defaultValue="included"
+                className="input mt-2"
+              >
+                <option value="included">Factura con IVA</option>
+                <option value="exempt">Sin crédito IVA</option>
+              </select>
+            </label>
+            <label className="text-xs font-bold">
+              Proveedor
+              <input
+                name="supplier"
+                className="input mt-2"
+                placeholder="Opcional"
+              />
+            </label>
+          </div>
+
+          <label className="block text-xs font-bold">
+            Nota o número de factura
+            <input name="note" className="input mt-2" placeholder="Opcional" />
+          </label>
+
+          <div className="rounded-xl bg-[#edf6e9] p-3 text-xs leading-5 text-[#345443]">
+            Se registrará con fecha de hoy y como dinero ya pagado. Carga el
+            total una sola vez; luego podrás actualizar los precios de cada
+            materia prima desde la factura sin duplicar este gasto.
+          </div>
+
+          <button className="min-h-14 w-full rounded-xl bg-[#235b45] text-lg font-black text-white">
+            Guardar ahora
+          </button>
+        </form>
+      </section>
+    </div>
   );
 }
 
