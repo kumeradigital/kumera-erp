@@ -117,7 +117,7 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 - [ ] Revisar nombre, formato comprado, cantidad util y unidad base.
 - [x] Verificar política tributaria: las compras habituales se realizan con factura electrónica y derecho a crédito fiscal; el costeo utiliza el precio neto.
 - [ ] Revisar rendimiento y perdida de cada materia prima.
-- [ ] Detectar precios antiguos, faltantes o ingresados con unidad equivocada.
+- [~] La mayoría de los precios fue actualizada con la compra del 05-10; falta validar cobertura, formatos y unidades.
 - [ ] Definir politica de precio vigente y conservar historial por fecha.
 
 **Criterio de termino:** cada ingrediente relevante tiene precio, formato, rendimiento y fecha verificables.
@@ -257,3 +257,4 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-04 | 2/4. Costeos pendientes        | El dueño completará los costeos pendientes el 06-10-2026. Hasta entonces no se validará como representativa la mezcla costeada ni se cerrará el Punto 2; al completar se recalculará la cobertura ponderada por ventas.                                                                      | Esperando carga de datos              |
 | 2026-10-04 | 3. Diagnostico materias primas | Existen 39 materias primas activas: 38 usadas en recetas, una sin precio y 35 cuyo último precio es anterior a septiembre. Tres carnes conservan rendimiento estimado. Se detecta como decisión crítica confirmar si cada compra permite crédito fiscal, porque el motor usa actualmente el monto neto para costear.                              | En curso                              |
 | 2026-10-04 | 3. Politica de compras         | Las compras habituales se centralizan en una distribuidora que emite factura electrónica con derecho a crédito fiscal. Aunque algunos precios unitarios pueden ser mayores, el tiempo de compra bajó de 5 a 1,5 horas y el recorrido disminuyó 15 km. Para recetas se usará costo neto; monto bruto e IVA se conservarán para caja y control tributario. | Confirmado                            |
+| 2026-10-05 | 3. Actualización de precios    | Se actualizó la mayoría de los precios desde la compra vigente. En carnes también cambió el producto comprado por uno con muy poca grasa descartable; no se reutilizarán automáticamente los rendimientos antiguos, porque el costo útil debe considerar la merma real de la nueva carne.                                                           | Precios cargados; rendimiento pendiente |
