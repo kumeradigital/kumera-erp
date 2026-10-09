@@ -620,8 +620,8 @@ export function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
             <h2 className="font-black">Pulso del negocio</h2>
           </div>
           <p className="mt-1 text-xs leading-5 text-[#667066]">
-            Tendencia preliminar construida únicamente con jornadas cerradas y
-            conciliadas.
+            Tendencia preliminar desde el 1 de octubre, construida únicamente
+            con jornadas cerradas y conciliadas.
           </p>
         </div>
         <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#55705e]">

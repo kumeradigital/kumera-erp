@@ -48,6 +48,34 @@ const chileDateFormatter = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+const profitabilityBaselineDate = "2026-10-01";
+
+function santiagoMidnightUtc(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const guess = Date.UTC(year, month - 1, day);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(guess));
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const localAsUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
+  return new Date(guess - (localAsUtc - guess)).toISOString();
+}
+
 function chileClock(date: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Santiago",
@@ -81,9 +109,7 @@ export async function getSalesPace(): Promise<SalesPace | null> {
   const now = new Date();
   const today = chileDateFormatter.format(now);
   const currentClock = chileClock(now);
-  const since = new Date(
-    now.getTime() - 90 * 24 * 60 * 60 * 1000,
-  ).toISOString();
+  const since = santiagoMidnightUtc(profitabilityBaselineDate);
 
   const { data: sessions, error: sessionsError } = await supabase
     .from("cash_sessions")
@@ -248,8 +274,8 @@ export async function getSalesPace(): Promise<SalesPace | null> {
     comparableDays: comparisonDays.length,
     comparisonLabel:
       sameWeekday.length >= 2
-        ? `últimos ${comparisonDays.length} ${new Intl.DateTimeFormat("es-CL", { weekday: "long", timeZone: "America/Santiago" }).format(now)}`
-        : `últimas ${comparisonDays.length} jornadas`,
+        ? `${comparisonDays.length} ${new Intl.DateTimeFormat("es-CL", { weekday: "long", timeZone: "America/Santiago" }).format(now)} de octubre`
+        : `${comparisonDays.length} jornadas de octubre`,
   };
 }
 
@@ -263,6 +289,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       )
       .eq("business_id", businessId)
       .eq("status", "closed")
+      .gte("opened_at", santiagoMidnightUtc(profitabilityBaselineDate))
       .order("opened_at", { ascending: false })
       .limit(60),
     supabase
@@ -309,6 +336,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       .from("sales")
       .select("sale_items(product_id,quantity,line_total)")
       .eq("business_id", businessId)
+      .eq("status", "completed")
       .in("cash_session_id", sessionIds);
     if (salesError) throw salesError;
     const analysisMap = new Map(
@@ -1319,32 +1347,6 @@ export async function getTodaySalesTotal(): Promise<{
   const today = chileDateFormatter.format(new Date());
   const tomorrow = new Date(`${today}T12:00:00Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-
-  const santiagoMidnightUtc = (date: string) => {
-    const [year, month, day] = date.split("-").map(Number);
-    const guess = Date.UTC(year, month - 1, day);
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Santiago",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date(guess));
-    const value = (type: Intl.DateTimeFormatPartTypes) =>
-      Number(parts.find((part) => part.type === type)?.value);
-    const localAsUtc = Date.UTC(
-      value("year"),
-      value("month") - 1,
-      value("day"),
-      value("hour"),
-      value("minute"),
-      value("second"),
-    );
-    return new Date(guess - (localAsUtc - guess)).toISOString();
-  };
 
   const range = {
     from: santiagoMidnightUtc(today),
