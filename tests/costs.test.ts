@@ -43,6 +43,7 @@ const settings: CostSettings = {
   cardSettlementDays: 0,
   expectedTicketAmount: 6000,
   targetMonthlyProfit: 0,
+  operationalWastePercentage: 2,
 };
 
 describe("motor de costos", () => {
@@ -145,7 +146,51 @@ describe("motor de costos", () => {
           },
         ],
         26,
+        "2026-10-09",
       ),
     ).toBe(610000);
+  });
+
+  it("respeta las fechas de vigencia de los costos fijos", () => {
+    expect(
+      monthlyFixedCost(
+        [
+          {
+            id: "current",
+            name: "Vigente",
+            category: "Prueba",
+            amount: 100000,
+            period: "monthly",
+            startsOn: "2026-10-01",
+            endsOn: "2026-10-31",
+            active: true,
+            affectsProfitability: true,
+          },
+          {
+            id: "future",
+            name: "Futuro",
+            category: "Prueba",
+            amount: 200000,
+            period: "monthly",
+            startsOn: "2026-11-01",
+            active: true,
+            affectsProfitability: true,
+          },
+          {
+            id: "ended",
+            name: "Terminado",
+            category: "Prueba",
+            amount: 300000,
+            period: "monthly",
+            startsOn: "2026-08-01",
+            endsOn: "2026-09-30",
+            active: true,
+            affectsProfitability: true,
+          },
+        ],
+        26,
+        "2026-10-09",
+      ),
+    ).toBe(100000);
   });
 });

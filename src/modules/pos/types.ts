@@ -100,6 +100,8 @@ export type BusinessPulse = {
   recipeCostCoveragePercentage: number;
   salesWithoutProductDetail: number;
   projectedMonthlyContribution: number;
+  projectedMonthlyWasteReserve: number;
+  operationalWastePercentage: number;
   observedContributionPercentage: number;
   monthlyFixedCosts: number;
   projectedMonthlyOperatingResult: number;

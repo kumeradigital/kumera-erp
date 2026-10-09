@@ -161,9 +161,24 @@ export function analyzeProducts(
   });
 }
 
-export function monthlyFixedCost(costs: FixedCost[], operatingDays: number) {
+export function monthlyFixedCost(
+  costs: FixedCost[],
+  operatingDays: number,
+  referenceDate = new Date().toISOString().slice(0, 10),
+) {
+  const monthStart = `${referenceDate.slice(0, 7)}-01`;
+  const [year, month] = monthStart.split("-").map(Number);
+  const monthEnd = new Date(Date.UTC(year, month, 0))
+    .toISOString()
+    .slice(0, 10);
   return costs
-    .filter((cost) => cost.active && cost.affectsProfitability !== false)
+    .filter(
+      (cost) =>
+        cost.active &&
+        cost.affectsProfitability !== false &&
+        cost.startsOn <= monthEnd &&
+        (!cost.endsOn || cost.endsOn >= monthStart),
+    )
     .reduce((total, cost) => {
       const factor = {
         daily: operatingDays,
@@ -174,4 +189,11 @@ export function monthlyFixedCost(costs: FixedCost[], operatingDays: number) {
       }[cost.period];
       return total + cost.amount * factor;
     }, 0);
+}
+
+export function operationalWasteReserve(
+  grossSales: number,
+  percentage: number,
+) {
+  return grossSales * (Math.max(0, percentage) / 100);
 }

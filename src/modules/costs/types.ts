@@ -71,6 +71,7 @@ export type CostSettings = {
   cardSettlementDays: number;
   expectedTicketAmount: number;
   targetMonthlyProfit: number;
+  operationalWastePercentage: number;
 };
 
 export type CostProduct = {

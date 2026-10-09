@@ -221,6 +221,9 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     cardSettlementDays: rawSettings.card_settlement_days,
     expectedTicketAmount: Number(rawSettings.expected_ticket_amount),
     targetMonthlyProfit: Number(rawSettings.target_monthly_profit),
+    operationalWastePercentage: Number(
+      rawSettings.operational_waste_percentage ?? 2,
+    ),
   };
 
   const fixedCosts: FixedCost[] = (fixedResult.data || []).map((row) => ({
@@ -332,6 +335,12 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     monthlyFixedCosts: monthlyFixedCost(
       fixedCosts,
       settings.operatingDaysMonth,
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Santiago",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
     ),
     scenarios,
   };

@@ -1,7 +1,10 @@
 import { createClient } from "@/server/supabase/server";
 import { cache } from "react";
 import { getCostingData } from "@/modules/costs/data";
-import { weightedCommissionPercentage } from "@/modules/costs/calculations";
+import {
+  operationalWasteReserve,
+  weightedCommissionPercentage,
+} from "@/modules/costs/calculations";
 import type {
   BusinessPulse,
   CashSession,
@@ -371,13 +374,22 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
   const projectedMonthlyContribution = Math.round(
     averageDailySales * operatingDaysMonth * contributionOnGrossPercentage,
   );
+  const projectedMonthlySales = averageDailySales * operatingDaysMonth;
+  const projectedMonthlyWasteReserve = Math.round(
+    operationalWasteReserve(
+      projectedMonthlySales,
+      costing.settings.operationalWastePercentage,
+    ),
+  );
   const projectedMonthlyOperatingResult =
-    projectedMonthlyContribution - costing.monthlyFixedCosts;
+    projectedMonthlyContribution -
+    projectedMonthlyWasteReserve -
+    costing.monthlyFixedCosts;
   return {
     observedDays: observed.length,
     totalSales,
     averageDailySales,
-    projectedMonthlySales: averageDailySales * operatingDaysMonth,
+    projectedMonthlySales,
     profitabilityReady: costedSales > 0,
     costCoveragePercentage: totalSales
       ? Math.min(100, (costedSales / totalSales) * 100)
@@ -390,6 +402,8 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       : 0,
     salesWithoutProductDetail: Math.max(0, totalSales - detailedSales),
     projectedMonthlyContribution,
+    projectedMonthlyWasteReserve,
+    operationalWastePercentage: costing.settings.operationalWastePercentage,
     observedContributionPercentage: contributionOnGrossPercentage * 100,
     monthlyFixedCosts: costing.monthlyFixedCosts,
     projectedMonthlyOperatingResult,

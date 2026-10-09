@@ -418,6 +418,9 @@ export async function saveCostSettingsAction(form: FormData) {
     ),
     expected_ticket_amount: Number(form.get("expectedTicketAmount")),
     target_monthly_profit: Number(form.get("targetMonthlyProfit") || 0),
+    operational_waste_percentage: Number(
+      form.get("operationalWastePercentage") || 0,
+    ),
     updated_at: new Date().toISOString(),
   };
   const mix =
@@ -429,6 +432,11 @@ export async function saveCostSettingsAction(form: FormData) {
     throw new Error("La mezcla de medios de pago debe sumar 100%");
   if (values.expected_ticket_amount <= 0)
     throw new Error("El ticket promedio esperado debe ser mayor que cero");
+  if (
+    values.operational_waste_percentage < 0 ||
+    values.operational_waste_percentage > 20
+  )
+    throw new Error("La reserva de merma debe estar entre 0% y 20%");
   const { error } = await ctx.supabase
     .from("cost_settings")
     .update(values)

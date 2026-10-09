@@ -664,7 +664,7 @@ export function BusinessPulsePanel({ pulse }: { pulse: BusinessPulse }) {
           </div>
           <p className="border-t border-[#e6e5dd] bg-[#fffef9] px-5 py-3 text-[11px] leading-5 text-[#747970]">
             {pulse.profitabilityReady
-              ? `Estimación con recetas y precios vigentes: contribución mensual ${formatClp(pulse.projectedMonthlyContribution)} menos costos fijos ${formatClp(pulse.monthlyFixedCosts)}. No descuenta impuesto a la renta ni reemplaza la contabilidad.`
+              ? `Estimación con recetas y precios vigentes: contribución mensual ${formatClp(pulse.projectedMonthlyContribution)}, menos reserva de merma no registrada de ${pulse.operationalWastePercentage}% (${formatClp(pulse.projectedMonthlyWasteReserve)}) y costos fijos ${formatClp(pulse.monthlyFixedCosts)}. No descuenta impuesto a la renta ni reemplaza la contabilidad.`
               : "La proyección de ventas todavía no representa utilidad. Completa y vincula los costeos de los productos vendidos para estimarla."}
           </p>
           {pulse.profitabilityReady && (

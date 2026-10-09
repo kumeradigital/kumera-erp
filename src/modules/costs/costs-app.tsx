@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
+import { operationalWasteReserve } from "./calculations";
 import {
   CollectionToolbar,
   useCollectionView,
@@ -1242,8 +1243,14 @@ function ProjectionsView({
     monthlySales / businessPulse.operatingDaysMonth,
   );
   const contribution = monthlySales * (margin / 100);
-  const operatingResult = contribution - fixedCosts;
-  const breakEvenSales = margin > 0 ? fixedCosts / (margin / 100) : 0;
+  const wasteReserve = operationalWasteReserve(
+    monthlySales,
+    businessPulse.operationalWastePercentage,
+  );
+  const operatingResult = contribution - wasteReserve - fixedCosts;
+  const effectiveMargin = margin - businessPulse.operationalWastePercentage;
+  const breakEvenSales =
+    effectiveMargin > 0 ? fixedCosts / (effectiveMargin / 100) : 0;
   const coverage = businessPulse.recipeCostCoveragePercentage;
 
   function restoreRealData() {
@@ -1260,7 +1267,13 @@ function ProjectionsView({
     return {
       ...scenario,
       sales,
-      result: sales * (margin / 100) - fixedCosts,
+      result:
+        sales * (margin / 100) -
+        operationalWasteReserve(
+          sales,
+          businessPulse.operationalWastePercentage,
+        ) -
+        fixedCosts,
     };
   });
 
@@ -1399,6 +1412,10 @@ function ProjectionsView({
           <div className="mt-5 space-y-3 border-t border-black/10 pt-4 text-sm">
             <ProjectionRow label="Ventas brutas" value={monthlySales} />
             <ProjectionRow label="Contribución estimada" value={contribution} />
+            <ProjectionRow
+              label={`Reserva merma no registrada (${businessPulse.operationalWastePercentage}%)`}
+              value={-wasteReserve}
+            />
             <ProjectionRow label="Costos fijos" value={-fixedCosts} />
           </div>
           <div className="mt-4 rounded-xl bg-white/65 p-4">
@@ -1528,17 +1545,28 @@ function LegacyProjectionsView({
       grossSales += product.price * quantity * days;
       contribution += product.contribution * quantity * days;
     }
+    const wasteReserve = operationalWasteReserve(
+      grossSales,
+      settings.operationalWastePercentage,
+    );
     return {
       grossSales,
       contribution,
-      profit: contribution - fixedCosts,
-      targetContribution: fixedCosts + target,
+      wasteReserve,
+      profit: contribution - wasteReserve - fixedCosts,
+      targetContribution: fixedCosts + target + wasteReserve,
     };
-  }, [complete, quantities, days, fixedCosts, target]);
+  }, [complete, quantities, days, fixedCosts, settings, target]);
   function adjustMixToGoal() {
     const currentDailyContribution = complete.reduce(
       (sum, product) =>
-        sum + product.contribution * (quantities[product.id] || 0),
+        sum +
+        (product.contribution -
+          operationalWasteReserve(
+            product.price,
+            settings.operationalWastePercentage,
+          )) *
+          (quantities[product.id] || 0),
       0,
     );
     if (currentDailyContribution <= 0) {
@@ -1646,9 +1674,13 @@ function LegacyProjectionsView({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Result label="Ventas brutas mensuales" value={result.grossSales} />
         <Result label="Margen de contribución" value={result.contribution} />
+        <Result
+          label={`Reserva merma (${settings.operationalWastePercentage}%)`}
+          value={-result.wasteReserve}
+        />
         <Result label="Costos fijos mensuales" value={fixedCosts} />
         <div
           className={`card p-5 ${result.profit >= target ? "border-[#b9d0b8] bg-[#e8f0e6]" : "border-[#ead8a6] bg-[#fff4d4]"}`}
@@ -2645,6 +2677,21 @@ function SettingsDialog({
             defaultValue={settings.targetMonthlyProfit}
             className="input"
           />
+        </Field>
+        <Field label="Reserva por merma no registrada %">
+          <input
+            name="operationalWastePercentage"
+            type="number"
+            min="0"
+            max="20"
+            step="0.1"
+            defaultValue={settings.operationalWastePercentage}
+            className="input"
+          />
+          <span className="mt-1 block text-[10px] font-normal leading-4 text-[#777]">
+            Se descuenta de la venta bruta proyectada para cubrir pérdidas que
+            no se pesan ni registran. No reemplaza la merma de recetas.
+          </span>
         </Field>
         <Submit>Guardar parámetros</Submit>
       </AsyncForm>
