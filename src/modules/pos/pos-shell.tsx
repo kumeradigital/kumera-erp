@@ -120,6 +120,14 @@ export function PosShell({
             <ReceiptText size={17} />
             <span>Gastos</span>
           </Link>
+          <Link
+            href="/ventas-hoy"
+            prefetch={false}
+            className={`flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-black ${active === "sales" ? "bg-[#235b45] text-white" : "bg-[#f0f1e9] text-[#235b45]"}`}
+          >
+            <LayoutDashboard size={17} />
+            <span>Ventas</span>
+          </Link>
         </nav>
         <form action={signOutAction} className="ml-auto shrink-0 md:ml-0">
           <button

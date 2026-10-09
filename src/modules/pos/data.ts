@@ -1310,3 +1310,92 @@ export async function getSalesSummary(range: SalesRange): Promise<{
     })),
   };
 }
+
+export async function getTodaySalesTotal(): Promise<{
+  total: number;
+  updatedAt: string;
+}> {
+  const { businessId, supabase } = await businessContext();
+  const today = chileDateFormatter.format(new Date());
+  const tomorrow = new Date(`${today}T12:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+  const santiagoMidnightUtc = (date: string) => {
+    const [year, month, day] = date.split("-").map(Number);
+    const guess = Date.UTC(year, month - 1, day);
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Santiago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(guess));
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value);
+    const localAsUtc = Date.UTC(
+      value("year"),
+      value("month") - 1,
+      value("day"),
+      value("hour"),
+      value("minute"),
+      value("second"),
+    );
+    return new Date(guess - (localAsUtc - guess)).toISOString();
+  };
+
+  const range = {
+    from: santiagoMidnightUtc(today),
+    to: santiagoMidnightUtc(chileDateFormatter.format(tomorrow)),
+  };
+  const [
+    { data: sales, error: salesError },
+    { data: sessions, error: sessionsError },
+  ] = await Promise.all([
+    supabase
+      .from("sales")
+      .select("cash_session_id,total")
+      .eq("business_id", businessId)
+      .eq("status", "completed")
+      .gte("created_at", range.from)
+      .lt("created_at", range.to),
+    supabase
+      .from("cash_sessions")
+      .select(
+        "id,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+      )
+      .eq("business_id", businessId)
+      .gte("opened_at", range.from)
+      .lt("opened_at", range.to),
+  ]);
+  if (salesError) throw salesError;
+  if (sessionsError) throw sessionsError;
+
+  const rows = sales || [];
+  let total = rows.reduce((sum, sale) => sum + Number(sale.total), 0);
+  for (const session of sessions || []) {
+    const reconciliation = oneRelation(session.cash_session_reconciliations);
+    if (!reconciliation) continue;
+    const recordedForSession = rows
+      .filter((sale) => sale.cash_session_id === session.id)
+      .reduce((sum, sale) => sum + Number(sale.total), 0);
+    total +=
+      Number(reconciliation.actual_cash_sales) +
+      Number(reconciliation.actual_debit_sales) +
+      Number(reconciliation.actual_credit_sales) +
+      Number(reconciliation.actual_transfer_sales) -
+      recordedForSession;
+  }
+
+  return {
+    total: Math.round(total),
+    updatedAt: new Intl.DateTimeFormat("es-CL", {
+      timeZone: "America/Santiago",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date()),
+  };
+}
