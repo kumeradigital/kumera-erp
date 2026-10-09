@@ -5,6 +5,7 @@ import {
   History,
   LayoutDashboard,
   LineChart,
+  Menu,
   ShoppingCart,
   ReceiptText,
   Warehouse,
@@ -26,7 +27,7 @@ export function PosShell({
 }) {
   return (
     <div className="min-h-screen min-w-0 overflow-x-hidden bg-[#f7f6ee]">
-      <header className="flex h-16 w-full min-w-0 items-center gap-2 overflow-hidden border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
+      <header className="relative flex h-16 w-full min-w-0 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
         <Link
           href="/caja"
           prefetch={false}
@@ -100,36 +101,36 @@ export function PosShell({
             icon={<LineChart size={16} />}
           />
         </nav>
-        <nav
-          className="ml-auto flex min-w-0 items-center gap-1 md:hidden"
-          aria-label="Navegación móvil"
-        >
-          <Link
-            href="/caja"
-            prefetch={false}
-            className={`flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black ${active === "pos" ? "bg-[#235b45] text-white" : "bg-[#f0f1e9] text-[#235b45]"}`}
+        <details className="group relative ml-auto md:hidden">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl bg-[#235b45] px-3 text-sm font-black text-white [&::-webkit-details-marker]:hidden">
+            <Menu size={19} />
+            Menú
+          </summary>
+          <nav
+            className="absolute right-0 top-[calc(100%+0.6rem)] z-50 grid w-52 gap-1 rounded-2xl border border-[#deded4] bg-[#fffef9] p-2 shadow-[0_18px_45px_rgba(31,45,37,.2)]"
+            aria-label="Navegación móvil"
           >
-            <ShoppingCart size={17} />
-            <span>Caja</span>
-          </Link>
-          <Link
-            href="/operacion"
-            prefetch={false}
-            className={`flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black ${active === "operations" ? "bg-[#235b45] text-white" : "bg-[#f0f1e9] text-[#235b45]"}`}
-          >
-            <ReceiptText size={17} />
-            <span>Gastos</span>
-          </Link>
-          <Link
-            href="/ventas-hoy"
-            prefetch={false}
-            className={`flex min-h-10 items-center gap-1.5 rounded-xl px-2.5 text-xs font-black ${active === "sales" ? "bg-[#235b45] text-white" : "bg-[#f0f1e9] text-[#235b45]"}`}
-          >
-            <LayoutDashboard size={17} />
-            <span>Ventas</span>
-          </Link>
-        </nav>
-        <form action={signOutAction} className="ml-auto shrink-0 md:ml-0">
+            <MobileNavLink
+              href="/caja"
+              label="Caja"
+              active={active === "pos"}
+              icon={<ShoppingCart size={19} />}
+            />
+            <MobileNavLink
+              href="/operacion"
+              label="Gastos"
+              active={active === "operations"}
+              icon={<ReceiptText size={19} />}
+            />
+            <MobileNavLink
+              href="/ventas-hoy"
+              label="Venta de hoy"
+              active={active === "sales"}
+              icon={<LayoutDashboard size={19} />}
+            />
+          </nav>
+        </details>
+        <form action={signOutAction} className="ml-1 shrink-0 md:ml-0">
           <button
             aria-label="Cerrar sesión"
             className="rounded-lg border border-[#d7d7ce] px-2 py-2 text-xs font-bold text-[#777] hover:text-[#a33d20] md:border-0 md:px-0"
@@ -143,6 +144,30 @@ export function PosShell({
     </div>
   );
 }
+
+function MobileNavLink({
+  href,
+  label,
+  icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className={`flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-black ${active ? "bg-[#235b45] text-white" : "text-[#235b45] hover:bg-[#f0f1e9]"}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </Link>
+  );
+}
+
 function Nav({
   href,
   label,
