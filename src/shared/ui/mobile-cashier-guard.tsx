@@ -4,7 +4,12 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 const MOBILE_QUERY = "(max-width: 767px)";
-const MOBILE_ROUTES = new Set(["/login", "/caja", "/operacion"]);
+const MOBILE_ROUTES = new Set([
+  "/login",
+  "/caja",
+  "/operacion",
+  "/ventas-hoy",
+]);
 
 export function MobileCashierGuard({
   children,
