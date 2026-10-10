@@ -25,6 +25,18 @@ async function context() {
   return { supabase, user, businessId: membership.business_id };
 }
 export async function saveProductAction(form: FormData) {
+  try {
+    return await saveProduct(form);
+  } catch (error) {
+    console.error("No se pudo guardar el producto", error);
+    return {
+      ok: false as const,
+      error: productSaveErrorMessage(error),
+    };
+  }
+}
+
+async function saveProduct(form: FormData) {
   const ctx = await context();
   const id = String(form.get("id") || "") || undefined;
   const name = String(form.get("name") || "").trim();
@@ -56,6 +68,20 @@ export async function saveProductAction(form: FormData) {
   if (categoryName.length > 60) throw new Error("Categoría inválida");
   if (!(["unit", "kg"] as SaleUnit[]).includes(saleUnit))
     throw new Error("Forma de venta inválida");
+  let matchingProductQuery = ctx.supabase
+    .from("products")
+    .select("id,deleted_at")
+    .eq("business_id", ctx.businessId)
+    .eq("name", name);
+  if (id) matchingProductQuery = matchingProductQuery.neq("id", id);
+  const { data: matchingProduct, error: matchingProductError } =
+    await matchingProductQuery.maybeSingle();
+  if (matchingProductError) throw matchingProductError;
+  if (matchingProduct && !matchingProduct.deleted_at) {
+    throw new Error(
+      `Ya existe un producto activo llamado “${name}”. Búscalo en el listado y usa Editar.`,
+    );
+  }
   const { data: existingCategory, error: categoryError } = await ctx.supabase
     .from("product_categories")
     .select("id")
@@ -161,7 +187,20 @@ export async function saveProductAction(form: FormData) {
   }
   revalidatePath("/productos");
   revalidatePath("/caja");
-  return { ok: true };
+  return { ok: true as const };
+}
+
+function productSaveErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505"
+  ) {
+    return "Ya existe un producto con ese nombre. Búscalo en Productos o Archivados antes de crear uno nuevo.";
+  }
+  return "No se pudo guardar el producto. Revisa los datos e inténtalo nuevamente.";
 }
 export async function toggleProductAction(id: string, active: boolean) {
   const ctx = await context();

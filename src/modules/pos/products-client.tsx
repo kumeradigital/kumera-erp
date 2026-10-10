@@ -88,7 +88,12 @@ export function ProductsClient({
   async function submit(form: FormData) {
     setBusy(true);
     try {
-      await saveProductAction(form);
+      const result = await saveProductAction(form);
+      if (!result.ok) {
+        alert(result.error);
+        setBusy(false);
+        return;
+      }
       location.reload();
     } catch (e) {
       alert(e instanceof Error ? e.message : "No se pudo guardar");
