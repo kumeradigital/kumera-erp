@@ -129,23 +129,6 @@ export function PosClient({
       // Keep the complete view if this browser blocks local storage.
     }
   }, []);
-  useEffect(() => {
-    const imageUrls = new Set(
-      [
-        ...products,
-        ...productionFamilies.flatMap((family) => family.members),
-      ].flatMap((product) => (product.imageUrl ? [product.imageUrl] : [])),
-    );
-    const preloaded = [...imageUrls].map((url) => {
-      const image = new Image();
-      image.decoding = "async";
-      image.src = url;
-      return image;
-    });
-    return () => {
-      for (const image of preloaded) image.src = "";
-    };
-  }, [products, productionFamilies]);
   function togglePanel(panel: keyof typeof visiblePanels) {
     setVisiblePanels((current) => {
       const next = { ...current, [panel]: !current[panel] };
@@ -367,8 +350,8 @@ export function PosClient({
   if (!session)
     return <OpenSession latestSession={latestSession} products={products} />;
   return (
-    <main className="grid min-h-[calc(100vh-64px)] min-w-0 overflow-x-hidden lg:h-[calc(100vh-64px)] lg:grid-cols-[minmax(0,1fr)_390px] lg:overflow-hidden">
-      <section className="min-w-0 p-3 pb-28 sm:p-4 sm:pb-28 md:p-5 lg:overflow-y-auto lg:pb-5">
+    <main className="grid min-h-[calc(100vh-64px)] min-w-0 overflow-x-hidden min-[700px]:h-[calc(100vh-64px)] min-[700px]:grid-cols-[minmax(0,1fr)_360px] min-[700px]:overflow-hidden lg:grid-cols-[minmax(0,1fr)_390px]">
+      <section className="min-w-0 p-3 pb-28 sm:p-4 min-[700px]:overflow-y-auto min-[700px]:pb-4 lg:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] px-3 py-2">
           <div className="flex items-center gap-3">
             <span className="grid size-8 place-items-center rounded-lg bg-[#235b45] text-white">
@@ -535,7 +518,7 @@ export function PosClient({
           </div>
         )}
         {products.length ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 min-[1080px]:grid-cols-4 min-[1450px]:grid-cols-5">
             {productTiles.map((tile) => {
               if (tile.products.length > 1) {
                 const selectedQuantity = tile.products.reduce(
@@ -552,7 +535,7 @@ export function PosClient({
                     key={tile.key}
                     onClick={() => setSelectingGroup(tile)}
                     disabled={!availableProducts.length}
-                    className="card relative min-h-[116px] overflow-hidden border-2 border-[#b9cfb8] bg-[#fbfdf9] text-left shadow-sm transition hover:border-[#78977e] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65"
+                    className="card relative min-h-[104px] overflow-hidden border-2 border-[#b9cfb8] bg-[#fbfdf9] text-left shadow-sm transition hover:border-[#78977e] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65 lg:min-h-[112px]"
                   >
                     {selectedQuantity > 0 && (
                       <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -564,10 +547,10 @@ export function PosClient({
                     <div
                       className={`flex h-full flex-col justify-between p-4 ${selectedQuantity > 0 ? "pt-10" : "pt-4"}`}
                     >
-                      <p className="text-xl font-black leading-6 tracking-tight text-[#171a17] capitalize">
+                      <p className="text-lg font-black leading-5 tracking-tight text-[#171a17] capitalize lg:text-xl lg:leading-6">
                         {tile.category}
                       </p>
-                      <p className="mt-3 text-base font-black text-[#235b45]">
+                      <p className="mt-2 text-sm font-black text-[#235b45] lg:text-base">
                         {tile.products.length} opciones · Abrir
                         {tile.saleUnit === "kg" ? " / kg" : ""}
                       </p>
@@ -585,7 +568,7 @@ export function PosClient({
                   key={p.id}
                   onClick={() => add(p.id)}
                   disabled={soldOut}
-                  className="card relative min-h-[116px] overflow-hidden border-2 border-[#deded5] bg-white text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65"
+                  className="card relative min-h-[104px] overflow-hidden border-2 border-[#deded5] bg-white text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65 lg:min-h-[112px]"
                 >
                   {!!cart[p.id] && (
                     <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
@@ -604,10 +587,10 @@ export function PosClient({
                   <div
                     className={`flex h-full flex-col justify-between p-4 ${cart[p.id] || remaining !== null ? "pt-10" : "pt-4"}`}
                   >
-                    <p className="text-xl font-black leading-6 tracking-tight text-[#171a17] capitalize">
+                    <p className="text-lg font-black leading-5 tracking-tight text-[#171a17] capitalize lg:text-xl lg:leading-6">
                       {p.name}
                     </p>
-                    <p className="money mt-3 text-lg font-black text-[#235b45]">
+                    <p className="money mt-2 text-base font-black text-[#235b45] lg:text-lg">
                       {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
                     </p>
                   </div>
@@ -631,11 +614,11 @@ export function PosClient({
         <button
           aria-label="Cerrar carro"
           onClick={() => setMobileCartOpen(false)}
-          className="fixed inset-0 z-30 bg-black/45 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/45 min-[700px]:hidden"
         />
       )}
       <aside
-        className={`border-l border-[#dfdfd5] bg-[#fffef9] p-5 lg:h-full lg:overflow-y-auto max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[88dvh] max-lg:overflow-y-auto max-lg:rounded-t-3xl max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-lg:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-lg:block" : "max-lg:hidden"}`}
+        className={`border-l border-[#dfdfd5] bg-[#fffef9] p-4 min-[700px]:block min-[700px]:h-full min-[700px]:overflow-y-auto lg:p-5 max-[699px]:fixed max-[699px]:inset-x-0 max-[699px]:bottom-0 max-[699px]:z-40 max-[699px]:max-h-[88dvh] max-[699px]:overflow-y-auto max-[699px]:rounded-t-3xl max-[699px]:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-[699px]:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-[699px]:block" : "max-[699px]:hidden"}`}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -647,7 +630,7 @@ export function PosClient({
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileCartOpen(false)}
-              className="grid size-9 place-items-center rounded-full bg-[#f0f0e8] lg:hidden"
+              className="grid size-9 place-items-center rounded-full bg-[#f0f0e8] min-[700px]:hidden"
               aria-label="Cerrar carro"
             >
               <X size={18} />
@@ -856,7 +839,7 @@ export function PosClient({
           </button>
         </div>
       </aside>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#d8d8cf] bg-[#fffef9]/95 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-lg lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#d8d8cf] bg-[#fffef9]/95 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-lg min-[700px]:hidden">
         <button
           onClick={() => setMobileCartOpen(true)}
           className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#235b45] px-5 text-white shadow-lg"
@@ -930,7 +913,6 @@ export function PosClient({
           availabilityQuantities={availabilityQuantities}
           onClose={() => setSelectingGroup(null)}
           onSelect={(product) => {
-            setSelectingGroup(null);
             add(product.id);
           }}
         />
@@ -1458,16 +1440,16 @@ function ProductGroupDialog({
   onSelect: (product: Product) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center md:p-6">
-      <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-16 md:w-[90vw] md:max-w-6xl md:rounded-3xl md:p-5 md:pt-16">
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 min-[700px]:right-[360px] min-[700px]:place-items-stretch min-[700px]:bg-[#f7f6ee] lg:right-[390px]">
+      <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-14 min-[700px]:max-h-none min-[700px]:rounded-none min-[700px]:bg-[#f7f6ee] min-[700px]:p-4 min-[700px]:pt-16">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-30 grid size-11 place-items-center rounded-full border border-black/5 bg-white/95 shadow-md backdrop-blur-sm md:right-5 md:top-4"
+          className="absolute right-3 top-3 z-30 grid size-11 place-items-center rounded-full border border-black/5 bg-white/95 shadow-md backdrop-blur-sm min-[700px]:right-4 min-[700px]:top-3"
           aria-label="Cerrar selector de productos"
         >
           <X size={21} />
         </button>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 min-[700px]:grid-cols-4 min-[1050px]:grid-cols-5">
           {group.products.map((product) => {
             const remaining = product.trackDailyAvailability
               ? Math.max(
@@ -1482,20 +1464,22 @@ function ProductGroupDialog({
                 key={product.id}
                 onClick={() => onSelect(product)}
                 disabled={remaining === 0}
-                className="relative h-40 overflow-hidden rounded-2xl border border-[#dcdcd3] bg-[#e9ece5] text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45 sm:h-44"
+                className="relative h-36 overflow-hidden rounded-xl border border-[#dcdcd3] bg-[#e9ece5] text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45 min-[700px]:h-32 min-[1050px]:h-36"
               >
                 {product.imageUrl && (
                   <img
                     src={product.imageUrl}
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 )}
-                <span className="absolute inset-x-2 bottom-2 z-10 block rounded-2xl border border-white/60 bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-sm">
-                  <b className="block text-sm leading-5 capitalize text-[#171a17] sm:text-base">
+                <span className="absolute inset-x-1.5 bottom-1.5 z-10 block rounded-xl border border-white/60 bg-white/95 px-2.5 py-2 shadow-lg backdrop-blur-sm">
+                  <b className="block text-xs leading-4 capitalize text-[#171a17] min-[1050px]:text-sm">
                     {product.name}
                   </b>
-                  <span className="money mt-1 block text-sm font-black text-[#235b45]">
+                  <span className="money mt-0.5 block text-xs font-black text-[#235b45] min-[1050px]:text-sm">
                     {formatClp(product.price)}
                     {product.saleUnit === "kg" ? "/kg" : ""}
                   </span>
