@@ -98,6 +98,8 @@ export function PosClient({
   const [managingAvailability, setManagingAvailability] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [changeCalculatorOpen, setChangeCalculatorOpen] = useState(false);
   const [selectingGroup, setSelectingGroup] = useState<ProductTile | null>(
     null,
   );
@@ -643,17 +645,6 @@ export function PosClient({
             <h2 className="mt-1 text-xl font-black">Carro</h2>
           </div>
           <div className="flex items-center gap-3">
-            {lines.length > 0 && (
-              <button
-                onClick={() => {
-                  setCart({});
-                  setEmployeeDiscount(false);
-                }}
-                className="text-xs font-bold text-[#a24628]"
-              >
-                Limpiar
-              </button>
-            )}
             <button
               onClick={() => setMobileCartOpen(false)}
               className="grid size-9 place-items-center rounded-full bg-[#f0f0e8] lg:hidden"
@@ -738,6 +729,46 @@ export function PosClient({
               Toca un producto para agregarlo
             </div>
           )}
+          {lines.length > 0 && (
+            <div className="rounded-xl border border-[#ead8cf] bg-[#fff8f4] p-3">
+              {confirmingClear ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-bold text-[#873c27]">
+                    ¿Vaciar todos los productos del carro?
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingClear(false)}
+                      className="min-h-11 rounded-lg border border-[#d8d8cf] bg-white text-xs font-black text-[#666]"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCart({});
+                        setEmployeeDiscount(false);
+                        setConfirmingClear(false);
+                        setChangeCalculatorOpen(false);
+                      }}
+                      className="min-h-11 rounded-lg bg-[#a24628] text-xs font-black text-white"
+                    >
+                      Sí, vaciar carro
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingClear(true)}
+                  className="min-h-11 w-full text-center text-xs font-black text-[#a24628]"
+                >
+                  Vaciar carro
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="mt-5 border-t-2 border-[#222] pt-4">
           <div className="mb-4 rounded-xl bg-[#f2f2ea] p-3">
@@ -795,6 +826,21 @@ export function PosClient({
               {formatClp(total)}
             </span>
           </div>
+          {lines.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setChangeCalculatorOpen((current) => !current)}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#cfd8cc] bg-[#f4f7f1] px-3 text-sm font-black text-[#235b45]"
+              >
+                <Banknote size={18} />
+                {changeCalculatorOpen
+                  ? "Cerrar calculadora de vuelto"
+                  : "Calcular vuelto"}
+              </button>
+              {changeCalculatorOpen && <ChangeCalculator total={total} />}
+            </div>
+          )}
           <button
             disabled={!total || busy}
             onClick={recordSale}
@@ -2897,6 +2943,73 @@ function OpenSession({
     </main>
   );
 }
+function ChangeCalculator({ total }: { total: number }) {
+  const cashPayable = calculateCashPayable(total);
+  const cashRounding = calculateCashRounding(total);
+  const [cash, setCash] = useState("");
+  const received = Number(cash) || 0;
+  const difference = received - cashPayable;
+  const suggestions = [2000, 5000, 10000, 20000, 50000, 100000]
+    .filter((amount) => amount >= cashPayable)
+    .slice(0, 3);
+
+  return (
+    <div className="mt-2 rounded-xl border border-[#dfe4da] bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+            Total en efectivo
+          </p>
+          <p className="money mt-1 text-2xl font-black text-[#20231f]">
+            {formatClp(cashPayable)}
+          </p>
+        </div>
+        {cashRounding !== 0 && (
+          <p className="max-w-28 text-right text-[10px] leading-4 text-[#777]">
+            Incluye redondeo legal de {cashRounding > 0 ? "+" : ""}
+            {formatClp(cashRounding)}
+          </p>
+        )}
+      </div>
+      <label className="mt-3 block text-xs font-bold">
+        Efectivo recibido
+        <input
+          value={cash}
+          onChange={(event) => setCash(event.target.value.replace(/\D/g, ""))}
+          inputMode="numeric"
+          placeholder="Ej: 20000"
+          className="input mt-2 text-xl font-black"
+        />
+      </label>
+      {suggestions.length > 0 && (
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {suggestions.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => setCash(String(amount))}
+              className="min-h-10 rounded-lg bg-[#eff0e8] text-xs font-black text-[#235b45]"
+            >
+              {formatClp(amount)}
+            </button>
+          ))}
+        </div>
+      )}
+      <div
+        className={`mt-3 flex items-center justify-between rounded-xl p-4 ${difference >= 0 ? "bg-[#e8f0e6] text-[#235b45]" : "bg-[#fff4d4] text-[#7c5b13]"}`}
+      >
+        <span className="font-black">
+          {difference >= 0 ? "Vuelto" : "Falta"}
+        </span>
+        <b className="money text-2xl">{formatClp(Math.abs(difference))}</b>
+      </div>
+      <p className="mt-2 text-[10px] leading-4 text-[#777]">
+        Esta calculadora es sólo una ayuda y no registra ni modifica la venta.
+      </p>
+    </div>
+  );
+}
+
 function PaymentDialog({
   total,
   busy,
