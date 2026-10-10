@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { CashRegisterPwaRegistration } from "./pwa-registration";
 
 export const metadata: Metadata = {
   title: "Caja · ERP KUMERA",
@@ -24,5 +25,10 @@ export default function CashRegisterLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <>
+      <CashRegisterPwaRegistration />
+      {children}
+    </>
+  );
 }
