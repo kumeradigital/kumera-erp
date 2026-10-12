@@ -178,6 +178,8 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 - [ ] Mantenciones y gastos periodicos prorrateados.
 - [ ] Separar intereses de creditos y pago de capital.
 - [ ] Crear vista actual y vista con reemplazo del trabajo del dueño.
+- [~] Diseñar y costear el primer cargo de autonomia: responsable de produccion y continuidad operativa durante el bloque central del dia.
+- [ ] Probar que el local puede completar apertura, produccion, reposicion, horneo, caja y cierre ante una ausencia imprevista del dueño.
 
 **Criterio de termino:** el costo fijo mensual se puede explicar linea por linea, sin duplicaciones.
 
@@ -292,3 +294,4 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-09 | 6. Vigencia implementada       | El total mensual ahora incluye sólo costos activos que afectan rentabilidad y cuya fecha de inicio/término intersecta el mes calculado. Se agregó prueba automática para costos vigentes, futuros y vencidos.                                                                                                                                              | Completado                                |
 | 2026-10-09 | 4/8. Reserva de merma          | Se incorpora una reserva configurable de 2% sobre la venta bruta proyectada para cubrir merma operativa no pesada ni registrada. Se muestra y descuenta por separado de recetas, rendimientos, comisiones y costos fijos; el porcentaje puede modificarse en Parámetros.                                                                                   | Implementado                              |
 | 2026-10-12 | 6/8. Norte empresarial         | El dueño define que no busca maximizar su retiro inmediato, sino construir una unidad economica autonoma y replicable. La proyeccion debera reconocer el costo de reemplazo de sus funciones operativas y comparar estructura actual, liberacion parcial y operacion autonoma. El tiempo liberado se orientara a productividad, despacho, nuevos productos y futura expansion. | Principio rector confirmado               |
+| 2026-10-12 | 6/8. Primera capa de autonomia | Se prioriza diseñar un cargo que retire al dueño de la operacion durante el bloque central del dia. En una primera etapa el dueño acepta conservar apertura y cobertura de 17:30 a 19:30, pero la meta final es que enfermedad o ausencia no impidan operar. La contratacion se validara por funciones, horario, costo empresa, procedimientos y prueba real de ausencia. | Diseño de cargo en curso                  |
