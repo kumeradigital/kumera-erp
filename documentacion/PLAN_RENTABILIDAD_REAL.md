@@ -10,6 +10,25 @@ Convertir el ERP en una herramienta capaz de responder, con datos trazables:
 4. Cuanto se puede retirar sin comprometer arriendo, remuneraciones, impuestos, compras ni capital de trabajo.
 5. Cuanto debe vender el local para sostener su estructura actual y una estructura que no dependa completamente del dueño.
 
+### Norte empresarial confirmado
+
+El objetivo no es maximizar el retiro inmediato del dueño. Es convertir el local en una unidad economica autonoma, rentable y replicable, capaz de financiar mejoras de productividad, despacho, ampliacion de oferta y eventualmente nuevos locales. El dueño puede seguir participando, pero la operacion diaria no debe depender estructuralmente de jornadas de 16 horas ni de trabajo sin costo asignado.
+
+- La rentabilidad se evaluara despues de reconocer el costo de reemplazar el trabajo operativo del dueño.
+- Un retiro pequeño es aceptable durante la etapa de construccion si la unidad economica demuestra sostenibilidad y capacidad de crecimiento.
+- Se priorizara liberar al dueño de tareas repetibles para trasladar su tiempo a control, desarrollo comercial, procesos y expansion.
+- La autonomia se construira por etapas; no se contrataran reemplazos sin medir antes la contribucion que debe financiar cada cargo.
+- Toda propuesta de crecimiento debera distinguir entre aumentar ventas y aumentar complejidad operativa.
+
+### Preguntas pendientes sobre autonomia operativa
+
+1. Que tareas del dueño puede aprender una persona responsable en una o dos semanas.
+2. Que tareas dependen realmente de conocimiento tecnico del dueño y cuales solo carecen de procedimiento escrito.
+3. Que franjas horarias generan contribucion suficiente para financiar su propia cobertura laboral.
+4. Cual es el primer bloque de horas que conviene delegar para recuperar tiempo sin deteriorar producto, servicio ni control.
+5. Cuanto cuesta operar con el dueño presente, parcialmente liberado y completamente fuera de la rutina diaria.
+6. Que capacidad adicional de venta o produccion aparece al liberar al dueño de caja, reposicion y tareas repetitivas.
+
 ## Forma de trabajo
 
 - Resolveremos un punto por vez.
@@ -272,3 +291,4 @@ Objetivo: definir un punto de partida real para banco, Mercado Pago, efectivo, c
 | 2026-10-09 | 6. Vigencia de costos          | Todos los costos activos son vigentes en octubre. Se detecta que el motor actual filtra por estado activo y efecto en rentabilidad, pero no utiliza `starts_on` ni `ends_on`; debe corregirse antes de proyectar otros meses o cambios de estructura fechados.                                                                                             | Corrección técnica pendiente              |
 | 2026-10-09 | 6. Vigencia implementada       | El total mensual ahora incluye sólo costos activos que afectan rentabilidad y cuya fecha de inicio/término intersecta el mes calculado. Se agregó prueba automática para costos vigentes, futuros y vencidos.                                                                                                                                              | Completado                                |
 | 2026-10-09 | 4/8. Reserva de merma          | Se incorpora una reserva configurable de 2% sobre la venta bruta proyectada para cubrir merma operativa no pesada ni registrada. Se muestra y descuenta por separado de recetas, rendimientos, comisiones y costos fijos; el porcentaje puede modificarse en Parámetros.                                                                                   | Implementado                              |
+| 2026-10-12 | 6/8. Norte empresarial         | El dueño define que no busca maximizar su retiro inmediato, sino construir una unidad economica autonoma y replicable. La proyeccion debera reconocer el costo de reemplazo de sus funciones operativas y comparar estructura actual, liberacion parcial y operacion autonoma. El tiempo liberado se orientara a productividad, despacho, nuevos productos y futura expansion. | Principio rector confirmado               |
