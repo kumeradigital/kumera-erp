@@ -51,6 +51,10 @@ export function OperationsApp({
     cardFees: number;
     withdrawals: number;
     pendingObligations: number;
+    salesTaxDebit: number;
+    recoverableTaxCredit: number;
+    estimatedVatPayable: number;
+    availableLiquidity: number;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -118,6 +122,18 @@ export function OperationsApp({
         >
           <Plus size={22} /> Registrar compra o gasto
         </button>
+        <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-4">
+          <p className="text-xs font-black uppercase tracking-[.12em] text-[#795f0d]">
+            Reserva tributaria del mes
+          </p>
+          <p className="money mt-2 text-2xl font-black">
+            {formatClp(summary.estimatedVatPayable)}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-[#6d6450]">
+            No considerar como dinero disponible. Liquidez libre estimada:{" "}
+            <strong>{formatClp(summary.availableLiquidity)}</strong>.
+          </p>
+        </div>
         <div className="mt-4 rounded-2xl border border-[#d8dfd5] bg-white p-4">
           <p className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
             Últimos registros
@@ -218,6 +234,25 @@ export function OperationsApp({
             v={summary.pendingObligations}
             warning
           />
+          <Metric
+            l="Reserva estimada de IVA"
+            v={summary.estimatedVatPayable}
+            warning
+          />
+          <Metric
+            l="Liquidez libre estimada"
+            v={summary.availableLiquidity}
+            tone={summary.availableLiquidity < 0 ? "danger" : "available"}
+          />
+        </div>
+        <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-5 text-sm text-[#6d6450]">
+          <strong className="text-[#5d4b12]">
+            Reserva tributaria automática.
+          </strong>{" "}
+          De {formatClp(summary.salesTaxDebit)} de IVA estimado en ventas se
+          descuentan {formatClp(summary.recoverableTaxCredit)} de crédito por
+          compras y comisiones registradas. Esta reserva no es un gasto: es
+          dinero que debe permanecer disponible para el F29.
         </div>
         <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
           <strong className="text-[#252822]">
@@ -1036,15 +1071,17 @@ function Metric({
   v,
   icon,
   warning,
+  tone,
 }: {
   l: string;
   v: number;
   icon?: "bank" | "cash";
   warning?: boolean;
+  tone?: "available" | "danger";
 }) {
   return (
     <div
-      className={`card p-5 ${warning ? "border-[#e6d397] bg-[#fff9e8]" : ""}`}
+      className={`card p-5 ${warning ? "border-[#e6d397] bg-[#fff9e8]" : ""} ${tone === "available" ? "border-[#b8d7bc] bg-[#eef7ec]" : ""} ${tone === "danger" ? "border-[#e5b4aa] bg-[#fff0ed]" : ""}`}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-bold uppercase text-[#777]">{l}</p>

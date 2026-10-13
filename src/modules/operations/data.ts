@@ -5,6 +5,7 @@ import type {
   Operation,
   OperationType,
 } from "./types";
+import { calculateTaxReserve } from "./calculations";
 
 type Reconciliation = {
   actual_cash_sales: number | string;
@@ -165,6 +166,7 @@ export async function getOperationsData() {
   let cashSales = 0;
   let bankSales = 0;
   let monthlySales = 0;
+  let monthlyCardFeeTaxCredit = 0;
   let cardFees = 0;
   let withdrawals = 0;
   for (const session of sessions.data || []) {
@@ -185,8 +187,12 @@ export async function getOperationsData() {
           year: "numeric",
           month: "2-digit",
         }).format(new Date(session.closed_at)) === currentMonth
-      )
+      ) {
         monthlySales += sessionCashSales + sessionBankSales;
+        monthlyCardFeeTaxCredit += Number(
+          reconciliation.commission_tax_amount || 0,
+        );
+      }
       if (
         session.closed_at &&
         Date.parse(session.closed_at) > Date.parse(cutoff.cutoffAt)
@@ -216,6 +222,19 @@ export async function getOperationsData() {
         !isIncome(operation),
     )
     .reduce((total, operation) => total + operation.gross, 0);
+  const monthlyPurchaseTaxCredit = operations
+    .filter(
+      (operation) =>
+        operation.date.slice(0, 7) === currentMonth &&
+        operation.financialStatus === "verified" &&
+        ["purchase", "fixed_cost", "expense"].includes(operation.type),
+    )
+    .reduce((total, operation) => total + operation.tax, 0);
+  const taxReserve = calculateTaxReserve({
+    grossSales: monthlySales,
+    purchaseTaxCredit: monthlyPurchaseTaxCredit,
+    cardFeeTaxCredit: monthlyCardFeeTaxCredit,
+  });
   const operatingIncome = verifiedAfterCutoff
     .filter(isIncome)
     .reduce((total, operation) => total + operation.gross, 0);
@@ -259,6 +278,17 @@ export async function getOperationsData() {
           (item.dueDate.slice(0, 7) <= currentMonth ? item.amount || 0 : 0),
         0,
       ),
+      ...taxReserve,
+      availableLiquidity:
+        expectedBank +
+        expectedCash -
+        obligations.reduce(
+          (total, item) =>
+            total +
+            (item.dueDate.slice(0, 7) <= currentMonth ? item.amount || 0 : 0),
+          0,
+        ) -
+        taxReserve.estimatedVatPayable,
     },
   };
 }
