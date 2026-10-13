@@ -150,6 +150,8 @@ export async function getOperationsData() {
   );
   const isIncome = (operation: Operation) =>
     ["other_income", "owner_contribution"].includes(operation.type);
+  const countsInMonthlyBooks = (operation: Operation) =>
+    ["verified", "historical_verified"].includes(operation.financialStatus);
   const cashOperations = verifiedAfterCutoff.filter(
     (operation) => operation.paymentMethod === "cash",
   );
@@ -166,7 +168,9 @@ export async function getOperationsData() {
   let cashSales = 0;
   let bankSales = 0;
   let monthlySales = 0;
+  let monthlyCardFees = 0;
   let monthlyCardFeeTaxCredit = 0;
+  let monthlyCashWithdrawals = 0;
   let cardFees = 0;
   let withdrawals = 0;
   for (const session of sessions.data || []) {
@@ -189,6 +193,9 @@ export async function getOperationsData() {
         }).format(new Date(session.closed_at)) === currentMonth
       ) {
         monthlySales += sessionCashSales + sessionBankSales;
+        monthlyCardFees +=
+          Number(reconciliation.commission_net_amount || 0) +
+          Number(reconciliation.commission_tax_amount || 0);
         monthlyCardFeeTaxCredit += Number(
           reconciliation.commission_tax_amount || 0,
         );
@@ -212,21 +219,41 @@ export async function getOperationsData() {
         (total, withdrawal) => total + Number(withdrawal.amount),
         0,
       );
+    monthlyCashWithdrawals += (session.cash_session_withdrawals || [])
+      .filter(
+        (withdrawal) =>
+          new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Santiago",
+            year: "numeric",
+            month: "2-digit",
+          }).format(new Date(withdrawal.created_at)) === currentMonth,
+      )
+      .reduce((total, withdrawal) => total + Number(withdrawal.amount), 0);
   }
 
   const monthlyExpenses = operations
     .filter(
       (operation) =>
         operation.date.slice(0, 7) === currentMonth &&
-        operation.financialStatus === "verified" &&
-        !isIncome(operation),
+        countsInMonthlyBooks(operation) &&
+        ["purchase", "fixed_cost", "expense"].includes(operation.type),
     )
     .reduce((total, operation) => total + operation.gross, 0);
+  const monthlyOwnerWithdrawals =
+    monthlyCashWithdrawals +
+    operations
+      .filter(
+        (operation) =>
+          operation.date.slice(0, 7) === currentMonth &&
+          countsInMonthlyBooks(operation) &&
+          operation.type === "owner_withdrawal",
+      )
+      .reduce((total, operation) => total + operation.gross, 0);
   const monthlyPurchaseTaxCredit = operations
     .filter(
       (operation) =>
         operation.date.slice(0, 7) === currentMonth &&
-        operation.financialStatus === "verified" &&
+        countsInMonthlyBooks(operation) &&
         ["purchase", "fixed_cost", "expense"].includes(operation.type),
     )
     .reduce((total, operation) => total + operation.tax, 0);
@@ -268,10 +295,13 @@ export async function getOperationsData() {
       expectedCash,
       expectedTotal: expectedBank + expectedCash,
       salesTotal: monthlySales,
+      netSalesAfterVat: monthlySales - taxReserve.salesTaxDebit,
       cardFees,
+      monthlyCardFees,
       operatingIncome,
       operatingExpenses: monthlyExpenses,
       withdrawals,
+      monthlyOwnerWithdrawals,
       pendingObligations: obligations.reduce(
         (total, item) =>
           total +

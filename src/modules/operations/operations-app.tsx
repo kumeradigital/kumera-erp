@@ -46,10 +46,13 @@ export function OperationsApp({
     expectedCash: number;
     expectedTotal: number;
     salesTotal: number;
+    netSalesAfterVat: number;
     operatingIncome: number;
     operatingExpenses: number;
     cardFees: number;
+    monthlyCardFees: number;
     withdrawals: number;
+    monthlyOwnerWithdrawals: number;
     pendingObligations: number;
     salesTaxDebit: number;
     recoverableTaxCredit: number;
@@ -71,6 +74,11 @@ export function OperationsApp({
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [groupByType, setGroupByType] = useState(false);
   const currentMonth = todayInChile().slice(0, 7);
+  const currentMonthLabel = new Intl.DateTimeFormat("es-CL", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  }).format(new Date(`${currentMonth}-15T12:00:00`));
   const currentObligations = obligations.filter(
     (item) => item.dueDate.slice(0, 7) <= currentMonth,
   );
@@ -180,7 +188,8 @@ export function OperationsApp({
             </p>
             <h1 className="mt-2 text-3xl font-black">Finanzas reales</h1>
             <p className="mt-2 text-sm text-[#747970]">
-              Saldos esperados desde el último corte conciliado.
+              Operación de {currentMonthLabel} y saldos desde el último corte
+              conciliado.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -226,8 +235,17 @@ export function OperationsApp({
           <Metric l="Efectivo esperado" v={summary.expectedCash} icon="cash" />
           <Metric l="Ventas conciliadas de este mes" v={summary.salesTotal} />
           <Metric
-            l="Egresos verificados de este mes"
+            l="Ventas netas después de IVA"
+            v={summary.netSalesAfterVat}
+          />
+          <Metric
+            l="Compras y gastos pagados del mes"
             v={summary.operatingExpenses}
+          />
+          <Metric l="Comisiones de tarjetas" v={summary.monthlyCardFees} />
+          <Metric
+            l="Retiros personales del mes"
+            v={summary.monthlyOwnerWithdrawals}
           />
           <Metric
             l="Compromisos de este mes"
@@ -259,8 +277,10 @@ export function OperationsApp({
             Esto controla dinero real, no calcula rentabilidad.
           </strong>{" "}
           La rentabilidad se calcula aparte en Costos con recetas, comisiones y
-          costos fijos. Un compromiso pendiente no baja el saldo hasta que se
-          paga.
+          costos fijos. El IVA de septiembre debe registrarse como compromiso:
+          reducirá la liquidez de octubre, pero no falseará la rentabilidad
+          operacional de octubre. Un compromiso pendiente no baja el saldo
+          bancario hasta que se paga.
         </div>
         {!!obligations.length && (
           <section className="card mt-6 p-5">
