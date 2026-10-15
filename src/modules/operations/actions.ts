@@ -76,12 +76,29 @@ export async function saveObligationAction(form: FormData) {
   const dueDate = String(form.get("dueDate") || "");
   const kind = String(form.get("kind") || "payable");
   const recurring = form.get("recurring") === "on";
+  const principalAmount = Math.round(Number(form.get("principalAmount")) || 0);
+  const interestAmount = Math.round(Number(form.get("interestAmount")) || 0);
+  const chargesAmount = Math.round(Number(form.get("chargesAmount")) || 0);
   if (!name) throw new Error("Nombre obligatorio");
   if (amount !== null && (!Number.isFinite(amount) || amount < 1))
     throw new Error("Monto inválido");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) throw new Error("Fecha inválida");
   if (!["payable", "loan_payment"].includes(kind))
     throw new Error("Tipo de compromiso inválido");
+  if (
+    [principalAmount, interestAmount, chargesAmount].some(
+      (value) => !Number.isInteger(value) || value < 0,
+    )
+  )
+    throw new Error("Desglose de crédito inválido");
+  if (
+    kind === "loan_payment" &&
+    amount !== null &&
+    principalAmount + interestAmount + chargesAmount !== amount
+  )
+    throw new Error(
+      "Capital, intereses y cargos deben sumar el total de la cuota",
+    );
   const { error } = await supabase.from("financial_obligations").insert({
     business_id: membership.business_id,
     name,
@@ -92,6 +109,9 @@ export async function saveObligationAction(form: FormData) {
     carry_amount: recurring && form.get("carryAmount") === "on",
     status: "pending",
     note: String(form.get("note") || "").trim() || null,
+    principal_amount: kind === "loan_payment" ? principalAmount : 0,
+    interest_amount: kind === "loan_payment" ? interestAmount : 0,
+    charges_amount: kind === "loan_payment" ? chargesAmount : 0,
     created_by: user.id,
   });
   if (error) throw error;
@@ -185,7 +205,12 @@ export async function saveOperationAction(form: FormData) {
   const economicMonth = String(form.get("economicMonth") || "");
   const provisionId = String(form.get("provisionId") || "") || null;
   const obligationId = String(form.get("obligationId") || "");
-  let affectsProfitability = true;
+  let affectsProfitability = ![
+    "owner_withdrawal",
+    "owner_contribution",
+  ].includes(type);
+  let profitabilityAmount = affectsProfitability ? gross : 0;
+  let loanBreakdown = { principal: 0, interest: 0, charges: 0 };
   if (provisionId) {
     const { data: provision } = await supabase
       .from("expense_provisions")
@@ -197,12 +222,35 @@ export async function saveOperationAction(form: FormData) {
   if (obligationId) {
     const { data: obligation } = await supabase
       .from("financial_obligations")
-      .select("kind")
+      .select("kind,principal_amount,interest_amount,charges_amount")
       .eq("id", obligationId)
       .eq("status", "pending")
       .maybeSingle();
     if (!obligation) throw new Error("Compromiso no válido");
     affectsProfitability = obligation.kind !== "loan_payment";
+    if (obligation.kind === "loan_payment") {
+      const formPrincipal = Math.round(
+        Number(form.get("principalAmount")) ||
+          Number(obligation.principal_amount),
+      );
+      const formInterest = Math.round(
+        Number(form.get("interestAmount")) ||
+          Number(obligation.interest_amount),
+      );
+      const formCharges = Math.round(
+        Number(form.get("chargesAmount")) || Number(obligation.charges_amount),
+      );
+      if (formPrincipal + formInterest + formCharges !== gross)
+        throw new Error(
+          "El desglose de capital, intereses y cargos debe sumar la cuota pagada",
+        );
+      loanBreakdown = {
+        principal: formPrincipal,
+        interest: formInterest,
+        charges: formCharges,
+      };
+      profitabilityAmount = loanBreakdown.interest + loanBreakdown.charges;
+    }
   }
   const { error: statusError } = await supabase
     .from("operational_transactions")
@@ -213,6 +261,11 @@ export async function saveOperationAction(form: FormData) {
         : `${String(form.get("date")).slice(0, 7)}-01`,
       provision_id: provisionId,
       affects_profitability: affectsProfitability,
+      profitability_amount: profitabilityAmount,
+      financial_obligation_id: obligationId || null,
+      principal_amount: loanBreakdown.principal,
+      interest_amount: loanBreakdown.interest,
+      charges_amount: loanBreakdown.charges,
     })
     .eq("id", transactionId);
   if (statusError) throw statusError;
@@ -222,11 +275,16 @@ export async function saveOperationAction(form: FormData) {
       .update({
         status: "paid",
         amount: gross,
+        principal_amount: loanBreakdown.principal,
+        interest_amount: loanBreakdown.interest,
+        charges_amount: loanBreakdown.charges,
         updated_at: new Date().toISOString(),
       })
       .eq("id", obligationId)
       .eq("status", "pending")
-      .select("id,business_id,name,due_date,kind,recurrence,carry_amount,note")
+      .select(
+        "id,business_id,name,due_date,kind,recurrence,carry_amount,note,principal_amount,interest_amount,charges_amount",
+      )
       .single();
     if (obligationError || !paidObligation)
       throw new Error(
@@ -255,6 +313,9 @@ export async function saveOperationAction(form: FormData) {
             carry_amount: paidObligation.carry_amount,
             status: "pending",
             note: paidObligation.note,
+            principal_amount: paidObligation.principal_amount,
+            interest_amount: paidObligation.interest_amount,
+            charges_amount: paidObligation.charges_amount,
             created_by: user.id,
           });
         if (nextError) throw nextError;
@@ -349,7 +410,9 @@ export async function updateOperationAction(form: FormData) {
   const net = taxRate === 0 ? gross : Math.round(gross / 1.19);
   const { data: existing, error: readError } = await supabase
     .from("operational_transactions")
-    .select("ingredient_id")
+    .select(
+      "ingredient_id,financial_obligation_id,principal_amount,interest_amount,charges_amount,affects_profitability",
+    )
     .eq("id", String(form.get("id")))
     .single();
   if (readError || !existing) throw new Error("Movimiento no encontrado");
@@ -374,6 +437,16 @@ export async function updateOperationAction(form: FormData) {
       note: String(form.get("note") || "").trim() || null,
       economic_month: `${String(form.get("economicMonth") || String(form.get("date")).slice(0, 7))}-01`,
       provision_id: provisionId,
+      affects_profitability:
+        type === "owner_withdrawal" || type === "owner_contribution"
+          ? false
+          : existing.affects_profitability,
+      profitability_amount:
+        type === "owner_withdrawal" || type === "owner_contribution"
+          ? 0
+          : existing.financial_obligation_id
+            ? Number(existing.interest_amount) + Number(existing.charges_amount)
+            : gross,
       updated_at: new Date().toISOString(),
     })
     .eq("id", String(form.get("id")));

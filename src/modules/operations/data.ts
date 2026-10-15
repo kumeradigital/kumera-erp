@@ -21,6 +21,21 @@ function one<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? value[0] || null : value;
 }
 
+function liquidityCycle(today: string) {
+  const [year, month, day] = today.split("-").map(Number);
+  const start =
+    day >= 5
+      ? new Date(Date.UTC(year, month - 1, 5))
+      : new Date(Date.UTC(year, month - 2, 5));
+  const end = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 4),
+  );
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
 export async function getOperationsData() {
   const supabase = await createClient();
   const {
@@ -35,6 +50,24 @@ export async function getOperationsData() {
     .eq("active", true)
     .single();
   if (!membership) throw new Error("Sin negocio");
+
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const currentMonth = today.slice(0, 7);
+  const cycle = liquidityCycle(today);
+  const { error: provisionAutomationError } = await supabase.rpc(
+    "ensure_monthly_expense_provisions",
+    {
+      p_business_id: membership.business_id,
+      p_month: `${currentMonth}-01`,
+      p_created_by: user.id,
+    },
+  );
+  if (provisionAutomationError) throw provisionAutomationError;
 
   const [ledger, cutoffResult] = await Promise.all([
     supabase
@@ -57,11 +90,6 @@ export async function getOperationsData() {
   if (!cutoffResult.data)
     throw new Error("Falta crear el corte financiero inicial");
 
-  const currentMonth = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Santiago",
-    year: "numeric",
-    month: "2-digit",
-  }).format(new Date());
   const monthStart = `${currentMonth}-01T00:00:00`;
   const sessionQueryStart =
     Date.parse(cutoffResult.data.cutoff_at) < Date.parse(monthStart)
@@ -82,7 +110,7 @@ export async function getOperationsData() {
       supabase
         .from("operational_transactions")
         .select(
-          "id,transaction_date,economic_month,provision_id,affects_profitability,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
+          "id,transaction_date,economic_month,provision_id,financial_obligation_id,affects_profitability,profitability_amount,principal_amount,interest_amount,charges_amount,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
         )
         .eq("business_id", membership.business_id)
         .order("transaction_date", { ascending: false }),
@@ -103,7 +131,7 @@ export async function getOperationsData() {
       supabase
         .from("financial_obligations")
         .select(
-          "id,name,amount,due_date,kind,recurrence,carry_amount,status,note",
+          "id,name,amount,due_date,kind,recurrence,carry_amount,status,note,principal_amount,interest_amount,charges_amount",
         )
         .eq("business_id", membership.business_id)
         .eq("status", "pending")
@@ -147,6 +175,11 @@ export async function getOperationsData() {
       economicMonth: row.economic_month,
       provisionId: row.provision_id || undefined,
       affectsProfitability: row.affects_profitability,
+      profitabilityAmount: Number(row.profitability_amount),
+      financialObligationId: row.financial_obligation_id || undefined,
+      principalAmount: Number(row.principal_amount),
+      interestAmount: Number(row.interest_amount),
+      chargesAmount: Number(row.charges_amount),
       financialStatus: row.financial_status,
       ingredientName: ingredient?.name,
       purchaseQuantity:
@@ -193,6 +226,8 @@ export async function getOperationsData() {
   let monthlyBusinessCashWithdrawals = 0;
   let cardFees = 0;
   let withdrawals = 0;
+  let cycleSales = 0;
+  let cycleOwnerWithdrawals = 0;
   for (const session of sessions.data || []) {
     const reconciliation = one(
       session.cash_session_reconciliations as
@@ -220,6 +255,16 @@ export async function getOperationsData() {
           reconciliation.commission_tax_amount || 0,
         );
       }
+      const closedDate = session.closed_at
+        ? new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Santiago",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(new Date(session.closed_at))
+        : "";
+      if (closedDate >= cycle.start && closedDate <= cycle.end)
+        cycleSales += sessionCashSales + sessionBankSales;
       if (
         session.closed_at &&
         Date.parse(session.closed_at) > Date.parse(cutoff.cutoffAt)
@@ -250,6 +295,18 @@ export async function getOperationsData() {
       if (withdrawal.is_business_expense)
         monthlyBusinessCashWithdrawals += Number(withdrawal.amount);
       else monthlyCashWithdrawals += Number(withdrawal.amount);
+      const withdrawalDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Santiago",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(withdrawal.created_at));
+      if (
+        !withdrawal.is_business_expense &&
+        withdrawalDate >= cycle.start &&
+        withdrawalDate <= cycle.end
+      )
+        cycleOwnerWithdrawals += Number(withdrawal.amount);
     }
   }
 
@@ -262,7 +319,7 @@ export async function getOperationsData() {
         !operation.provisionId &&
         ["fixed_cost", "expense"].includes(operation.type),
     )
-    .reduce((total, operation) => total + operation.gross, 0);
+    .reduce((total, operation) => total + operation.profitabilityAmount, 0);
   const monthlyByType = (type: OperationType) =>
     operations
       .filter(
@@ -313,6 +370,9 @@ export async function getOperationsData() {
       recurrence: row.recurrence || undefined,
       carryAmount: Boolean(row.carry_amount),
       note: row.note || undefined,
+      principalAmount: Number(row.principal_amount),
+      interestAmount: Number(row.interest_amount),
+      chargesAmount: Number(row.charges_amount),
     }),
   );
 
@@ -355,6 +415,31 @@ export async function getOperationsData() {
     (total, item) => total + item.expectedAmount,
     0,
   );
+  const cycleOperations = operations.filter(
+    (operation) =>
+      operation.date >= cycle.start &&
+      operation.date <= cycle.end &&
+      countsInMonthlyBooks(operation),
+  );
+  const cycleOtherIncome = cycleOperations
+    .filter((operation) =>
+      ["other_income", "owner_contribution"].includes(operation.type),
+    )
+    .reduce((total, operation) => total + operation.gross, 0);
+  const cyclePaidOutflows = cycleOperations
+    .filter(
+      (operation) =>
+        !["other_income", "owner_contribution", "owner_withdrawal"].includes(
+          operation.type,
+        ),
+    )
+    .reduce((total, operation) => total + operation.gross, 0);
+  cycleOwnerWithdrawals += cycleOperations
+    .filter((operation) => operation.type === "owner_withdrawal")
+    .reduce((total, operation) => total + operation.gross, 0);
+  const cyclePendingPayments = obligations
+    .filter((item) => item.dueDate >= cycle.start && item.dueDate <= cycle.end)
+    .reduce((total, item) => total + (item.amount || 0), 0);
 
   return {
     operations,
@@ -402,6 +487,19 @@ export async function getOperationsData() {
           0,
         ) -
         taxReserve.estimatedVatPayable,
+      cashCycle: {
+        ...cycle,
+        sales: cycleSales,
+        otherIncome: cycleOtherIncome,
+        paidOutflows: cyclePaidOutflows,
+        ownerWithdrawals: cycleOwnerWithdrawals,
+        pendingPayments: cyclePendingPayments,
+        projectedAvailable:
+          expectedBank +
+          expectedCash -
+          cyclePendingPayments -
+          taxReserve.estimatedVatPayable,
+      },
     },
   };
 }

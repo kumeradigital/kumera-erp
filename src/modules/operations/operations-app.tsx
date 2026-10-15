@@ -30,6 +30,7 @@ import {
 } from "./categories";
 import {
   operationLabels,
+  type CashCycleSummary,
   type FinancialCutoff,
   type FinancialObligation,
   type ExpenseProvision,
@@ -83,6 +84,7 @@ export function OperationsApp({
     recoverableTaxCredit: number;
     estimatedVatPayable: number;
     availableLiquidity: number;
+    cashCycle: CashCycleSummary;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -383,6 +385,7 @@ export function OperationsApp({
               por compras y comisiones registradas. Esta reserva no es un gasto:
               es dinero que debe permanecer disponible para el F29.
             </div>
+            <CashCyclePanel cycle={summary.cashCycle} />
             <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
               <strong className="text-[#252822]">
                 Esto controla dinero real, no calcula rentabilidad.
@@ -1128,13 +1131,31 @@ function ObligationGroup({
                 <p className="font-black">{item.name}</p>
                 <p className="mt-1 text-xs text-[#777]">
                   Vence {formatDate(item.dueDate)}
-                  {item.kind === "loan_payment" ? " · Sólo flujo de caja" : ""}
+                  {item.kind === "loan_payment"
+                    ? " · Capital sólo afecta caja"
+                    : ""}
                 </p>
               </div>
               <p className="money font-black">
                 {item.amount == null ? "Por calcular" : formatClp(item.amount)}
               </p>
             </div>
+            {item.kind === "loan_payment" && item.amount != null && (
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-[#f2f2ea] p-3 text-xs">
+                <span>
+                  Capital{" "}
+                  <b className="block">{formatClp(item.principalAmount)}</b>
+                </span>
+                <span>
+                  Intereses{" "}
+                  <b className="block">{formatClp(item.interestAmount)}</b>
+                </span>
+                <span>
+                  Cargos{" "}
+                  <b className="block">{formatClp(item.chargesAmount)}</b>
+                </span>
+              </div>
+            )}
             {item.note && (
               <p className="mt-3 text-xs text-[#777]">{item.note}</p>
             )}
@@ -1159,6 +1180,7 @@ function ObligationGroup({
 
 function ObligationDialog({ onClose }: { onClose: () => void }) {
   const [recurring, setRecurring] = useState(false);
+  const [kind, setKind] = useState<"payable" | "loan_payment">("payable");
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
       <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
@@ -1212,11 +1234,61 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
           </div>
           <label className="block text-xs font-bold">
             Tipo
-            <select name="kind" className="input mt-2">
+            <select
+              name="kind"
+              value={kind}
+              onChange={(event) =>
+                setKind(event.target.value as "payable" | "loan_payment")
+              }
+              className="input mt-2"
+            >
               <option value="payable">Cuenta o impuesto por pagar</option>
               <option value="loan_payment">Cuota de crédito</option>
             </select>
           </label>
+          {kind === "loan_payment" && (
+            <fieldset className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
+              <legend className="px-2 text-xs font-black uppercase tracking-[.12em] text-[#235b45]">
+                Desglose obligatorio de la cuota
+              </legend>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <label className="text-xs font-bold">
+                  Capital
+                  <input
+                    name="principalAmount"
+                    type="number"
+                    min="0"
+                    required
+                    className="input mt-2"
+                  />
+                </label>
+                <label className="text-xs font-bold">
+                  Intereses
+                  <input
+                    name="interestAmount"
+                    type="number"
+                    min="0"
+                    required
+                    className="input mt-2"
+                  />
+                </label>
+                <label className="text-xs font-bold">
+                  Cargos
+                  <input
+                    name="chargesAmount"
+                    type="number"
+                    min="0"
+                    required
+                    className="input mt-2"
+                  />
+                </label>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[#62675f]">
+                Los tres valores deben sumar la cuota. Capital afecta solamente
+                la caja; intereses y cargos afectan la rentabilidad.
+              </p>
+            </fieldset>
+          )}
           <label className="flex items-start gap-3 rounded-xl bg-[#f2f2ea] p-3 text-sm">
             <input
               type="checkbox"
@@ -1254,6 +1326,42 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
         </form>
       </div>
     </div>
+  );
+}
+
+function CashCyclePanel({ cycle }: { cycle: CashCycleSummary }) {
+  return (
+    <section className="mt-4 rounded-2xl border border-[#cbd8c8] bg-[#f3f8f1] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+            Ciclo de liquidez · día 5 al día 4
+          </p>
+          <h2 className="mt-1 text-xl font-black">
+            {formatDate(cycle.start)} → {formatDate(cycle.end)}
+          </h2>
+        </div>
+        <p className="max-w-md text-xs leading-5 text-[#667067]">
+          Esta vista sigue cuándo entra y sale el dinero. La rentabilidad
+          continúa calculándose por mes calendario.
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric l="Ventas cobradas" v={cycle.sales} />
+        <Metric l="Otros ingresos" v={cycle.otherIncome} />
+        <Metric l="Pagos realizados" v={cycle.paidOutflows} />
+        <Metric l="Retiros personales" v={cycle.ownerWithdrawals} />
+        <Metric l="Pagos aún pendientes" v={cycle.pendingPayments} warning />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4">
+        <span className="text-sm font-bold text-[#596159]">
+          Disponible proyectado después de compromisos e IVA reservado
+        </span>
+        <strong className="money text-2xl">
+          {formatClp(cycle.projectedAvailable)}
+        </strong>
+      </div>
+    </section>
   );
 }
 
@@ -1653,6 +1761,52 @@ function OperationDialog({
               </select>
             </label>
           </div>
+          {obligation?.kind === "loan_payment" && (
+            <fieldset className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
+              <legend className="px-2 text-xs font-black uppercase tracking-[.12em] text-[#235b45]">
+                Desglose de esta cuota
+              </legend>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <label className="text-xs font-bold">
+                  Capital
+                  <input
+                    name="principalAmount"
+                    type="number"
+                    min="0"
+                    required
+                    defaultValue={obligation.principalAmount || undefined}
+                    className="input mt-2"
+                  />
+                </label>
+                <label className="text-xs font-bold">
+                  Intereses
+                  <input
+                    name="interestAmount"
+                    type="number"
+                    min="0"
+                    required
+                    defaultValue={obligation.interestAmount || 0}
+                    className="input mt-2"
+                  />
+                </label>
+                <label className="text-xs font-bold">
+                  Cargos
+                  <input
+                    name="chargesAmount"
+                    type="number"
+                    min="0"
+                    required
+                    defaultValue={obligation.chargesAmount || 0}
+                    className="input mt-2"
+                  />
+                </label>
+              </div>
+              <p className="mt-3 text-xs text-[#62675f]">
+                Deben sumar el monto pagado. Solamente intereses y cargos se
+                reconocerán como gasto.
+              </p>
+            </fieldset>
+          )}
           <label className="block text-xs font-bold">
             Estado financiero
             <select

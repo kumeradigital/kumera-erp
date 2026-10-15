@@ -25,6 +25,11 @@ export type Operation = {
   economicMonth: string;
   provisionId?: string;
   affectsProfitability: boolean;
+  profitabilityAmount: number;
+  financialObligationId?: string;
+  principalAmount: number;
+  interestAmount: number;
+  chargesAmount: number;
   financialStatus:
     "pending" | "verified" | "historical" | "historical_verified";
 };
@@ -41,6 +46,17 @@ export type ExpenseProvision = {
   affectsProfitability: boolean;
   status: "estimated" | "partial" | "reconciled" | "cancelled";
   note?: string;
+};
+
+export type CashCycleSummary = {
+  start: string;
+  end: string;
+  sales: number;
+  otherIncome: number;
+  paidOutflows: number;
+  ownerWithdrawals: number;
+  pendingPayments: number;
+  projectedAvailable: number;
 };
 
 export type FinancialCutoff = {
@@ -61,6 +77,9 @@ export type FinancialObligation = {
   recurrence?: "monthly";
   carryAmount: boolean;
   note?: string;
+  principalAmount: number;
+  interestAmount: number;
+  chargesAmount: number;
 };
 export const operationLabels: Record<OperationType, string> = {
   purchase: "Compra de insumos",
