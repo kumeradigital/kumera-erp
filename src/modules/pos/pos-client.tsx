@@ -5,9 +5,9 @@ import {
   Banknote,
   Check,
   Clock,
-  HandCoins,
   Handshake,
   Layers3,
+  Menu,
   Minus,
   Plus,
   Settings,
@@ -86,7 +86,7 @@ export function PosClient({
   const [displayedRecentSales, setDisplayedRecentSales] = useState(recentSales);
   const [displayedDeliveryOrders, setDisplayedDeliveryOrders] =
     useState(recentDeliveryOrders);
-  const [displayedWithdrawals, setDisplayedWithdrawals] = useState(withdrawals);
+  const [displayedWithdrawals] = useState(withdrawals);
   const [displayedProductionBatches, setDisplayedProductionBatches] =
     useState(productionBatches);
   const [liveClosingSummary, setLiveClosingSummary] = useState(closingSummary);
@@ -96,10 +96,9 @@ export function PosClient({
   const [closing, setClosing] = useState(false);
   const [weighing, setWeighing] = useState<Product | null>(null);
   const [managingAvailability, setManagingAvailability] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
-  const [changeCalculatorOpen, setChangeCalculatorOpen] = useState(false);
+  const [cartMenuOpen, setCartMenuOpen] = useState(false);
   const [selectingGroup, setSelectingGroup] = useState<ProductTile | null>(
     null,
   );
@@ -155,7 +154,8 @@ export function PosClient({
           ),
         ) as Cart;
         setCart(restored);
-        setEmployeeDiscount(Boolean(parsed.employeeDiscount));
+        // El descuento de empleado ya no forma parte de la caja de tablet.
+        setEmployeeDiscount(false);
       }
     } catch {
       // La caja puede seguir operando aunque el almacenamiento esté bloqueado.
@@ -674,7 +674,63 @@ export function PosClient({
             </p>
             <h2 className="mt-1 text-xl font-black">Carro</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="relative flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCartMenuOpen((current) => !current)}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-[#d7d9d0] bg-white px-2.5 text-[11px] font-black text-[#235b45] shadow-sm"
+              aria-expanded={cartMenuOpen}
+              aria-label="Abrir menú de caja"
+            >
+              <Menu size={16} /> Más
+            </button>
+            {cartMenuOpen && (
+              <div className="absolute right-0 top-11 z-40 grid w-48 gap-1 rounded-xl border border-[#d9dbd2] bg-white p-2 shadow-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCartMenuOpen(false);
+                    setRecordingSpecialSale(true);
+                  }}
+                  className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-left text-xs font-black text-[#235b45] hover:bg-[#edf4e9]"
+                >
+                  <Handshake size={16} /> Venta especial
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCartMenuOpen(false);
+                    setRecordingDelivery(true);
+                  }}
+                  className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-left text-xs font-black text-[#d91f4b] hover:bg-[#fff2f5]"
+                >
+                  <ShoppingBag size={16} /> PedidosYa
+                </button>
+                {productionFamilies.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCartMenuOpen(false);
+                      setRecordingProduction(true);
+                    }}
+                    className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-left text-xs font-black text-[#235b45] hover:bg-[#edf4e9]"
+                  >
+                    <Layers3 size={16} /> Producción de pan
+                  </button>
+                )}
+                <div className="my-1 border-t border-[#e5e5dc]" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCartMenuOpen(false);
+                    setClosing(true);
+                  }}
+                  className="min-h-10 rounded-lg px-3 text-left text-xs font-black text-[#a24628] hover:bg-[#fff2ec]"
+                >
+                  Cerrar jornada de caja
+                </button>
+              </div>
+            )}
             <button
               onClick={() => setMobileCartOpen(false)}
               className="grid size-9 place-items-center rounded-full bg-[#f0f0e8] min-[700px]:hidden"
@@ -683,28 +739,6 @@ export function PosClient({
               <X size={18} />
             </button>
           </div>
-        </div>
-        <div className="mt-2 grid shrink-0 grid-cols-3 gap-1.5">
-          <button
-            onClick={() => setRecordingSpecialSale(true)}
-            className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#235b45] bg-[#edf4e9] px-1.5 text-[10px] font-black text-[#235b45]"
-          >
-            <Handshake size={15} /> Venta especial
-          </button>
-          <button
-            onClick={() => setRecordingDelivery(true)}
-            className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#d91f4b] bg-white px-1.5 text-[10px] font-black text-[#d91f4b]"
-          >
-            <ShoppingBag size={15} /> PedidosYa
-          </button>
-          {productionFamilies.length > 0 && (
-            <button
-              onClick={() => setRecordingProduction(true)}
-              className="flex min-h-9 items-center justify-center gap-1 rounded-lg bg-[#235b45] px-1.5 text-[10px] font-black text-white"
-            >
-              <Layers3 size={15} /> Pan
-            </button>
-          )}
         </div>
         <div className="scrollbar mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
           {lines.map((l) => (
@@ -780,7 +814,6 @@ export function PosClient({
                         setCart({});
                         setEmployeeDiscount(false);
                         setConfirmingClear(false);
-                        setChangeCalculatorOpen(false);
                       }}
                       className="min-h-11 rounded-lg bg-[#a24628] text-xs font-black text-white"
                     >
@@ -801,93 +834,18 @@ export function PosClient({
           )}
         </div>
         <div className="shrink-0 border-t-2 border-[#222] pt-2">
-          <div className="mb-2 rounded-lg bg-[#f2f2ea] px-2 py-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#777]">
-                  Retiros de caja
-                </p>
-                <b className="money text-xs">{formatClp(withdrawalTotal)}</b>
-              </div>
-              <button
-                onClick={() => setWithdrawing(true)}
-                className="flex items-center gap-1 rounded-lg border border-[#d0d0c7] bg-white px-2 py-1.5 text-[10px] font-bold text-[#235b45]"
-              >
-                <HandCoins size={15} /> Anotar retiro
-              </button>
-            </div>
-            {displayedWithdrawals[0] && (
-              <p className="mt-1 truncate text-[10px] text-[#777]">
-                Último: {formatClp(displayedWithdrawals[0].amount)} ·{" "}
-                {displayedWithdrawals[0].reason}
-              </p>
-            )}
-          </div>
-          {lines.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setEmployeeDiscount((current) => !current)}
-              className={`mb-2 w-full rounded-lg border px-2 py-1.5 text-[10px] font-bold transition ${
-                employeeDiscount
-                  ? "border-[#235b45] bg-[#edf4e9] text-[#235b45]"
-                  : "border-[#deded5] bg-transparent text-[#777]"
-              }`}
-            >
-              {employeeDiscount
-                ? "✓ Descuento empleado aplicado (25%)"
-                : "Aplicar descuento empleado"}
-            </button>
-          )}
-          {employeeDiscount && (
-            <div className="mb-2 space-y-1 text-xs text-[#666]">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span className="money">{formatClp(grossTotal)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-[#235b45]">
-                <span>Descuento empleado 25%</span>
-                <span className="money">−{formatClp(discountAmount)}</span>
-              </div>
-            </div>
-          )}
           <div className="flex items-end justify-between">
             <span className="font-bold">Total</span>
             <span className="money text-2xl font-black">
               {formatClp(total)}
             </span>
           </div>
-          {lines.length > 0 && (
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={() => setChangeCalculatorOpen((current) => !current)}
-                className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#cfd8cc] bg-[#f4f7f1] px-3 text-xs font-black text-[#235b45]"
-              >
-                <Banknote size={18} />
-                {changeCalculatorOpen
-                  ? "Cerrar calculadora de vuelto"
-                  : "Calcular vuelto"}
-              </button>
-              {changeCalculatorOpen && (
-                <ChangeCalculator
-                  total={total}
-                  onClose={() => setChangeCalculatorOpen(false)}
-                />
-              )}
-            </div>
-          )}
           <button
             disabled={!total || busy}
             onClick={recordSale}
             className="mt-2 h-11 w-full rounded-xl bg-[#235b45] text-sm font-black text-white disabled:opacity-30"
           >
             {busy ? "Registrando…" : "Registrar venta"}
-          </button>
-          <button
-            onClick={() => setClosing(true)}
-            className="mt-1.5 w-full text-center text-[10px] font-bold text-[#a24628]"
-          >
-            Cerrar jornada de caja
           </button>
         </div>
       </aside>
@@ -945,16 +903,6 @@ export function PosClient({
             });
             setAvailabilityQuantities(update);
             setSavedAvailabilityQuantities(update);
-          }}
-        />
-      )}
-      {withdrawing && (
-        <CashWithdrawalDialog
-          sessionId={session.id}
-          onClose={() => setWithdrawing(false)}
-          onRecorded={(withdrawal) => {
-            setDisplayedWithdrawals((current) => [withdrawal, ...current]);
-            setWithdrawing(false);
           }}
         />
       )}
@@ -2227,6 +2175,9 @@ function CloseSessionDialog({
 }) {
   const [busy, setBusy] = useState(false);
   const [countedCash, setCountedCash] = useState("");
+  const [closingWithdrawalTotal, setClosingWithdrawalTotal] = useState(
+    withdrawalTotal ? String(withdrawalTotal) : "",
+  );
   const [documentedCash, setDocumentedCash] = useState(0);
   const [documentedCashTransactions, setDocumentedCashTransactions] =
     useState(0);
@@ -2265,8 +2216,9 @@ function CloseSessionDialog({
     (product, index, list) =>
       list.findIndex((candidate) => candidate.id === product.id) === index,
   );
+  const declaredWithdrawalTotal = Number(closingWithdrawalTotal || 0);
   const derivedCashSales =
-    Number(countedCash || 0) + withdrawalTotal - session.openingCash;
+    Number(countedCash || 0) + declaredWithdrawalTotal - session.openingCash;
   const cardAndTransferTotal =
     externalTotals.debit + externalTotals.credit + externalTotals.transfer;
   const allocatedTotal = Math.max(0, derivedCashSales) + cardAndTransferTotal;
@@ -2306,10 +2258,25 @@ function CloseSessionDialog({
               <span>Efectivo inicial</span>
               <b>{formatClp(session.openingCash)}</b>
             </div>
-            <div className="flex justify-between">
-              <span>Retiros registrados</span>
-              <b>{formatClp(withdrawalTotal)}</b>
-            </div>
+            <label className="mt-2 block">
+              <span className="flex items-center justify-between gap-3">
+                <span>Total retirado durante el día</span>
+                <span className="text-[10px] font-normal text-[#777]">
+                  Según anotación manual
+                </span>
+              </span>
+              <input
+                inputMode="numeric"
+                value={closingWithdrawalTotal}
+                onChange={(event) =>
+                  setClosingWithdrawalTotal(
+                    event.target.value.replace(/\D/g, ""),
+                  )
+                }
+                className="input mt-2 bg-white text-right font-black"
+                placeholder="0"
+              />
+            </label>
           </div>
           <p className="mt-3 border-t border-[#d8dcd2] pt-3 text-[10px] leading-4 text-[#777]">
             Ventas en efectivo = efectivo final + retiros − efectivo inicial.
@@ -2465,6 +2432,23 @@ function CloseSessionDialog({
         <form
           action={async (form) => {
             setBusy(true);
+            const pendingWithdrawal = declaredWithdrawalTotal - withdrawalTotal;
+            if (pendingWithdrawal < 0) {
+              alert(
+                `El retiro no puede ser menor que los ${formatClp(withdrawalTotal)} ya registrados.`,
+              );
+              setBusy(false);
+              return;
+            }
+            if (pendingWithdrawal > 0) {
+              await registerCashWithdrawalAction(
+                session.id,
+                pendingWithdrawal,
+                "Total de retiros anotados manualmente al cierre",
+                "Otros",
+                false,
+              );
+            }
             await closeCashSessionAction(
               session.id,
               Number(form.get("countedCash")),
