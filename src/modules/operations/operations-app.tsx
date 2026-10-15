@@ -145,6 +145,18 @@ export function OperationsApp({
         ),
       ).filter((group): group is [OperationType, Operation[]] => !!group[1])
     : [];
+  const effectiveMonthlyCosts =
+    summary.provisionedExpenses > 0
+      ? summary.provisionedExpenses
+      : monthlyFixedCosts;
+  const projectedOperatingResult =
+    businessPulse.projectedMonthlyContribution -
+    businessPulse.projectedMonthlyWasteReserve -
+    effectiveMonthlyCosts;
+  const otherPaidExpenses =
+    summary.monthlyFixedPayments +
+    summary.monthlyVariableExpenses +
+    summary.monthlyBusinessCashWithdrawals;
   return (
     <main className="mx-auto max-w-7xl p-5 md:p-8">
       <section className="md:hidden">
@@ -257,12 +269,10 @@ export function OperationsApp({
         )}
         {financeView === "projection" && (
           <ProjectionsView
-            fixedCosts={
-              summary.provisionedExpenses > 0
-                ? summary.provisionedExpenses
-                : monthlyFixedCosts
-            }
+            fixedCosts={effectiveMonthlyCosts}
             businessPulse={businessPulse}
+            estimatedVatPayable={summary.estimatedVatPayable}
+            vatRate={costSettings.vatRate}
           />
         )}
         {financeView === "provisions" && (
@@ -322,59 +332,148 @@ export function OperationsApp({
                 cuando están verificados.
               </p>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
-              <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
-              <Metric
-                l="Efectivo esperado"
-                v={summary.expectedCash}
-                icon="cash"
-              />
-              <Metric
-                l="Ventas conciliadas de este mes"
-                v={summary.salesTotal}
-              />
-              <Metric
-                l="Ventas netas después de IVA"
-                v={summary.netSalesAfterVat}
-              />
-              <Metric
-                l="Gastos operacionales del mes"
-                v={summary.operatingExpenses}
-              />
-              <Metric l="Compras de insumos" v={summary.monthlyPurchases} />
-              <Metric
-                l="Gastos fijos pagados"
-                v={summary.monthlyFixedPayments}
-              />
-              <Metric
-                l="Otros gastos variables"
-                v={summary.monthlyVariableExpenses}
-              />
-              <Metric l="Comisiones de tarjetas" v={summary.monthlyCardFees} />
-              <Metric
-                l="Retiros personales del mes"
-                v={summary.monthlyOwnerWithdrawals}
-              />
-              <Metric
-                l="Compras menores desde caja"
-                v={summary.monthlyBusinessCashWithdrawals}
-              />
-              <Metric
-                l="Compromisos de este mes"
-                v={summary.pendingObligations}
-                warning
-              />
-              <Metric
-                l="Reserva estimada de IVA"
-                v={summary.estimatedVatPayable}
-                warning
-              />
-              <Metric
-                l="Liquidez libre estimada"
-                v={summary.availableLiquidity}
-                tone={summary.availableLiquidity < 0 ? "danger" : "available"}
-              />
+            <div className="mt-4 grid gap-4 xl:grid-cols-12">
+              <div
+                className={`rounded-2xl border p-6 xl:col-span-7 ${summary.availableLiquidity < 0 ? "border-[#e2b9aa] bg-[#fff0ea]" : "border-[#b9d0b8] bg-[#e8f0e6]"}`}
+              >
+                <p className="text-xs font-black uppercase tracking-[.14em] text-[#59635b]">
+                  Dinero realmente disponible
+                </p>
+                <p
+                  className={`money mt-3 text-4xl font-black ${summary.availableLiquidity < 0 ? "text-[#9a3f22]" : "text-[#235b45]"}`}
+                >
+                  {formatClp(summary.availableLiquidity)}
+                </p>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[#59635b]">
+                  Es la liquidez estimada después de apartar el IVA y los
+                  compromisos conocidos. Este es el monto útil para decidir si
+                  puedes comprar, invertir o retirar sin ocupar dinero ajeno.
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <MiniAmount
+                    label="Banco esperado"
+                    value={summary.expectedBank}
+                  />
+                  <MiniAmount
+                    label="Efectivo esperado"
+                    value={summary.expectedCash}
+                  />
+                  <MiniAmount
+                    label="Saldo total esperado"
+                    value={summary.expectedTotal}
+                  />
+                </div>
+              </div>
+
+              <div
+                className={`rounded-2xl border p-6 xl:col-span-5 ${projectedOperatingResult >= 0 ? "border-[#c9d8c5] bg-[#f2f7ef]" : "border-[#e6d397] bg-[#fff9e8]"}`}
+              >
+                <p className="text-xs font-black uppercase tracking-[.14em] text-[#59635b]">
+                  Salud operativa proyectada
+                </p>
+                <p className="money mt-3 text-3xl font-black">
+                  {formatClp(Math.round(projectedOperatingResult))}
+                </p>
+                <p className="mt-2 text-sm font-black text-[#235b45]">
+                  {projectedOperatingResult < 0
+                    ? "El negocio no alcanza a cubrir su estructura"
+                    : businessPulse.projectedMonthlySales > 0 &&
+                        projectedOperatingResult /
+                          businessPulse.projectedMonthlySales <
+                          0.1
+                      ? "Resultado positivo, pero todavía ajustado"
+                      : "Resultado operativo saludable"}
+                </p>
+                <p className="mt-3 text-xs leading-5 text-[#666]">
+                  Proyección automática con ventas conciliadas, recetas,
+                  comisiones, merma adicional y provisiones del mes. No es el
+                  saldo bancario ni incluye impuesto a la renta.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFinanceView("projection")}
+                  className="mt-5 rounded-xl border border-[#235b45] bg-white px-4 py-2.5 text-xs font-black text-[#235b45]"
+                >
+                  Ver cálculo completo
+                </button>
+              </div>
+
+              <section className="card p-5 xl:col-span-8">
+                <h2 className="font-black">En qué se usó el dinero este mes</h2>
+                <p className="mt-1 text-xs leading-5 text-[#777]">
+                  Pagos efectivamente registrados. Separamos los insumos que
+                  producen lo vendido del resto de los egresos.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <SpendCard
+                    title="Insumos y mercadería"
+                    value={summary.monthlyPurchases}
+                    detail="Materias primas y compras destinadas a producción."
+                    primary
+                  />
+                  <SpendCard
+                    title="Otros gastos del negocio"
+                    value={otherPaidExpenses}
+                    detail="Gastos fijos y variables pagados, incluidos desembolsos menores desde caja."
+                  />
+                  <SpendCard
+                    title="Comisiones de tarjetas"
+                    value={summary.monthlyCardFees}
+                    detail="Costo financiero estimado de las ventas con tarjeta."
+                  />
+                  <SpendCard
+                    title="Retiros personales"
+                    value={summary.monthlyOwnerWithdrawals}
+                    detail="Salida de caja personal: reduce liquidez, no la rentabilidad del negocio."
+                    warning
+                  />
+                </div>
+              </section>
+
+              <section className="card p-5 xl:col-span-4">
+                <h2 className="font-black">Dinero apartado</h2>
+                <p className="mt-1 text-xs leading-5 text-[#777]">
+                  No necesariamente salió todavía del banco, pero ya tiene un
+                  destino y no debe tratarse como disponible.
+                </p>
+                <div className="mt-4 space-y-3">
+                  <ReservedRow
+                    label="IVA estimado acumulado"
+                    value={summary.estimatedVatPayable}
+                  />
+                  <ReservedRow
+                    label="Compromisos pendientes"
+                    value={summary.pendingObligations}
+                  />
+                  <ReservedRow
+                    label="Costos provisionados del mes"
+                    value={summary.provisionedExpenses}
+                  />
+                </div>
+              </section>
+
+              <section className="card p-5 xl:col-span-12">
+                <h2 className="font-black">Lectura de ventas del mes</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <MiniAmount
+                    label="Ventas brutas conciliadas"
+                    value={summary.salesTotal}
+                  />
+                  <MiniAmount
+                    label="Ventas sin IVA"
+                    value={summary.netSalesAfterVat}
+                  />
+                  <MiniAmount
+                    label="Gastos operacionales reconocidos"
+                    value={summary.operatingExpenses}
+                  />
+                </div>
+                <p className="mt-4 text-xs leading-5 text-[#777]">
+                  Las ventas brutas incluyen IVA. Para medir rentabilidad el
+                  sistema trabaja con la venta sin IVA; para medir caja, reserva
+                  el IVA estimado hasta pagarlo en el F29.
+                </p>
+              </section>
             </div>
             <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-5 text-sm text-[#6d6450]">
               <strong className="text-[#5d4b12]">
@@ -1581,6 +1680,50 @@ function Metric({
         )}
       </div>
       <p className="money mt-2 text-2xl font-black">{formatClp(v)}</p>
+    </div>
+  );
+}
+
+function MiniAmount({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-black/5 bg-white/70 p-4">
+      <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+        {label}
+      </p>
+      <p className="money mt-2 text-lg font-black">{formatClp(value)}</p>
+    </div>
+  );
+}
+
+function SpendCard({
+  title,
+  value,
+  detail,
+  primary = false,
+  warning = false,
+}: {
+  title: string;
+  value: number;
+  detail: string;
+  primary?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${primary ? "border-[#bfd2bc] bg-[#eef5eb]" : warning ? "border-[#ead8a6] bg-[#fff9e8]" : "border-[#e6e5dc] bg-[#faf9f4]"}`}
+    >
+      <p className="text-xs font-black text-[#59635b]">{title}</p>
+      <p className="money mt-2 text-2xl font-black">{formatClp(value)}</p>
+      <p className="mt-2 text-[11px] leading-4 text-[#777]">{detail}</p>
+    </div>
+  );
+}
+
+function ReservedRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-[#fff9e8] px-4 py-3">
+      <span className="text-xs font-bold text-[#6d6450]">{label}</span>
+      <b className="money shrink-0 text-sm">{formatClp(value)}</b>
     </div>
   );
 }

@@ -1204,57 +1204,29 @@ export function FixedCostsView({
 export function ProjectionsView({
   fixedCosts,
   businessPulse,
+  estimatedVatPayable,
+  vatRate,
 }: {
   fixedCosts: number;
   businessPulse: BusinessPulse;
+  estimatedVatPayable: number;
+  vatRate: number;
 }) {
-  const realMonthlySales = businessPulse.projectedMonthlySales;
-  const realMargin = businessPulse.observedContributionPercentage;
-  const [monthlySales, setMonthlySales] = useState(realMonthlySales);
-  const [margin, setMargin] = useState(Number(realMargin.toFixed(1)));
-  const dailySales = Math.round(
-    monthlySales / businessPulse.operatingDaysMonth,
-  );
-  const contribution = monthlySales * (margin / 100);
-  const wasteReserve = operationalWasteReserve(
-    monthlySales,
-    businessPulse.operationalWastePercentage,
-  );
+  const monthlySales = businessPulse.projectedMonthlySales;
+  const margin = businessPulse.observedContributionPercentage;
+  const contribution = businessPulse.projectedMonthlyContribution;
+  const wasteReserve = businessPulse.projectedMonthlyWasteReserve;
   const operatingResult = contribution - wasteReserve - fixedCosts;
   const effectiveMargin = margin - businessPulse.operationalWastePercentage;
   const breakEvenSales =
     effectiveMargin > 0 ? fixedCosts / (effectiveMargin / 100) : 0;
   const coverage = businessPulse.recipeCostCoveragePercentage;
 
-  function restoreRealData() {
-    setMonthlySales(realMonthlySales);
-    setMargin(Number(realMargin.toFixed(1)));
-  }
-
-  const scenarios = [
-    { label: "Cauteloso", factor: 0.85 },
-    { label: "Esperado", factor: 1 },
-    { label: "Crecimiento", factor: 1.15 },
-  ].map((scenario) => {
-    const sales = monthlySales * scenario.factor;
-    return {
-      ...scenario,
-      sales,
-      result:
-        sales * (margin / 100) -
-        operationalWasteReserve(
-          sales,
-          businessPulse.operationalWastePercentage,
-        ) -
-        fixedCosts,
-    };
-  });
-
   return (
     <section className="mt-5">
       <SectionHeader
-        title="Proyección mensual simple"
-        subtitle="Parte de tus ventas reales y del margen observado. Cambia sólo los supuestos que quieras probar."
+        title="Viabilidad con datos reales"
+        subtitle="La proyección se actualiza sola desde ventas conciliadas, recetas, comisiones, merma y gastos del mes."
       />
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
@@ -1273,86 +1245,32 @@ export function ProjectionsView({
                 · {businessPulse.operatingDaysMonth} días abiertos al mes.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={restoreRealData}
-              className="rounded-xl border border-[#235b45] px-4 py-2.5 text-xs font-black text-[#235b45]"
-            >
-              Usar datos reales
-            </button>
+            <span className="rounded-full bg-[#e8f0e6] px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#235b45]">
+              Automático · sin supuestos manuales
+            </span>
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            <Field label="Venta diaria promedio">
-              <input
-                type="number"
-                min="0"
-                step="10000"
-                value={dailySales}
-                onChange={(event) =>
-                  setMonthlySales(
-                    Number(event.target.value) *
-                      businessPulse.operatingDaysMonth,
-                  )
-                }
-                className="input money font-black"
-              />
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {[250000, 300000, 350000, 400000].map((amount) => (
-                  <button
-                    type="button"
-                    key={amount}
-                    onClick={() =>
-                      setMonthlySales(amount * businessPulse.operatingDaysMonth)
-                    }
-                    className="rounded-lg border border-[#d7d7ce] bg-white px-2.5 py-1.5 text-[10px] font-bold text-[#59635b] hover:border-[#235b45]"
-                  >
-                    {formatClp(amount)}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] leading-4 text-[#777]">
-                Escríbelo directamente o usa uno de los ejemplos. Se multiplica
-                por {businessPulse.operatingDaysMonth} días abiertos.
-              </p>
-            </Field>
-            <Field label="Venta mensual estimada">
-              <input
-                type="number"
-                min="0"
-                step="10000"
-                value={monthlySales}
-                onChange={(event) =>
-                  setMonthlySales(Number(event.target.value))
-                }
-                className="input money font-black"
-              />
-              <p className="mt-2 text-[11px] leading-4 text-[#777]">
-                Se actualiza automáticamente al cambiar la venta diaria. También
-                puedes escribir aquí un total mensual.
-              </p>
-            </Field>
-            <Field label="Margen de contribución estimado">
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={margin}
-                  onChange={(event) => setMargin(Number(event.target.value))}
-                  className="input pr-10 font-black"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-[#777]">
-                  %
-                </span>
-              </div>
-              <p className="mt-2 text-[11px] leading-4 text-[#777]">
-                El margen observado en productos costeados es{" "}
-                {realMargin.toFixed(1)}%. Ya descuenta IVA de venta, recetas,
-                mermas y comisión estimada.
-              </p>
-            </Field>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ProjectionFact
+              label="Jornadas observadas"
+              value={`${businessPulse.observedDays}`}
+              detail="cerradas y conciliadas"
+            />
+            <ProjectionFact
+              label="Venta diaria promedio"
+              value={formatClp(businessPulse.averageDailySales)}
+              detail="promedio real por jornada"
+            />
+            <ProjectionFact
+              label="Venta mensual proyectada"
+              value={formatClp(monthlySales)}
+              detail={`${businessPulse.operatingDaysMonth} días abiertos`}
+            />
+            <ProjectionFact
+              label="Margen de contribución"
+              value={`${margin.toFixed(1)}%`}
+              detail="sobre venta bruta observada"
+            />
           </div>
 
           {coverage < 95 && (
@@ -1383,13 +1301,35 @@ export function ProjectionsView({
             Resultado operacional mensual antes de impuesto a la renta.
           </p>
           <div className="mt-5 space-y-3 border-t border-black/10 pt-4 text-sm">
-            <ProjectionRow label="Ventas brutas" value={monthlySales} />
-            <ProjectionRow label="Contribución estimada" value={contribution} />
+            <ProjectionRow
+              label="Ventas brutas proyectadas"
+              value={monthlySales}
+            />
+            <ProjectionRow
+              label="Venta neta estimada sin IVA"
+              value={monthlySales / (1 + vatRate / 100)}
+            />
+            <ProjectionRow
+              label="Contribución tras recetas y comisiones"
+              value={contribution}
+            />
             <ProjectionRow
               label={`Reserva merma no registrada (${businessPulse.operationalWastePercentage}%)`}
               value={-wasteReserve}
             />
             <ProjectionRow label="Costos fijos" value={-fixedCosts} />
+          </div>
+          <div className="mt-4 rounded-xl border border-[#cbd8c8] bg-white/75 p-4">
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#235b45]">
+              El IVA no se descuenta nuevamente
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#59635b]">
+              La contribución ya se calcula desde ventas sin IVA. Por eso este
+              resultado es posterior al IVA contenido en las ventas. La reserva
+              acumulada para el próximo F29 es {formatClp(estimatedVatPayable)}:
+              reduce tu dinero disponible, pero restarla aquí otra vez
+              duplicaría el impuesto.
+            </p>
           </div>
           <div className="mt-4 rounded-xl bg-white/65 p-4">
             <p className="text-[10px] font-bold uppercase text-[#777]">
@@ -1403,29 +1343,6 @@ export function ProjectionsView({
             </p>
           </div>
         </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {scenarios.map((scenario) => (
-          <button
-            type="button"
-            key={scenario.label}
-            onClick={() => setMonthlySales(Math.round(scenario.sales))}
-            className="card p-5 text-left transition hover:border-[#9eb7a0]"
-          >
-            <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
-              {scenario.label}
-            </p>
-            <p className="money mt-2 text-xl font-black">
-              {formatClp(Math.round(scenario.sales))}
-            </p>
-            <p
-              className={`money mt-2 text-sm font-black ${scenario.result >= 0 ? "text-[#235b45]" : "text-[#9a3f22]"}`}
-            >
-              Resultado {formatClp(Math.round(scenario.result))}
-            </p>
-          </button>
-        ))}
       </div>
 
       <div className="card mt-4 overflow-hidden">
@@ -1465,9 +1382,10 @@ export function ProjectionsView({
       </div>
 
       <p className="mt-4 text-[11px] leading-5 text-[#777]">
-        Esta herramienta orienta decisiones operacionales. No reemplaza la
-        contabilidad y todavía no descuenta el impuesto a la renta ni calcula la
-        liquidación mensual exacta de IVA.
+        Esta lectura orienta decisiones operacionales y se actualiza con los
+        registros reales. No reemplaza la contabilidad, no descuenta impuesto a
+        la renta y la reserva de IVA mostrada es una estimación acumulada, no la
+        liquidación definitiva del F29.
       </p>
     </section>
   );
@@ -1481,6 +1399,26 @@ function ProjectionRow({ label, value }: { label: string; value: number }) {
         {value < 0 ? "−" : ""}
         {formatClp(Math.round(Math.abs(value)))}
       </b>
+    </div>
+  );
+}
+
+function ProjectionFact({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[#e4e4db] bg-[#faf9f4] p-4">
+      <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+        {label}
+      </p>
+      <p className="money mt-2 text-xl font-black">{value}</p>
+      <p className="mt-1 text-[11px] text-[#777]">{detail}</p>
     </div>
   );
 }
