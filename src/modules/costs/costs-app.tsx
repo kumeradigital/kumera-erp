@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Beaker,
   BookOpenCheck,
-  Calculator,
   CheckCircle2,
   CircleDollarSign,
   FlaskConical,
@@ -52,30 +51,19 @@ import type {
 } from "./types";
 import type { BusinessPulse } from "@/modules/pos/types";
 
-export type CostTab =
-  "ingredients" | "recipes" | "products" | "fixed" | "projections";
+export type CostTab = "ingredients" | "recipes" | "products";
 
 export function CostsApp({
   ingredients,
   recipes,
   recipeCosts,
   analyses,
-  settings,
-  fixedCosts,
-  monthlyFixedCosts,
-  scenarios,
-  businessPulse,
   initialTab = "ingredients",
 }: {
   ingredients: Ingredient[];
   recipes: Recipe[];
   recipeCosts: Record<string, RecipeCost>;
   analyses: ProductCostAnalysis[];
-  settings: CostSettings;
-  fixedCosts: FixedCost[];
-  monthlyFixedCosts: number;
-  scenarios: Scenario[];
-  businessPulse: BusinessPulse;
   initialTab?: CostTab;
 }) {
   const [tab, setTab] = useState<CostTab>(initialTab);
@@ -87,8 +75,6 @@ export function CostsApp({
       label: "Costos de productos",
       icon: <CircleDollarSign size={16} />,
     },
-    { id: "fixed", label: "Costos fijos", icon: <Calculator size={16} /> },
-    { id: "projections", label: "Proyecciones", icon: <Target size={16} /> },
   ];
   return (
     <main className="mx-auto max-w-7xl p-4 pb-24 md:p-8">
@@ -98,7 +84,7 @@ export function CostsApp({
             Motor económico
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight">
-            Costos, precios y rentabilidad
+            Recetas y costos de productos
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-[#747970]">
             Los costos se calculan desde precios, ingredientes y recetas. No se
@@ -140,19 +126,6 @@ export function CostsApp({
       )}
       {tab === "products" && (
         <ProductsCostView analyses={analyses} recipes={recipes} />
-      )}
-      {tab === "fixed" && (
-        <FixedCostsView
-          costs={fixedCosts}
-          monthly={monthlyFixedCosts}
-          settings={settings}
-        />
-      )}
-      {tab === "projections" && (
-        <ProjectionsView
-          fixedCosts={monthlyFixedCosts}
-          businessPulse={businessPulse}
-        />
       )}
     </main>
   );
@@ -1130,7 +1103,7 @@ function ProductsCostView({
   );
 }
 
-function FixedCostsView({
+export function FixedCostsView({
   costs,
   monthly,
   settings,
@@ -1146,9 +1119,9 @@ function FixedCostsView({
     <section className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black">Costos fijos</h2>
+          <h2 className="text-xl font-black">Estructura mensual de gastos</h2>
           <p className="mt-1 text-sm text-[#777]">
-            Prorrateo mensual para punto de equilibrio.
+            Gastos recurrentes usados en la viabilidad y el punto de equilibrio.
           </p>
         </div>
         <div className="flex gap-2">
@@ -1162,7 +1135,7 @@ function FixedCostsView({
             onClick={() => setCreating(true)}
             className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-xs font-bold text-white"
           >
-            <Plus size={15} /> Costo fijo
+            <Plus size={15} /> Gasto planificado
           </button>
         </div>
       </div>
@@ -1228,7 +1201,7 @@ function FixedCostsView({
   );
 }
 
-function ProjectionsView({
+export function ProjectionsView({
   fixedCosts,
   businessPulse,
 }: {

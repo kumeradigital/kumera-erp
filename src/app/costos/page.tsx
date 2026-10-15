@@ -1,15 +1,8 @@
 import { getCostingData } from "@/modules/costs/data";
 import { CostsApp, type CostTab } from "@/modules/costs/costs-app";
 import { PosShell } from "@/modules/pos/pos-shell";
-import { getBusinessPulse } from "@/modules/pos/data";
 
-const validTabs: CostTab[] = [
-  "ingredients",
-  "recipes",
-  "products",
-  "fixed",
-  "projections",
-];
+const validTabs: CostTab[] = ["ingredients", "recipes", "products"];
 
 export default async function CostsPage({
   searchParams,
@@ -20,15 +13,14 @@ export default async function CostsPage({
   const initialTab = validTabs.includes(requestedTab)
     ? requestedTab
     : "ingredients";
-  const [data, businessPulse] = await Promise.all([
-    getCostingData(),
-    getBusinessPulse(),
-  ]);
+  const data = await getCostingData();
   return (
     <PosShell active="costs">
       <CostsApp
-        {...data}
-        businessPulse={businessPulse}
+        ingredients={data.ingredients}
+        recipes={data.recipes}
+        recipeCosts={data.recipeCosts}
+        analyses={data.analyses}
         initialTab={initialTab}
       />
     </PosShell>

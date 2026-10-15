@@ -392,6 +392,7 @@ export async function saveFixedCostAction(form: FormData) {
   const { error } = result;
   if (error) throw error;
   revalidatePath("/costos");
+  revalidatePath("/operacion");
 }
 
 export async function toggleFixedCostAction(id: string, active: boolean) {
@@ -403,6 +404,7 @@ export async function toggleFixedCostAction(id: string, active: boolean) {
     .eq("business_id", ctx.businessId);
   if (error) throw error;
   revalidatePath("/costos");
+  revalidatePath("/operacion");
 }
 
 export async function saveCostSettingsAction(form: FormData) {
@@ -443,6 +445,7 @@ export async function saveCostSettingsAction(form: FormData) {
     .eq("business_id", ctx.businessId);
   if (error) throw error;
   revalidatePath("/costos");
+  revalidatePath("/operacion");
 }
 
 export async function saveScenarioAction(input: {

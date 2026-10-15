@@ -60,7 +60,7 @@ export function PosShell({
           />
           <Nav
             href="/operacion"
-            label="Compras y gastos"
+            label="Finanzas"
             active={active === "operations"}
             icon={<ReceiptText size={16} />}
           />
@@ -96,7 +96,7 @@ export function PosShell({
           />
           <Nav
             href="/costos"
-            label="Costos"
+            label="Costeo"
             active={active === "costs"}
             icon={<LineChart size={16} />}
           />
@@ -118,7 +118,7 @@ export function PosShell({
             />
             <MobileNavLink
               href="/operacion"
-              label="Gastos"
+              label="Finanzas"
               active={active === "operations"}
               icon={<ReceiptText size={19} />}
             />

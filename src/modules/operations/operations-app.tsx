@@ -2,14 +2,20 @@
 import { useMemo, useState } from "react";
 import {
   CircleHelp,
+  Calculator,
   Landmark,
+  LayoutDashboard,
   Pencil,
   Plus,
   Search,
+  Target,
   WalletCards,
   X,
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
+import { FixedCostsView, ProjectionsView } from "@/modules/costs/costs-app";
+import type { CostSettings, FixedCost } from "@/modules/costs/types";
+import type { BusinessPulse } from "@/modules/pos/types";
 import {
   saveFinancialReconciliationAction,
   saveObligationAction,
@@ -34,12 +40,20 @@ export function OperationsApp({
   cutoff,
   obligations,
   summary,
+  fixedCosts,
+  monthlyFixedCosts,
+  costSettings,
+  businessPulse,
 }: {
   operations: Operation[];
   ingredients: { id: string; name: string; base_unit: string }[];
   ledger: { status: string; closed_at: string | null } | null;
   cutoff: FinancialCutoff;
   obligations: FinancialObligation[];
+  fixedCosts: FixedCost[];
+  monthlyFixedCosts: number;
+  costSettings: CostSettings;
+  businessPulse: BusinessPulse;
   summary: {
     openingBalance: number;
     expectedBank: number;
@@ -49,6 +63,9 @@ export function OperationsApp({
     netSalesAfterVat: number;
     operatingIncome: number;
     operatingExpenses: number;
+    monthlyPurchases: number;
+    monthlyFixedPayments: number;
+    monthlyVariableExpenses: number;
     cardFees: number;
     monthlyCardFees: number;
     withdrawals: number;
@@ -61,6 +78,9 @@ export function OperationsApp({
   };
 }) {
   const [open, setOpen] = useState(false);
+  const [financeView, setFinanceView] = useState<
+    "overview" | "structure" | "projection"
+  >("overview");
   const [quickOpen, setQuickOpen] = useState(false);
   const [showMobileDashboard, setShowMobileDashboard] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -181,255 +201,318 @@ export function OperationsApp({
         </button>
       </section>
       <div className={`${showMobileDashboard ? "block" : "hidden"} md:block`}>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
-              Control financiero
-            </p>
-            <h1 className="mt-2 text-3xl font-black">Finanzas reales</h1>
-            <p className="mt-2 text-sm text-[#747970]">
-              Operación de {currentMonthLabel} y saldos desde el último corte
-              conciliado.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-6 hidden gap-2 overflow-x-auto pb-1 md:flex">
+          {[
+            {
+              id: "overview" as const,
+              label: "Realidad financiera",
+              icon: <LayoutDashboard size={16} />,
+            },
+            {
+              id: "structure" as const,
+              label: "Gastos planificados",
+              icon: <Calculator size={16} />,
+            },
+            {
+              id: "projection" as const,
+              label: "Viabilidad y proyección",
+              icon: <Target size={16} />,
+            },
+          ].map((item) => (
             <button
               type="button"
-              onClick={() => setReconcilingBalances(true)}
-              className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+              key={item.id}
+              onClick={() => setFinanceView(item.id)}
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-xs font-black ${financeView === item.id ? "bg-[#235b45] text-white" : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"}`}
             >
-              <Landmark size={18} />
-              Conciliar saldos reales
+              {item.icon}
+              {item.label}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowGuide(true)}
-              className="flex items-center gap-2 rounded-xl border border-[#bfc8bc] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
-            >
-              <CircleHelp size={18} />
-              ¿Cómo registrar correctamente?
-            </button>
-            <button
-              onClick={() => setOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
-            >
-              <Plus size={17} />
-              Movimiento
-            </button>
-          </div>
+          ))}
         </div>
-        <div className="mt-6 rounded-2xl border border-[#bed5b9] bg-[#edf6e9] p-5">
-          <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
-            Corte conciliado al {formatDate(cutoff.cutoffDate)}
-          </p>
-          <p className="mt-2 text-sm text-[#586158]">
-            Partimos con {formatClp(cutoff.openingBank)} en banco y{" "}
-            {formatClp(cutoff.openingCash)} en efectivo. Los pagos posteriores,
-            incluido el impuesto ya pagado, se descuentan sólo cuando están
-            verificados.
-          </p>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
-          <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
-          <Metric l="Efectivo esperado" v={summary.expectedCash} icon="cash" />
-          <Metric l="Ventas conciliadas de este mes" v={summary.salesTotal} />
-          <Metric
-            l="Ventas netas después de IVA"
-            v={summary.netSalesAfterVat}
+        {financeView === "structure" && (
+          <FixedCostsView
+            costs={fixedCosts}
+            monthly={monthlyFixedCosts}
+            settings={costSettings}
           />
-          <Metric
-            l="Compras y gastos pagados del mes"
-            v={summary.operatingExpenses}
+        )}
+        {financeView === "projection" && (
+          <ProjectionsView
+            fixedCosts={monthlyFixedCosts}
+            businessPulse={businessPulse}
           />
-          <Metric l="Comisiones de tarjetas" v={summary.monthlyCardFees} />
-          <Metric
-            l="Retiros personales del mes"
-            v={summary.monthlyOwnerWithdrawals}
-          />
-          <Metric
-            l="Compromisos de este mes"
-            v={summary.pendingObligations}
-            warning
-          />
-          <Metric
-            l="Reserva estimada de IVA"
-            v={summary.estimatedVatPayable}
-            warning
-          />
-          <Metric
-            l="Liquidez libre estimada"
-            v={summary.availableLiquidity}
-            tone={summary.availableLiquidity < 0 ? "danger" : "available"}
-          />
-        </div>
-        <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-5 text-sm text-[#6d6450]">
-          <strong className="text-[#5d4b12]">
-            Reserva tributaria automática.
-          </strong>{" "}
-          De {formatClp(summary.salesTaxDebit)} de IVA estimado en ventas se
-          descuentan {formatClp(summary.recoverableTaxCredit)} de crédito por
-          compras y comisiones registradas. Esta reserva no es un gasto: es
-          dinero que debe permanecer disponible para el F29.
-        </div>
-        <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
-          <strong className="text-[#252822]">
-            Esto controla dinero real, no calcula rentabilidad.
-          </strong>{" "}
-          La rentabilidad se calcula aparte en Costos con recetas, comisiones y
-          costos fijos. El IVA de septiembre debe registrarse como compromiso:
-          reducirá la liquidez de octubre, pero no falseará la rentabilidad
-          operacional de octubre. Un compromiso pendiente no baja el saldo
-          bancario hasta que se paga.
-        </div>
-        {!!obligations.length && (
-          <section className="card mt-6 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        )}
+        {financeView === "overview" && (
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="font-black">Próximos pagos</h2>
-                <p className="mt-1 text-xs text-[#777]">
-                  Incluye montos confirmados y recordatorios por calcular.
+                <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
+                  Control financiero
+                </p>
+                <h1 className="mt-2 text-3xl font-black">Finanzas reales</h1>
+                <p className="mt-2 text-sm text-[#747970]">
+                  Operación de {currentMonthLabel} y saldos desde el último
+                  corte conciliado.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setAddingObligation(true)}
-                className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
-              >
-                <Plus size={16} /> Compromiso
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReconcilingBalances(true)}
+                  className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+                >
+                  <Landmark size={18} />
+                  Conciliar saldos reales
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGuide(true)}
+                  className="flex items-center gap-2 rounded-xl border border-[#bfc8bc] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+                >
+                  <CircleHelp size={18} />
+                  ¿Cómo registrar correctamente?
+                </button>
+                <button
+                  onClick={() => setOpen(true)}
+                  className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
+                >
+                  <Plus size={17} />
+                  Movimiento
+                </button>
+              </div>
             </div>
-            <div className="mt-4 grid gap-5 lg:grid-cols-2">
-              <ObligationGroup
-                title="Este mes"
-                subtitle="Pagos que todavía corresponden al período actual"
-                obligations={currentObligations}
-                empty="No quedan compromisos con monto conocido para este mes."
-                onPay={setPayingObligation}
-                current
-              />
-              <ObligationGroup
-                title="Mes siguiente"
-                subtitle="Reservas futuras; todavía no están vencidas"
-                obligations={futureObligations}
-                empty="No hay compromisos futuros registrados."
-                onPay={setPayingObligation}
-              />
-            </div>
-          </section>
-        )}
-        {!obligations.length && (
-          <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
-            <div>
-              <h2 className="font-black">Próximos pagos</h2>
-              <p className="mt-1 text-sm text-[#777]">
-                No hay compromisos pendientes registrados.
+            <div className="mt-6 rounded-2xl border border-[#bed5b9] bg-[#edf6e9] p-5">
+              <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+                Corte conciliado al {formatDate(cutoff.cutoffDate)}
+              </p>
+              <p className="mt-2 text-sm text-[#586158]">
+                Partimos con {formatClp(cutoff.openingBank)} en banco y{" "}
+                {formatClp(cutoff.openingCash)} en efectivo. Los pagos
+                posteriores, incluido el impuesto ya pagado, se descuentan sólo
+                cuando están verificados.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setAddingObligation(true)}
-              className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
-            >
-              <Plus size={16} /> Compromiso
-            </button>
-          </section>
-        )}
-        {ledger?.status !== "closed" && (
-          <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
-            Cierra primero la Puesta en marcha para fijar oficialmente la
-            inversión por recuperar.
-          </p>
-        )}
-        <div className="card mt-6 p-4">
-          <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_220px_220px_auto]">
-            <label className="relative">
-              <Search
-                size={17}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]"
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Metric l="Saldo conciliado inicial" v={summary.openingBalance} />
+              <Metric l="Banco esperado" v={summary.expectedBank} icon="bank" />
+              <Metric
+                l="Efectivo esperado"
+                v={summary.expectedCash}
+                icon="cash"
               />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar descripción o proveedor"
-                className="input pl-10"
+              <Metric
+                l="Ventas conciliadas de este mes"
+                v={summary.salesTotal}
               />
-            </label>
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-              className="input"
-              aria-label="Filtrar por tipo"
-            >
-              <option value="all">Todos los tipos</option>
-              {Object.entries(operationLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="input"
-              aria-label="Filtrar por categoría"
-            >
-              <option value="all">Todas las categorías</option>
-              {categories.map((category) => (
-                <option key={category}>{category}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => setGroupByType((value) => !value)}
-              className={`rounded-xl border px-4 text-sm font-black ${groupByType ? "border-[#235b45] bg-[#eaf3ea] text-[#235b45]" : "border-[#deded5]"}`}
-            >
-              {groupByType ? "Vista normal" : "Agrupar por tipo"}
-            </button>
-          </div>
-          <p className="mt-3 text-xs text-[#777]">
-            {visibleOperations.length} de {operations.length} movimientos
-          </p>
-        </div>
-        <div className="card mt-4 overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
-              <tr>
-                <th className="p-4">Fecha</th>
-                <th>Descripción</th>
-                <th>Tipo</th>
-                <th>Categoría</th>
-                <th>Estado</th>
-                <th>Materia prima</th>
-                <th className="text-right">Monto</th>
-                <th className="w-24 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {groupByType
-                ? groups.map(([type, items]) => (
-                    <OperationGroup
-                      key={type}
-                      type={type}
-                      operations={items}
-                      onEdit={setEditing}
-                    />
-                  ))
-                : visibleOperations.map((operation) => (
-                    <OperationRow
-                      key={operation.id}
-                      operation={operation}
-                      onEdit={setEditing}
-                    />
+              <Metric
+                l="Ventas netas después de IVA"
+                v={summary.netSalesAfterVat}
+              />
+              <Metric
+                l="Compras y gastos pagados del mes"
+                v={summary.operatingExpenses}
+              />
+              <Metric l="Compras de insumos" v={summary.monthlyPurchases} />
+              <Metric
+                l="Gastos fijos pagados"
+                v={summary.monthlyFixedPayments}
+              />
+              <Metric
+                l="Otros gastos variables"
+                v={summary.monthlyVariableExpenses}
+              />
+              <Metric l="Comisiones de tarjetas" v={summary.monthlyCardFees} />
+              <Metric
+                l="Retiros personales del mes"
+                v={summary.monthlyOwnerWithdrawals}
+              />
+              <Metric
+                l="Compromisos de este mes"
+                v={summary.pendingObligations}
+                warning
+              />
+              <Metric
+                l="Reserva estimada de IVA"
+                v={summary.estimatedVatPayable}
+                warning
+              />
+              <Metric
+                l="Liquidez libre estimada"
+                v={summary.availableLiquidity}
+                tone={summary.availableLiquidity < 0 ? "danger" : "available"}
+              />
+            </div>
+            <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-5 text-sm text-[#6d6450]">
+              <strong className="text-[#5d4b12]">
+                Reserva tributaria automática.
+              </strong>{" "}
+              De {formatClp(summary.salesTaxDebit)} de IVA estimado en ventas se
+              descuentan {formatClp(summary.recoverableTaxCredit)} de crédito
+              por compras y comisiones registradas. Esta reserva no es un gasto:
+              es dinero que debe permanecer disponible para el F29.
+            </div>
+            <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
+              <strong className="text-[#252822]">
+                Esto controla dinero real, no calcula rentabilidad.
+              </strong>{" "}
+              La viabilidad se calcula en la pestaña “Viabilidad y proyección”
+              con recetas, comisiones y gastos planificados. El IVA de
+              septiembre debe registrarse como compromiso: reducirá la liquidez
+              de octubre, pero no falseará la rentabilidad operacional de
+              octubre. Un compromiso pendiente no baja el saldo bancario hasta
+              que se paga.
+            </div>
+            {!!obligations.length && (
+              <section className="card mt-6 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-black">Próximos pagos</h2>
+                    <p className="mt-1 text-xs text-[#777]">
+                      Incluye montos confirmados y recordatorios por calcular.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAddingObligation(true)}
+                    className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
+                  >
+                    <Plus size={16} /> Compromiso
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-5 lg:grid-cols-2">
+                  <ObligationGroup
+                    title="Este mes"
+                    subtitle="Pagos que todavía corresponden al período actual"
+                    obligations={currentObligations}
+                    empty="No quedan compromisos con monto conocido para este mes."
+                    onPay={setPayingObligation}
+                    current
+                  />
+                  <ObligationGroup
+                    title="Mes siguiente"
+                    subtitle="Reservas futuras; todavía no están vencidas"
+                    obligations={futureObligations}
+                    empty="No hay compromisos futuros registrados."
+                    onPay={setPayingObligation}
+                  />
+                </div>
+              </section>
+            )}
+            {!obligations.length && (
+              <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
+                <div>
+                  <h2 className="font-black">Próximos pagos</h2>
+                  <p className="mt-1 text-sm text-[#777]">
+                    No hay compromisos pendientes registrados.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAddingObligation(true)}
+                  className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
+                >
+                  <Plus size={16} /> Compromiso
+                </button>
+              </section>
+            )}
+            {ledger?.status !== "closed" && (
+              <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
+                Cierra primero la Puesta en marcha para fijar oficialmente la
+                inversión por recuperar.
+              </p>
+            )}
+            <div className="card mt-6 p-4">
+              <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_220px_220px_auto]">
+                <label className="relative">
+                  <Search
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#777]"
+                  />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar descripción o proveedor"
+                    className="input pl-10"
+                  />
+                </label>
+                <select
+                  value={typeFilter}
+                  onChange={(event) => setTypeFilter(event.target.value)}
+                  className="input"
+                  aria-label="Filtrar por tipo"
+                >
+                  <option value="all">Todos los tipos</option>
+                  {Object.entries(operationLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
                   ))}
-            </tbody>
-          </table>
-          {!visibleOperations.length && (
-            <p className="p-10 text-center text-sm text-[#777]">
-              No hay movimientos que coincidan con los filtros.
-            </p>
-          )}
-        </div>
+                </select>
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                  className="input"
+                  aria-label="Filtrar por categoría"
+                >
+                  <option value="all">Todas las categorías</option>
+                  {categories.map((category) => (
+                    <option key={category}>{category}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setGroupByType((value) => !value)}
+                  className={`rounded-xl border px-4 text-sm font-black ${groupByType ? "border-[#235b45] bg-[#eaf3ea] text-[#235b45]" : "border-[#deded5]"}`}
+                >
+                  {groupByType ? "Vista normal" : "Agrupar por tipo"}
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-[#777]">
+                {visibleOperations.length} de {operations.length} movimientos
+              </p>
+            </div>
+            <div className="card mt-4 overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left text-sm">
+                <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
+                  <tr>
+                    <th className="p-4">Fecha</th>
+                    <th>Descripción</th>
+                    <th>Tipo</th>
+                    <th>Categoría</th>
+                    <th>Estado</th>
+                    <th>Materia prima</th>
+                    <th className="text-right">Monto</th>
+                    <th className="w-24 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {groupByType
+                    ? groups.map(([type, items]) => (
+                        <OperationGroup
+                          key={type}
+                          type={type}
+                          operations={items}
+                          onEdit={setEditing}
+                        />
+                      ))
+                    : visibleOperations.map((operation) => (
+                        <OperationRow
+                          key={operation.id}
+                          operation={operation}
+                          onEdit={setEditing}
+                        />
+                      ))}
+                </tbody>
+              </table>
+              {!visibleOperations.length && (
+                <p className="p-10 text-center text-sm text-[#777]">
+                  No hay movimientos que coincidan con los filtros.
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </div>
       {quickOpen && (
         <QuickOperationDialog onClose={() => setQuickOpen(false)} />

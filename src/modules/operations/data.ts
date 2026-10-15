@@ -239,6 +239,15 @@ export async function getOperationsData() {
         ["purchase", "fixed_cost", "expense"].includes(operation.type),
     )
     .reduce((total, operation) => total + operation.gross, 0);
+  const monthlyByType = (type: OperationType) =>
+    operations
+      .filter(
+        (operation) =>
+          operation.date.slice(0, 7) === currentMonth &&
+          countsInMonthlyBooks(operation) &&
+          operation.type === type,
+      )
+      .reduce((total, operation) => total + operation.gross, 0);
   const monthlyOwnerWithdrawals =
     monthlyCashWithdrawals +
     operations
@@ -300,6 +309,9 @@ export async function getOperationsData() {
       monthlyCardFees,
       operatingIncome,
       operatingExpenses: monthlyExpenses,
+      monthlyPurchases: monthlyByType("purchase"),
+      monthlyFixedPayments: monthlyByType("fixed_cost"),
+      monthlyVariableExpenses: monthlyByType("expense"),
       withdrawals,
       monthlyOwnerWithdrawals,
       pendingObligations: obligations.reduce(
