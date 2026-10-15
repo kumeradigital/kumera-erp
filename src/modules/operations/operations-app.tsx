@@ -883,6 +883,13 @@ function ProvisionsView({
   const current = provisions.filter(
     (item) => item.economicMonth.slice(0, 7) === currentMonth,
   );
+  const outstandingFromPriorMonths = provisions.filter(
+    (item) =>
+      item.economicMonth.slice(0, 7) < currentMonth &&
+      item.status !== "reconciled" &&
+      item.status !== "cancelled",
+  );
+  const visible = [...outstandingFromPriorMonths, ...current];
   const expected = current
     .filter((item) => item.affectsProfitability && item.status !== "cancelled")
     .reduce((total, item) => total + item.expectedAmount, 0);
@@ -898,7 +905,8 @@ function ProvisionsView({
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#747970]">
             Aquí se reconoce el costo en el mes al que pertenece, aunque el
             dinero salga después. Cada pago real reduce el saldo pendiente sin
-            duplicar el gasto.
+            duplicar el gasto. Los anticipos y pagos parciales permanecen
+            visibles hasta completar el saldo.
           </p>
         </div>
         <button
@@ -933,7 +941,7 @@ function ProvisionsView({
             </tr>
           </thead>
           <tbody className="divide-y">
-            {current.map((item) => (
+            {visible.map((item) => (
               <tr key={item.id}>
                 <td className="p-4">
                   <p className="font-black">{item.name}</p>
@@ -963,7 +971,7 @@ function ProvisionsView({
                         onClick={() => onPay(item)}
                         className="rounded-lg border border-[#235b45] px-3 py-2 font-black text-[#235b45]"
                       >
-                        Registrar pago
+                        Registrar abono o pago
                       </button>
                     )}
                 </td>
@@ -971,7 +979,7 @@ function ProvisionsView({
             ))}
           </tbody>
         </table>
-        {!current.length && (
+        {!visible.length && (
           <p className="p-10 text-center text-sm text-[#777]">
             No hay provisiones para este mes.
           </p>
