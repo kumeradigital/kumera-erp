@@ -2,6 +2,7 @@ import { createClient } from "@/server/supabase/server";
 import type {
   FinancialCutoff,
   FinancialObligation,
+  ExpenseProvision,
   Operation,
   OperationType,
 } from "./types";
@@ -76,38 +77,53 @@ export async function getOperationsData() {
     note: cutoffResult.data.note || undefined,
   };
 
-  const [ops, ingredients, sessions, obligationsResult] = await Promise.all([
-    supabase
-      .from("operational_transactions")
-      .select(
-        "id,transaction_date,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
-      )
-      .eq("business_id", membership.business_id)
-      .order("transaction_date", { ascending: false }),
-    supabase
-      .from("ingredients")
-      .select("id,name,base_unit")
-      .eq("business_id", membership.business_id)
-      .is("deleted_at", null)
-      .order("name"),
-    supabase
-      .from("cash_sessions")
-      .select(
-        "id,opened_at,closed_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,commission_net_amount,commission_tax_amount),cash_session_withdrawals(amount,created_at)",
-      )
-      .eq("business_id", membership.business_id)
-      .eq("status", "closed")
-      .gte("closed_at", sessionQueryStart),
-    supabase
-      .from("financial_obligations")
-      .select(
-        "id,name,amount,due_date,kind,recurrence,carry_amount,status,note",
-      )
-      .eq("business_id", membership.business_id)
-      .eq("status", "pending")
-      .order("due_date"),
-  ]);
-  for (const result of [ops, ingredients, sessions, obligationsResult])
+  const [ops, ingredients, sessions, obligationsResult, provisionsResult] =
+    await Promise.all([
+      supabase
+        .from("operational_transactions")
+        .select(
+          "id,transaction_date,economic_month,provision_id,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
+        )
+        .eq("business_id", membership.business_id)
+        .order("transaction_date", { ascending: false }),
+      supabase
+        .from("ingredients")
+        .select("id,name,base_unit")
+        .eq("business_id", membership.business_id)
+        .is("deleted_at", null)
+        .order("name"),
+      supabase
+        .from("cash_sessions")
+        .select(
+          "id,opened_at,closed_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,commission_net_amount,commission_tax_amount),cash_session_withdrawals(amount,category,is_business_expense,created_at)",
+        )
+        .eq("business_id", membership.business_id)
+        .eq("status", "closed")
+        .gte("closed_at", sessionQueryStart),
+      supabase
+        .from("financial_obligations")
+        .select(
+          "id,name,amount,due_date,kind,recurrence,carry_amount,status,note",
+        )
+        .eq("business_id", membership.business_id)
+        .eq("status", "pending")
+        .order("due_date"),
+      supabase
+        .from("expense_provisions")
+        .select(
+          "id,name,category,economic_month,expected_amount,due_date,affects_profitability,status,note,operational_transactions(gross_amount,financial_status)",
+        )
+        .eq("business_id", membership.business_id)
+        .order("economic_month", { ascending: false })
+        .order("due_date"),
+    ]);
+  for (const result of [
+    ops,
+    ingredients,
+    sessions,
+    obligationsResult,
+    provisionsResult,
+  ])
     if (result.error) throw result.error;
 
   const operations: Operation[] = (ops.data || []).map((row) => {
@@ -128,6 +144,8 @@ export async function getOperationsData() {
       ingredientId: row.ingredient_id || undefined,
       supplier: row.supplier || undefined,
       note: row.note || undefined,
+      economicMonth: row.economic_month,
+      provisionId: row.provision_id || undefined,
       financialStatus: row.financial_status,
       ingredientName: ingredient?.name,
       purchaseQuantity:
@@ -171,6 +189,7 @@ export async function getOperationsData() {
   let monthlyCardFees = 0;
   let monthlyCardFeeTaxCredit = 0;
   let monthlyCashWithdrawals = 0;
+  let monthlyBusinessCashWithdrawals = 0;
   let cardFees = 0;
   let withdrawals = 0;
   for (const session of sessions.data || []) {
@@ -219,23 +238,26 @@ export async function getOperationsData() {
         (total, withdrawal) => total + Number(withdrawal.amount),
         0,
       );
-    monthlyCashWithdrawals += (session.cash_session_withdrawals || [])
-      .filter(
-        (withdrawal) =>
-          new Intl.DateTimeFormat("en-CA", {
-            timeZone: "America/Santiago",
-            year: "numeric",
-            month: "2-digit",
-          }).format(new Date(withdrawal.created_at)) === currentMonth,
-      )
-      .reduce((total, withdrawal) => total + Number(withdrawal.amount), 0);
+    for (const withdrawal of session.cash_session_withdrawals || []) {
+      const belongsToMonth =
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Santiago",
+          year: "numeric",
+          month: "2-digit",
+        }).format(new Date(withdrawal.created_at)) === currentMonth;
+      if (!belongsToMonth) continue;
+      if (withdrawal.is_business_expense)
+        monthlyBusinessCashWithdrawals += Number(withdrawal.amount);
+      else monthlyCashWithdrawals += Number(withdrawal.amount);
+    }
   }
 
-  const monthlyExpenses = operations
+  const monthlyEconomicExpenses = operations
     .filter(
       (operation) =>
-        operation.date.slice(0, 7) === currentMonth &&
+        operation.economicMonth.slice(0, 7) === currentMonth &&
         countsInMonthlyBooks(operation) &&
+        !operation.provisionId &&
         ["purchase", "fixed_cost", "expense"].includes(operation.type),
     )
     .reduce((total, operation) => total + operation.gross, 0);
@@ -292,12 +314,53 @@ export async function getOperationsData() {
     }),
   );
 
+  const provisions: ExpenseProvision[] = (provisionsResult.data || []).map(
+    (row) => {
+      const paidAmount = (row.operational_transactions || [])
+        .filter((payment) => payment.financial_status === "verified")
+        .reduce((total, payment) => total + Number(payment.gross_amount), 0);
+      const expectedAmount = Number(row.expected_amount);
+      const calculatedStatus =
+        row.status === "cancelled"
+          ? "cancelled"
+          : paidAmount >= expectedAmount
+            ? "reconciled"
+            : paidAmount > 0
+              ? "partial"
+              : "estimated";
+      return {
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        economicMonth: row.economic_month,
+        expectedAmount,
+        paidAmount,
+        outstandingAmount: Math.max(0, expectedAmount - paidAmount),
+        dueDate: row.due_date || undefined,
+        affectsProfitability: row.affects_profitability,
+        status: calculatedStatus,
+        note: row.note || undefined,
+      };
+    },
+  );
+  const currentEconomicProvisions = provisions.filter(
+    (item) =>
+      item.economicMonth.slice(0, 7) === currentMonth &&
+      item.affectsProfitability &&
+      item.status !== "cancelled",
+  );
+  const provisionedExpenses = currentEconomicProvisions.reduce(
+    (total, item) => total + item.expectedAmount,
+    0,
+  );
+
   return {
     operations,
     ingredients: ingredients.data || [],
     ledger: ledger.data,
     cutoff,
     obligations,
+    provisions,
     summary: {
       openingBalance: cutoff.openingBank + cutoff.openingCash,
       expectedBank,
@@ -308,7 +371,13 @@ export async function getOperationsData() {
       cardFees,
       monthlyCardFees,
       operatingIncome,
-      operatingExpenses: monthlyExpenses,
+      operatingExpenses:
+        monthlyEconomicExpenses +
+        provisionedExpenses +
+        monthlyBusinessCashWithdrawals,
+      monthlyEconomicExpenses,
+      provisionedExpenses,
+      monthlyBusinessCashWithdrawals,
       monthlyPurchases: monthlyByType("purchase"),
       monthlyFixedPayments: monthlyByType("fixed_cost"),
       monthlyVariableExpenses: monthlyByType("expense"),

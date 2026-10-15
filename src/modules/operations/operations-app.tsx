@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Pencil,
   Plus,
+  ReceiptText,
   Search,
   Target,
   WalletCards,
@@ -20,6 +21,7 @@ import {
   saveFinancialReconciliationAction,
   saveObligationAction,
   saveOperationAction,
+  saveProvisionAction,
   updateOperationAction,
 } from "./actions";
 import {
@@ -30,6 +32,7 @@ import {
   operationLabels,
   type FinancialCutoff,
   type FinancialObligation,
+  type ExpenseProvision,
   type Operation,
   type OperationType,
 } from "./types";
@@ -39,6 +42,7 @@ export function OperationsApp({
   ledger,
   cutoff,
   obligations,
+  provisions,
   summary,
   fixedCosts,
   monthlyFixedCosts,
@@ -50,6 +54,7 @@ export function OperationsApp({
   ledger: { status: string; closed_at: string | null } | null;
   cutoff: FinancialCutoff;
   obligations: FinancialObligation[];
+  provisions: ExpenseProvision[];
   fixedCosts: FixedCost[];
   monthlyFixedCosts: number;
   costSettings: CostSettings;
@@ -63,6 +68,9 @@ export function OperationsApp({
     netSalesAfterVat: number;
     operatingIncome: number;
     operatingExpenses: number;
+    monthlyEconomicExpenses: number;
+    provisionedExpenses: number;
+    monthlyBusinessCashWithdrawals: number;
     monthlyPurchases: number;
     monthlyFixedPayments: number;
     monthlyVariableExpenses: number;
@@ -79,16 +87,19 @@ export function OperationsApp({
 }) {
   const [open, setOpen] = useState(false);
   const [financeView, setFinanceView] = useState<
-    "overview" | "structure" | "projection"
+    "overview" | "structure" | "provisions" | "projection"
   >("overview");
   const [quickOpen, setQuickOpen] = useState(false);
   const [showMobileDashboard, setShowMobileDashboard] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [addingObligation, setAddingObligation] = useState(false);
+  const [addingProvision, setAddingProvision] = useState(false);
   const [reconcilingBalances, setReconcilingBalances] = useState(false);
   const [editing, setEditing] = useState<Operation | null>(null);
   const [payingObligation, setPayingObligation] =
     useState<FinancialObligation | null>(null);
+  const [payingProvision, setPayingProvision] =
+    useState<ExpenseProvision | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -214,6 +225,11 @@ export function OperationsApp({
               icon: <Calculator size={16} />,
             },
             {
+              id: "provisions" as const,
+              label: "Provisiones",
+              icon: <ReceiptText size={16} />,
+            },
+            {
               id: "projection" as const,
               label: "Viabilidad y proyección",
               icon: <Target size={16} />,
@@ -239,8 +255,19 @@ export function OperationsApp({
         )}
         {financeView === "projection" && (
           <ProjectionsView
-            fixedCosts={monthlyFixedCosts}
+            fixedCosts={
+              summary.provisionedExpenses > 0
+                ? summary.provisionedExpenses
+                : monthlyFixedCosts
+            }
             businessPulse={businessPulse}
+          />
+        )}
+        {financeView === "provisions" && (
+          <ProvisionsView
+            provisions={provisions}
+            onAdd={() => setAddingProvision(true)}
+            onPay={setPayingProvision}
           />
         )}
         {financeView === "overview" && (
@@ -310,7 +337,7 @@ export function OperationsApp({
                 v={summary.netSalesAfterVat}
               />
               <Metric
-                l="Compras y gastos pagados del mes"
+                l="Costos económicos del mes"
                 v={summary.operatingExpenses}
               />
               <Metric l="Compras de insumos" v={summary.monthlyPurchases} />
@@ -326,6 +353,10 @@ export function OperationsApp({
               <Metric
                 l="Retiros personales del mes"
                 v={summary.monthlyOwnerWithdrawals}
+              />
+              <Metric
+                l="Compras menores desde caja"
+                v={summary.monthlyBusinessCashWithdrawals}
               />
               <Metric
                 l="Compromisos de este mes"
@@ -520,6 +551,7 @@ export function OperationsApp({
       {open && (
         <OperationDialog
           ingredients={ingredients}
+          provisions={provisions}
           onClose={() => setOpen(false)}
         />
       )}
@@ -527,6 +559,7 @@ export function OperationsApp({
         <OperationDialog
           operation={editing}
           ingredients={ingredients}
+          provisions={provisions}
           onClose={() => setEditing(null)}
         />
       )}
@@ -534,12 +567,24 @@ export function OperationsApp({
         <OperationDialog
           obligation={payingObligation}
           ingredients={ingredients}
+          provisions={provisions}
           onClose={() => setPayingObligation(null)}
+        />
+      )}
+      {payingProvision && (
+        <OperationDialog
+          provision={payingProvision}
+          provisions={provisions}
+          ingredients={ingredients}
+          onClose={() => setPayingProvision(null)}
         />
       )}
       {showGuide && <RegistrationGuide onClose={() => setShowGuide(false)} />}
       {addingObligation && (
         <ObligationDialog onClose={() => setAddingObligation(false)} />
+      )}
+      {addingProvision && (
+        <ProvisionDialog onClose={() => setAddingProvision(false)} />
       )}
       {reconcilingBalances && (
         <BalanceReconciliationDialog
@@ -592,6 +637,11 @@ function QuickOperationDialog({ onClose }: { onClose: () => void }) {
           className="mt-5 space-y-4"
         >
           <input type="hidden" name="date" value={todayInChile()} />
+          <input
+            type="hidden"
+            name="economicMonth"
+            value={todayInChile().slice(0, 7)}
+          />
           <input type="hidden" name="financialStatus" value="verified" />
 
           <label className="block text-sm font-black">
@@ -711,6 +761,235 @@ function QuickOperationDialog({ onClose }: { onClose: () => void }) {
 
           <button className="sticky bottom-0 min-h-14 w-full rounded-xl bg-[#235b45] text-lg font-black text-white shadow-[0_-10px_18px_10px_#fffef9]">
             Guardar ahora
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ProvisionsView({
+  provisions,
+  onAdd,
+  onPay,
+}: {
+  provisions: ExpenseProvision[];
+  onAdd: () => void;
+  onPay: (provision: ExpenseProvision) => void;
+}) {
+  const currentMonth = todayInChile().slice(0, 7);
+  const current = provisions.filter(
+    (item) => item.economicMonth.slice(0, 7) === currentMonth,
+  );
+  const expected = current
+    .filter((item) => item.affectsProfitability && item.status !== "cancelled")
+    .reduce((total, item) => total + item.expectedAmount, 0);
+  const paid = current.reduce((total, item) => total + item.paidAmount, 0);
+  return (
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
+            Contabilidad de gestión
+          </p>
+          <h1 className="mt-2 text-3xl font-black">Provisiones del mes</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#747970]">
+            Aquí se reconoce el costo en el mes al que pertenece, aunque el
+            dinero salga después. Cada pago real reduce el saldo pendiente sin
+            duplicar el gasto.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-sm font-black text-white"
+        >
+          <Plus size={17} /> Nueva provisión
+        </button>
+      </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <Metric l="Costo económico provisionado" v={expected} />
+        <Metric l="Pagado y conciliado" v={paid} />
+        <Metric
+          l="Saldo pendiente de pago"
+          v={Math.max(0, expected - paid)}
+          warning
+        />
+      </div>
+      <div className="card mt-5 overflow-x-auto">
+        <table className="w-full min-w-[880px] text-left text-sm">
+          <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
+            <tr>
+              <th className="p-4">Concepto</th>
+              <th>Categoría</th>
+              <th>Vencimiento</th>
+              <th className="text-right">Costo del mes</th>
+              <th className="text-right">Pagado</th>
+              <th className="text-right">Pendiente</th>
+              <th className="text-center">Estado</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {current.map((item) => (
+              <tr key={item.id}>
+                <td className="p-4">
+                  <p className="font-black">{item.name}</p>
+                  {item.note && (
+                    <p className="mt-1 max-w-md text-xs text-[#777]">
+                      {item.note}
+                    </p>
+                  )}
+                </td>
+                <td>{item.category}</td>
+                <td>{item.dueDate ? formatDate(item.dueDate) : "—"}</td>
+                <td className="text-right font-black">
+                  {formatClp(item.expectedAmount)}
+                </td>
+                <td className="text-right">{formatClp(item.paidAmount)}</td>
+                <td className="text-right font-black">
+                  {formatClp(item.outstandingAmount)}
+                </td>
+                <td className="text-center">
+                  <ProvisionStatus status={item.status} />
+                </td>
+                <td className="p-3 text-right">
+                  {item.status !== "reconciled" &&
+                    item.status !== "cancelled" && (
+                      <button
+                        type="button"
+                        onClick={() => onPay(item)}
+                        className="rounded-lg border border-[#235b45] px-3 py-2 font-black text-[#235b45]"
+                      >
+                        Registrar pago
+                      </button>
+                    )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!current.length && (
+          <p className="p-10 text-center text-sm text-[#777]">
+            No hay provisiones para este mes.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProvisionStatus({ status }: { status: ExpenseProvision["status"] }) {
+  const labels = {
+    estimated: "Estimado",
+    partial: "Pago parcial",
+    reconciled: "Conciliado",
+    cancelled: "Cancelado",
+  };
+  return (
+    <span
+      className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold ${status === "reconciled" ? "bg-[#e7f2e4] text-[#235b45]" : status === "partial" ? "bg-[#fff3cc] text-[#795f0d]" : "bg-[#eeeeea] text-[#70736c]"}`}
+    >
+      {labels[status]}
+    </span>
+  );
+}
+
+function ProvisionDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Costo económico
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Nueva provisión</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <form
+          action={async (form) => {
+            await saveProvisionAction(form);
+            location.reload();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <label className="block text-xs font-bold">
+            Concepto
+            <input
+              name="name"
+              required
+              className="input mt-2"
+              placeholder="Ej. Remuneración octubre"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">
+              Monto económico
+              <input
+                name="amount"
+                type="number"
+                min="0"
+                required
+                className="input mt-2"
+              />
+            </label>
+            <label className="text-xs font-bold">
+              Mes al que pertenece
+              <input
+                name="economicMonth"
+                type="month"
+                required
+                defaultValue={todayInChile().slice(0, 7)}
+                className="input mt-2"
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">
+              Categoría
+              <select
+                name="category"
+                defaultValue="Servicios básicos"
+                className="input mt-2"
+              >
+                {OPERATION_CATEGORIES_BY_TYPE.fixed_cost.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-bold">
+              Fecha estimada de pago
+              <input name="dueDate" type="date" className="input mt-2" />
+            </label>
+          </div>
+          <label className="flex items-start gap-3 rounded-xl bg-[#f2f2ea] p-3 text-sm">
+            <input
+              type="checkbox"
+              name="affectsProfitability"
+              defaultChecked
+              className="mt-1"
+            />
+            <span>
+              <b>Incluir en rentabilidad</b>
+              <span className="mt-1 block text-xs font-normal text-[#777]">
+                Desmárcalo para impuestos o capital de un crédito.
+              </span>
+            </span>
+          </label>
+          <label className="block text-xs font-bold">
+            Nota
+            <textarea
+              name="note"
+              maxLength={500}
+              className="input mt-2 min-h-20 py-3"
+            />
+          </label>
+          <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
+            Guardar provisión
           </button>
         </form>
       </section>
@@ -1206,11 +1485,15 @@ function OperationDialog({
   onClose,
   operation,
   obligation,
+  provision,
+  provisions = [],
 }: {
   ingredients: { id: string; name: string; base_unit: string }[];
   onClose: () => void;
   operation?: Operation;
   obligation?: FinancialObligation;
+  provision?: ExpenseProvision;
+  provisions?: ExpenseProvision[];
 }) {
   const obligationCategory = obligation
     ? obligation.kind === "loan_payment"
@@ -1222,11 +1505,14 @@ function OperationDialog({
           : "Gastos administrativos"
     : undefined;
   const [type, setType] = useState<OperationType>(
-    operation?.type || (obligation ? "fixed_cost" : "purchase"),
+    operation?.type || (obligation || provision ? "fixed_cost" : "purchase"),
   );
   const [ingredient, setIngredient] = useState(operation?.ingredientId || "");
   const [category, setCategory] = useState(
-    operation?.category || obligationCategory || "Materias primas",
+    operation?.category ||
+      provision?.category ||
+      obligationCategory ||
+      "Materias primas",
   );
   const categoriesForType: readonly string[] =
     OPERATION_CATEGORIES_BY_TYPE[type];
@@ -1241,7 +1527,7 @@ function OperationDialog({
           <h2 className="text-2xl font-black">
             {editing
               ? "Editar movimiento"
-              : obligation
+              : obligation || provision
                 ? "Registrar pago pendiente"
                 : "Nuevo movimiento"}
           </h2>
@@ -1261,6 +1547,9 @@ function OperationDialog({
           {obligation && (
             <input type="hidden" name="obligationId" value={obligation.id} />
           )}
+          {provision && (
+            <input type="hidden" name="provisionId" value={provision.id} />
+          )}
           {operation?.ingredientId && (
             <input type="hidden" name="type" value={operation.type} />
           )}
@@ -1274,7 +1563,9 @@ function OperationDialog({
                 setType(next);
                 setCategory(DEFAULT_OPERATION_CATEGORY[next]);
               }}
-              disabled={!!operation?.ingredientId || !!obligation}
+              disabled={
+                !!operation?.ingredientId || !!obligation || !!provision
+              }
               className="input mt-2"
             >
               {Object.entries(operationLabels).map(([v, l]) => (
@@ -1299,13 +1590,34 @@ function OperationDialog({
               className="input mt-2"
             />
           </label>
+          <label className="block text-xs font-bold">
+            Mes económico al que pertenece
+            <input
+              name="economicMonth"
+              type="month"
+              required
+              defaultValue={
+                operation?.economicMonth?.slice(0, 7) ||
+                provision?.economicMonth?.slice(0, 7) ||
+                todayInChile().slice(0, 7)
+              }
+              className="input mt-2"
+            />
+            <span className="mt-1 block font-normal text-[#777]">
+              Puede ser distinto al mes del pago; por ejemplo, un sueldo de
+              octubre pagado en noviembre.
+            </span>
+          </label>
           {obligation && <input type="hidden" name="type" value={type} />}
+          {provision && <input type="hidden" name="type" value={type} />}
           <label className="block text-xs font-bold">
             Descripción
             <input
               name="description"
               required
-              defaultValue={operation?.description || obligation?.name}
+              defaultValue={
+                operation?.description || obligation?.name || provision?.name
+              }
               className="input mt-2"
             />
           </label>
@@ -1317,7 +1629,10 @@ function OperationDialog({
                 type="number"
                 required
                 defaultValue={
-                  operation?.gross || obligation?.amount || undefined
+                  operation?.gross ||
+                  obligation?.amount ||
+                  provision?.outstandingAmount ||
+                  undefined
                 }
                 className="input mt-2"
               />
@@ -1327,7 +1642,9 @@ function OperationDialog({
               <select
                 name="taxMode"
                 defaultValue={
-                  obligation || operation?.taxRate === 0 ? "exempt" : "included"
+                  obligation || provision || operation?.taxRate === 0
+                    ? "exempt"
+                    : "included"
                 }
                 className="input mt-2"
               >
@@ -1386,6 +1703,32 @@ function OperationDialog({
               </select>
             </label>
           </div>
+          {!provision &&
+            provisions.length > 0 &&
+            ["fixed_cost", "expense"].includes(type) && (
+              <label className="block text-xs font-bold">
+                Conciliar con provisión (opcional)
+                <select
+                  name="provisionId"
+                  defaultValue={operation?.provisionId || ""}
+                  className="input mt-2"
+                >
+                  <option value="">Sin provisión</option>
+                  {provisions
+                    .filter(
+                      (item) =>
+                        item.status !== "reconciled" &&
+                        item.status !== "cancelled",
+                    )
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} · pendiente{" "}
+                        {formatClp(item.outstandingAmount)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
           {type === "purchase" && !editing && (
             <>
               <label className="block text-xs font-bold">
@@ -1442,14 +1785,16 @@ function OperationDialog({
             Nota
             <textarea
               name="note"
-              defaultValue={operation?.note || obligation?.note}
+              defaultValue={
+                operation?.note || obligation?.note || provision?.note
+              }
               className="input mt-2 min-h-20 py-3"
             />
           </label>
           <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
             {editing
               ? "Guardar corrección"
-              : obligation
+              : obligation || provision
                 ? "Registrar pago y descontar"
                 : "Guardar movimiento"}
           </button>

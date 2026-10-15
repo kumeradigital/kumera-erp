@@ -22,8 +22,24 @@ export type Operation = {
   purchaseUnit?: "kg" | "g" | "l" | "ml" | "unit";
   supplier?: string;
   note?: string;
+  economicMonth: string;
+  provisionId?: string;
   financialStatus:
     "pending" | "verified" | "historical" | "historical_verified";
+};
+
+export type ExpenseProvision = {
+  id: string;
+  name: string;
+  category: string;
+  economicMonth: string;
+  expectedAmount: number;
+  paidAmount: number;
+  outstandingAmount: number;
+  dueDate?: string;
+  affectsProfitability: boolean;
+  status: "estimated" | "partial" | "reconciled" | "cancelled";
+  note?: string;
 };
 
 export type FinancialCutoff = {

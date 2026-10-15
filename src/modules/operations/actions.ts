@@ -98,6 +98,48 @@ export async function saveObligationAction(form: FormData) {
   revalidatePath("/operacion");
 }
 
+export async function saveProvisionAction(form: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesión no válida");
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
+  const name = String(form.get("name") || "").trim();
+  const category = String(form.get("category") || "").trim();
+  const amount = Math.round(Number(form.get("amount")));
+  const economicMonth = `${String(form.get("economicMonth"))}-01`;
+  const dueDate = String(form.get("dueDate") || "") || null;
+  if (!name) throw new Error("Nombre obligatorio");
+  if (!OPERATION_CATEGORIES.includes(category as never))
+    throw new Error("Categoría inválida");
+  if (!Number.isInteger(amount) || amount < 0)
+    throw new Error("Monto inválido");
+  if (!/^\d{4}-\d{2}-01$/.test(economicMonth))
+    throw new Error("Mes económico inválido");
+  if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate))
+    throw new Error("Fecha inválida");
+  const { error } = await supabase.from("expense_provisions").insert({
+    business_id: membership.business_id,
+    name,
+    category,
+    economic_month: economicMonth,
+    expected_amount: amount,
+    due_date: dueDate,
+    affects_profitability: form.get("affectsProfitability") === "on",
+    note: String(form.get("note") || "").trim() || null,
+    created_by: user.id,
+  });
+  if (error) throw error;
+  revalidatePath("/operacion");
+}
+
 export async function saveOperationAction(form: FormData) {
   const supabase = await createClient();
   const {
@@ -140,9 +182,25 @@ export async function saveOperationAction(form: FormData) {
     },
   );
   if (error) throw error;
+  const economicMonth = String(form.get("economicMonth") || "");
+  const provisionId = String(form.get("provisionId") || "") || null;
+  if (provisionId) {
+    const { data: provision } = await supabase
+      .from("expense_provisions")
+      .select("id")
+      .eq("id", provisionId)
+      .maybeSingle();
+    if (!provision) throw new Error("Provisión no válida");
+  }
   const { error: statusError } = await supabase
     .from("operational_transactions")
-    .update({ financial_status: financialStatus })
+    .update({
+      financial_status: financialStatus,
+      economic_month: economicMonth
+        ? `${economicMonth}-01`
+        : `${String(form.get("date")).slice(0, 7)}-01`,
+      provision_id: provisionId,
+    })
     .eq("id", transactionId);
   if (statusError) throw statusError;
   const obligationId = String(form.get("obligationId") || "");
@@ -245,6 +303,7 @@ export async function updateOperationAction(form: FormData) {
   const description = String(form.get("description")).trim();
   const paymentMethod = String(form.get("paymentMethod") || "") || null;
   const financialStatus = String(form.get("financialStatus") || "verified");
+  const provisionId = String(form.get("provisionId") || "") || null;
   const taxRate = String(form.get("taxMode")) === "exempt" ? 0 : 19;
   const validTypes = [
     "purchase",
@@ -267,6 +326,14 @@ export async function updateOperationAction(form: FormData) {
     throw new Error("Medio de pago inválido");
   if (!validStatuses.includes(financialStatus))
     throw new Error("Estado financiero inválido");
+  if (provisionId) {
+    const { data: provision } = await supabase
+      .from("expense_provisions")
+      .select("id")
+      .eq("id", provisionId)
+      .maybeSingle();
+    if (!provision) throw new Error("Provisión no válida");
+  }
   const net = taxRate === 0 ? gross : Math.round(gross / 1.19);
   const { data: existing, error: readError } = await supabase
     .from("operational_transactions")
@@ -293,6 +360,8 @@ export async function updateOperationAction(form: FormData) {
       financial_status: financialStatus,
       supplier: String(form.get("supplier") || "").trim() || null,
       note: String(form.get("note") || "").trim() || null,
+      economic_month: `${String(form.get("economicMonth") || String(form.get("date")).slice(0, 7))}-01`,
+      provision_id: provisionId,
       updated_at: new Date().toISOString(),
     })
     .eq("id", String(form.get("id")));
