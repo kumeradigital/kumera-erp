@@ -1,14 +1,6 @@
-import {
-  getBusinessPulse,
-  getSalesPace,
-  getSalesSummary,
-} from "@/modules/pos/data";
+import { getSalesPace, getSalesSummary } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
-import {
-  BusinessPulsePanel,
-  SalesDashboard,
-} from "@/modules/pos/sales-dashboard";
-import { Suspense } from "react";
+import { SalesDashboard } from "@/modules/pos/sales-dashboard";
 
 type Query = {
   period?: string;
@@ -115,37 +107,7 @@ export default async function SalesPage({
   ]);
   return (
     <PosShell active="sales">
-      <SalesDashboard
-        {...data}
-        period={period}
-        pace={pace}
-        insights={
-          period.mode === "today" ? (
-            <Suspense fallback={<BusinessPulseFallback />}>
-              <BusinessPulseSection />
-            </Suspense>
-          ) : null
-        }
-      />
+      <SalesDashboard {...data} period={period} pace={pace} />
     </PosShell>
-  );
-}
-
-async function BusinessPulseSection() {
-  const pulse = await getBusinessPulse();
-  return <BusinessPulsePanel pulse={pulse} />;
-}
-
-function BusinessPulseFallback() {
-  return (
-    <section className="card mt-6 animate-pulse p-5" aria-live="polite">
-      <div className="h-5 w-44 rounded bg-[#e5e8dd]" />
-      <div className="mt-4 grid gap-3 sm:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
-          <div key={item} className="h-20 rounded-xl bg-[#f0f1ea]" />
-        ))}
-      </div>
-      <span className="sr-only">Calculando pulso del negocio</span>
-    </section>
   );
 }

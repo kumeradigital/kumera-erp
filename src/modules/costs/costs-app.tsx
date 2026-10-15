@@ -867,16 +867,17 @@ function ProductsCostView({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[.14em] text-[#66766c]">
-              Margen de contribución promedio
+              Margen técnico promedio por producto
             </p>
             <p className="mt-2 text-4xl font-black text-[#235b45]">
               {costedProducts.length ? `${averageMargin.toFixed(1)}%` : "—"}
             </p>
             <p className="mt-2 max-w-2xl text-xs leading-5 text-[#66766c]">
-              Promedio simple con los precios actuales de los productos que
-              tienen costeo completo
+              Promedio simple sobre venta neta sin IVA con los precios actuales
+              de los productos que tienen costeo completo
               {category === "Todas" ? "" : ` en ${category}`}. No está ponderado
-              por cantidad vendida.
+              por cantidad vendida y no se usa para proyectar el resultado del
+              negocio.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:min-w-72">
@@ -1216,6 +1217,10 @@ export function ProjectionsView({
   const margin = businessPulse.observedContributionPercentage;
   const contribution = businessPulse.projectedMonthlyContribution;
   const wasteReserve = businessPulse.projectedMonthlyWasteReserve;
+  const projectedNetSales = monthlySales / (1 + vatRate / 100);
+  const weightedNetMargin = projectedNetSales
+    ? (contribution / projectedNetSales) * 100
+    : 0;
   const operatingResult = contribution - wasteReserve - fixedCosts;
   const effectiveMargin = margin - businessPulse.operationalWastePercentage;
   const breakEvenSales =
@@ -1267,9 +1272,9 @@ export function ProjectionsView({
               detail={`${businessPulse.operatingDaysMonth} días abiertos`}
             />
             <ProjectionFact
-              label="Margen de contribución"
-              value={`${margin.toFixed(1)}%`}
-              detail="sobre venta bruta observada"
+              label="Margen real ponderado"
+              value={`${weightedNetMargin.toFixed(1)}%`}
+              detail={`sobre venta neta · equivale a ${margin.toFixed(1)}% de la venta bruta`}
             />
           </div>
 
@@ -1307,7 +1312,7 @@ export function ProjectionsView({
             />
             <ProjectionRow
               label="Venta neta estimada sin IVA"
-              value={monthlySales / (1 + vatRate / 100)}
+              value={projectedNetSales}
             />
             <ProjectionRow
               label="Contribución tras recetas y comisiones"
