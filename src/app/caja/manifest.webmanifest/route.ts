@@ -6,6 +6,7 @@ const cashRegisterManifest = {
   start_url: "/caja",
   scope: "/caja",
   display: "standalone",
+  display_override: ["fullscreen", "standalone"],
   background_color: "#f7f6ee",
   theme_color: "#235b45",
   orientation: "landscape",

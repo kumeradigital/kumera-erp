@@ -107,10 +107,11 @@ export function PosClient({
   const [recordingDelivery, setRecordingDelivery] = useState(false);
   const [recordingSpecialSale, setRecordingSpecialSale] = useState(false);
   const [visiblePanels, setVisiblePanels] = useState({
-    recentSales: true,
+    recentSales: false,
     categories: true,
     empanadas: true,
   });
+  const [cartRestored, setCartRestored] = useState(false);
   const initialAvailability = () =>
     Object.fromEntries(
       availability.map((item) => [item.productId, item.availableQuantity]),
@@ -129,6 +130,50 @@ export function PosClient({
       // Keep the complete view if this browser blocks local storage.
     }
   }, []);
+  useEffect(() => {
+    document.documentElement.classList.add("pos-kiosk");
+    return () => document.documentElement.classList.remove("pos-kiosk");
+  }, []);
+  useEffect(() => {
+    if (!session) {
+      setCartRestored(true);
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(`kumera-pos-cart:${session.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          cart?: Record<string, unknown>;
+          employeeDiscount?: boolean;
+        };
+        const restored = Object.fromEntries(
+          Object.entries(parsed.cart || {}).filter(
+            ([, quantity]) =>
+              typeof quantity === "number" &&
+              Number.isFinite(quantity) &&
+              quantity > 0,
+          ),
+        ) as Cart;
+        setCart(restored);
+        setEmployeeDiscount(Boolean(parsed.employeeDiscount));
+      }
+    } catch {
+      // La caja puede seguir operando aunque el almacenamiento esté bloqueado.
+    } finally {
+      setCartRestored(true);
+    }
+  }, [session]);
+  useEffect(() => {
+    if (!session || !cartRestored) return;
+    try {
+      localStorage.setItem(
+        `kumera-pos-cart:${session.id}`,
+        JSON.stringify({ cart, employeeDiscount }),
+      );
+    } catch {
+      // La venta sigue disponible en memoria durante esta sesión.
+    }
+  }, [cart, cartRestored, employeeDiscount, session]);
   function togglePanel(panel: keyof typeof visiblePanels) {
     setVisiblePanels((current) => {
       const next = { ...current, [panel]: !current[panel] };
@@ -350,9 +395,9 @@ export function PosClient({
   if (!session)
     return <OpenSession latestSession={latestSession} products={products} />;
   return (
-    <main className="grid min-h-[calc(100vh-64px)] min-w-0 overflow-x-hidden min-[700px]:h-[calc(100vh-64px)] min-[700px]:grid-cols-[minmax(0,1fr)_360px] min-[700px]:overflow-hidden lg:grid-cols-[minmax(0,1fr)_390px]">
-      <section className="min-w-0 p-3 pb-28 sm:p-4 min-[700px]:overflow-y-auto min-[700px]:pb-4 lg:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] px-3 py-2">
+    <main className="grid h-[100dvh] min-h-0 min-w-0 overflow-hidden min-[700px]:grid-cols-[minmax(0,1fr)_380px] lg:grid-cols-[minmax(0,1fr)_400px]">
+      <section className="flex min-h-0 min-w-0 flex-col p-2.5 pb-24 sm:p-3 min-[700px]:pb-3">
+        <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] px-3 py-1.5">
           <div className="flex items-center gap-3">
             <span className="grid size-8 place-items-center rounded-lg bg-[#235b45] text-white">
               <Clock size={17} />
@@ -391,7 +436,7 @@ export function PosClient({
           </div>
         </div>
         {visiblePanels.recentSales && (
-          <div className="mb-3 rounded-xl border border-[#dfdfd5] bg-[#fffef9] p-2">
+          <div className="mb-2 shrink-0 rounded-xl border border-[#dfdfd5] bg-[#fffef9] p-2">
             <div className="mb-1 flex items-center justify-between px-1">
               <p className="text-[10px] font-black uppercase tracking-wider text-[#6f746c]">
                 Últimas ventas
@@ -434,12 +479,12 @@ export function PosClient({
           </div>
         )}
         {visiblePanels.categories && (
-          <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto pb-3">
+          <div className="flex min-w-0 max-w-full shrink-0 gap-1.5 overflow-x-auto pb-2">
             {categories.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold capitalize ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold capitalize ${category === c ? "bg-[#235b45] text-white" : "bg-white text-[#666]"}`}
               >
                 {c}
               </button>
@@ -447,7 +492,7 @@ export function PosClient({
           </div>
         )}
         {visiblePanels.empanadas && empanadaProducts.length > 0 && (
-          <div className="mb-3 flex min-w-0 items-center gap-2 rounded-xl border border-[#d6dfd1] bg-[#f4f7f1] p-2">
+          <div className="mb-2 flex min-w-0 shrink-0 items-center gap-2 rounded-xl border border-[#d6dfd1] bg-[#f4f7f1] p-1.5">
             <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
               {empanadaProducts.map((product) => {
                 const available = availableFor(product);
@@ -518,85 +563,87 @@ export function PosClient({
           </div>
         )}
         {products.length ? (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 min-[1080px]:grid-cols-4 min-[1450px]:grid-cols-5">
-            {productTiles.map((tile) => {
-              if (tile.products.length > 1) {
-                const selectedQuantity = tile.products.reduce(
-                  (sum, product) => sum + (cart[product.id] || 0),
-                  0,
-                );
-                const availableProducts = tile.products.filter(
-                  (product) =>
-                    !product.trackDailyAvailability ||
-                    availableFor(product) > (cart[product.id] || 0),
-                );
+          <div className="scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 min-[900px]:grid-cols-4 min-[1200px]:grid-cols-5">
+              {productTiles.map((tile) => {
+                if (tile.products.length > 1) {
+                  const selectedQuantity = tile.products.reduce(
+                    (sum, product) => sum + (cart[product.id] || 0),
+                    0,
+                  );
+                  const availableProducts = tile.products.filter(
+                    (product) =>
+                      !product.trackDailyAvailability ||
+                      availableFor(product) > (cart[product.id] || 0),
+                  );
+                  return (
+                    <button
+                      key={tile.key}
+                      onClick={() => setSelectingGroup(tile)}
+                      disabled={!availableProducts.length}
+                      className="card relative min-h-[72px] overflow-hidden border-2 border-[#b9cfb8] bg-[#fbfdf9] text-left shadow-sm transition hover:border-[#78977e] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65"
+                    >
+                      {selectedQuantity > 0 && (
+                        <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
+                          {tile.saleUnit === "kg"
+                            ? `${Math.round(selectedQuantity * 1000)}g`
+                            : selectedQuantity}
+                        </span>
+                      )}
+                      <div
+                        className={`flex h-full flex-col justify-between p-2.5 ${selectedQuantity > 0 ? "pt-9" : "pt-2.5"}`}
+                      >
+                        <p className="text-sm font-black leading-4 tracking-tight text-[#171a17] capitalize">
+                          {tile.category}
+                        </p>
+                        <p className="mt-1 text-[11px] font-black text-[#235b45]">
+                          {tile.products.length} opciones · Abrir
+                          {tile.saleUnit === "kg" ? " / kg" : ""}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                }
+                const p = tile.products[0];
+                const remaining = p.trackDailyAvailability
+                  ? Math.max(0, availableFor(p) - (cart[p.id] || 0))
+                  : null;
+                const soldOut = remaining === 0;
                 return (
                   <button
-                    key={tile.key}
-                    onClick={() => setSelectingGroup(tile)}
-                    disabled={!availableProducts.length}
-                    className="card relative min-h-[104px] overflow-hidden border-2 border-[#b9cfb8] bg-[#fbfdf9] text-left shadow-sm transition hover:border-[#78977e] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65 lg:min-h-[112px]"
+                    key={p.id}
+                    onClick={() => add(p.id)}
+                    disabled={soldOut}
+                    className="card relative min-h-[72px] overflow-hidden border-2 border-[#deded5] bg-white text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65"
                   >
-                    {selectedQuantity > 0 && (
+                    {!!cart[p.id] && (
                       <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
-                        {tile.saleUnit === "kg"
-                          ? `${Math.round(selectedQuantity * 1000)}g`
-                          : selectedQuantity}
+                        {p.saleUnit === "kg"
+                          ? `${Math.round(cart[p.id] * 1000)}g`
+                          : cart[p.id]}
+                      </span>
+                    )}
+                    {remaining !== null && (
+                      <span
+                        className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
+                      >
+                        {remaining === 0 ? "Agotado" : `${remaining} disp.`}
                       </span>
                     )}
                     <div
-                      className={`flex h-full flex-col justify-between p-4 ${selectedQuantity > 0 ? "pt-10" : "pt-4"}`}
+                      className={`flex h-full flex-col justify-between p-2.5 ${cart[p.id] || remaining !== null ? "pt-9" : "pt-2.5"}`}
                     >
-                      <p className="text-lg font-black leading-5 tracking-tight text-[#171a17] capitalize lg:text-xl lg:leading-6">
-                        {tile.category}
+                      <p className="text-sm font-black leading-4 tracking-tight text-[#171a17] capitalize">
+                        {p.name}
                       </p>
-                      <p className="mt-2 text-sm font-black text-[#235b45] lg:text-base">
-                        {tile.products.length} opciones · Abrir
-                        {tile.saleUnit === "kg" ? " / kg" : ""}
+                      <p className="money mt-1 text-xs font-black text-[#235b45]">
+                        {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
                       </p>
                     </div>
                   </button>
                 );
-              }
-              const p = tile.products[0];
-              const remaining = p.trackDailyAvailability
-                ? Math.max(0, availableFor(p) - (cart[p.id] || 0))
-                : null;
-              const soldOut = remaining === 0;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => add(p.id)}
-                  disabled={soldOut}
-                  className="card relative min-h-[104px] overflow-hidden border-2 border-[#deded5] bg-white text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-65 lg:min-h-[112px]"
-                >
-                  {!!cart[p.id] && (
-                    <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
-                      {p.saleUnit === "kg"
-                        ? `${Math.round(cart[p.id] * 1000)}g`
-                        : cart[p.id]}
-                    </span>
-                  )}
-                  {remaining !== null && (
-                    <span
-                      className={`absolute right-2 top-2 z-10 rounded-full px-2 py-1 text-[9px] font-black shadow-sm ${remaining === 0 ? "bg-[#a24628] text-white" : remaining <= 5 ? "bg-[#f3c94f] text-[#493b0c]" : "bg-[#235b45] text-white"}`}
-                    >
-                      {remaining === 0 ? "Agotado" : `${remaining} disp.`}
-                    </span>
-                  )}
-                  <div
-                    className={`flex h-full flex-col justify-between p-4 ${cart[p.id] || remaining !== null ? "pt-10" : "pt-4"}`}
-                  >
-                    <p className="text-lg font-black leading-5 tracking-tight text-[#171a17] capitalize lg:text-xl lg:leading-6">
-                      {p.name}
-                    </p>
-                    <p className="money mt-2 text-base font-black text-[#235b45] lg:text-lg">
-                      {formatClp(p.price)} {p.saleUnit === "kg" ? "/ kg" : ""}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+              })}
+            </div>
           </div>
         ) : (
           <div className="card p-12 text-center">
@@ -618,7 +665,7 @@ export function PosClient({
         />
       )}
       <aside
-        className={`border-l border-[#dfdfd5] bg-[#fffef9] p-4 min-[700px]:block min-[700px]:h-full min-[700px]:overflow-y-auto lg:p-5 max-[699px]:fixed max-[699px]:inset-x-0 max-[699px]:bottom-0 max-[699px]:z-40 max-[699px]:max-h-[88dvh] max-[699px]:overflow-y-auto max-[699px]:rounded-t-3xl max-[699px]:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-[699px]:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-[699px]:block" : "max-[699px]:hidden"}`}
+        className={`min-h-0 border-l border-[#dfdfd5] bg-[#fffef9] p-3 min-[700px]:flex min-[700px]:h-full min-[700px]:flex-col min-[700px]:overflow-hidden max-[699px]:fixed max-[699px]:inset-x-0 max-[699px]:bottom-0 max-[699px]:z-40 max-[699px]:max-h-[88dvh] max-[699px]:overflow-y-auto max-[699px]:rounded-t-3xl max-[699px]:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-[699px]:shadow-[0_-18px_50px_rgba(0,0,0,.18)] ${mobileCartOpen ? "max-[699px]:block" : "max-[699px]:hidden"}`}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -637,33 +684,33 @@ export function PosClient({
             </button>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid shrink-0 grid-cols-3 gap-1.5">
           <button
             onClick={() => setRecordingSpecialSale(true)}
-            className="flex items-center justify-center gap-2 rounded-xl border border-[#235b45] bg-[#edf4e9] px-3 py-2 text-xs font-black text-[#235b45]"
+            className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#235b45] bg-[#edf4e9] px-1.5 text-[10px] font-black text-[#235b45]"
           >
             <Handshake size={15} /> Venta especial
           </button>
           <button
             onClick={() => setRecordingDelivery(true)}
-            className="flex items-center justify-center gap-2 rounded-xl border border-[#d91f4b] bg-white px-3 py-2 text-xs font-black text-[#d91f4b]"
+            className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#d91f4b] bg-white px-1.5 text-[10px] font-black text-[#d91f4b]"
           >
             <ShoppingBag size={15} /> PedidosYa
           </button>
           {productionFamilies.length > 0 && (
             <button
               onClick={() => setRecordingProduction(true)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#235b45] px-3 py-2 text-xs font-black text-white"
+              className="flex min-h-9 items-center justify-center gap-1 rounded-lg bg-[#235b45] px-1.5 text-[10px] font-black text-white"
             >
               <Layers3 size={15} /> Pan
             </button>
           )}
         </div>
-        <div className="mt-5 space-y-3">
+        <div className="scrollbar mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
           {lines.map((l) => (
             <div
               key={l.id}
-              className="flex items-center gap-3 border-b border-[#ecebe4] pb-3"
+              className="flex items-center gap-2 border-b border-[#ecebe4] py-1.5"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold capitalize">
@@ -708,7 +755,7 @@ export function PosClient({
             </div>
           ))}
           {!lines.length && (
-            <div className="py-10 text-center text-sm text-[#888]">
+            <div className="py-6 text-center text-sm text-[#888]">
               Toca un producto para agregarlo
             </div>
           )}
@@ -753,24 +800,24 @@ export function PosClient({
             </div>
           )}
         </div>
-        <div className="mt-5 border-t-2 border-[#222] pt-4">
-          <div className="mb-4 rounded-xl bg-[#f2f2ea] p-3">
+        <div className="shrink-0 border-t-2 border-[#222] pt-2">
+          <div className="mb-2 rounded-lg bg-[#f2f2ea] px-2 py-1.5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#777]">
                   Retiros de caja
                 </p>
-                <b className="money text-sm">{formatClp(withdrawalTotal)}</b>
+                <b className="money text-xs">{formatClp(withdrawalTotal)}</b>
               </div>
               <button
                 onClick={() => setWithdrawing(true)}
-                className="flex items-center gap-2 rounded-lg border border-[#d0d0c7] bg-white px-3 py-2 text-xs font-bold text-[#235b45]"
+                className="flex items-center gap-1 rounded-lg border border-[#d0d0c7] bg-white px-2 py-1.5 text-[10px] font-bold text-[#235b45]"
               >
                 <HandCoins size={15} /> Anotar retiro
               </button>
             </div>
             {displayedWithdrawals[0] && (
-              <p className="mt-2 truncate text-[11px] text-[#777]">
+              <p className="mt-1 truncate text-[10px] text-[#777]">
                 Último: {formatClp(displayedWithdrawals[0].amount)} ·{" "}
                 {displayedWithdrawals[0].reason}
               </p>
@@ -780,7 +827,7 @@ export function PosClient({
             <button
               type="button"
               onClick={() => setEmployeeDiscount((current) => !current)}
-              className={`mb-3 w-full rounded-lg border px-3 py-2 text-xs font-bold transition ${
+              className={`mb-2 w-full rounded-lg border px-2 py-1.5 text-[10px] font-bold transition ${
                 employeeDiscount
                   ? "border-[#235b45] bg-[#edf4e9] text-[#235b45]"
                   : "border-[#deded5] bg-transparent text-[#777]"
@@ -805,35 +852,40 @@ export function PosClient({
           )}
           <div className="flex items-end justify-between">
             <span className="font-bold">Total</span>
-            <span className="money text-3xl font-black">
+            <span className="money text-2xl font-black">
               {formatClp(total)}
             </span>
           </div>
           {lines.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-2">
               <button
                 type="button"
                 onClick={() => setChangeCalculatorOpen((current) => !current)}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#cfd8cc] bg-[#f4f7f1] px-3 text-sm font-black text-[#235b45]"
+                className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#cfd8cc] bg-[#f4f7f1] px-3 text-xs font-black text-[#235b45]"
               >
                 <Banknote size={18} />
                 {changeCalculatorOpen
                   ? "Cerrar calculadora de vuelto"
                   : "Calcular vuelto"}
               </button>
-              {changeCalculatorOpen && <ChangeCalculator total={total} />}
+              {changeCalculatorOpen && (
+                <ChangeCalculator
+                  total={total}
+                  onClose={() => setChangeCalculatorOpen(false)}
+                />
+              )}
             </div>
           )}
           <button
             disabled={!total || busy}
             onClick={recordSale}
-            className="mt-5 h-14 w-full rounded-2xl bg-[#235b45] text-lg font-black text-white disabled:opacity-30"
+            className="mt-2 h-11 w-full rounded-xl bg-[#235b45] text-sm font-black text-white disabled:opacity-30"
           >
             {busy ? "Registrando…" : "Registrar venta"}
           </button>
           <button
             onClick={() => setClosing(true)}
-            className="mt-3 w-full text-center text-xs font-bold text-[#a24628]"
+            className="mt-1.5 w-full text-center text-[10px] font-bold text-[#a24628]"
           >
             Cerrar jornada de caja
           </button>
@@ -1440,16 +1492,16 @@ function ProductGroupDialog({
   onSelect: (product: Product) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 min-[700px]:right-[360px] min-[700px]:place-items-stretch min-[700px]:bg-[#f7f6ee] lg:right-[390px]">
-      <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-14 min-[700px]:max-h-none min-[700px]:rounded-none min-[700px]:bg-[#f7f6ee] min-[700px]:p-4 min-[700px]:pt-16">
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 min-[700px]:right-[380px] min-[700px]:place-items-stretch min-[700px]:bg-[#f7f6ee] lg:right-[400px]">
+      <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12 min-[700px]:max-h-none min-[700px]:rounded-none min-[700px]:bg-[#f7f6ee] min-[700px]:p-3 min-[700px]:pt-12">
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 z-30 grid size-11 place-items-center rounded-full border border-black/5 bg-white/95 shadow-md backdrop-blur-sm min-[700px]:right-4 min-[700px]:top-3"
+          className="absolute right-3 top-2 z-30 grid size-9 place-items-center rounded-full border border-black/5 bg-white/95 shadow-md backdrop-blur-sm"
           aria-label="Cerrar selector de productos"
         >
           <X size={21} />
         </button>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 min-[700px]:grid-cols-4 min-[1050px]:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 min-[700px]:grid-cols-4 min-[1000px]:grid-cols-5">
           {group.products.map((product) => {
             const remaining = product.trackDailyAvailability
               ? Math.max(
@@ -1464,22 +1516,13 @@ function ProductGroupDialog({
                 key={product.id}
                 onClick={() => onSelect(product)}
                 disabled={remaining === 0}
-                className="relative h-36 overflow-hidden rounded-xl border border-[#dcdcd3] bg-[#e9ece5] text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45 min-[700px]:h-32 min-[1050px]:h-36"
+                className="relative min-h-16 overflow-hidden rounded-xl border border-[#dcdcd3] bg-white p-2.5 text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45"
               >
-                {product.imageUrl && (
-                  <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
-                <span className="absolute inset-x-1.5 bottom-1.5 z-10 block rounded-xl border border-white/60 bg-white/95 px-2.5 py-2 shadow-lg backdrop-blur-sm">
-                  <b className="block text-xs leading-4 capitalize text-[#171a17] min-[1050px]:text-sm">
+                <span className="block">
+                  <b className="block text-xs leading-4 capitalize text-[#171a17]">
                     {product.name}
                   </b>
-                  <span className="money mt-0.5 block text-xs font-black text-[#235b45] min-[1050px]:text-sm">
+                  <span className="money mt-1 block text-xs font-black text-[#235b45]">
                     {formatClp(product.price)}
                     {product.saleUnit === "kg" ? "/kg" : ""}
                   </span>
@@ -2081,15 +2124,18 @@ function WeightDialog({
   const [grams, setGrams] = useState("");
   const value = Number(grams) || 0;
   const total = Math.round((product.price * value) / 1000);
+  function enterDigit(digit: string) {
+    setGrams((current) => `${current}${digit}`.replace(/^0+/, "").slice(0, 5));
+  }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
-      <div className="w-full rounded-t-3xl bg-[#fffef9] p-6 md:max-w-md md:rounded-3xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-3">
+      <div className="w-full max-w-sm rounded-3xl bg-[#fffef9] p-4">
         <div className="flex justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
               Venta por peso
             </p>
-            <h2 className="mt-1 text-2xl font-black">{product.name}</h2>
+            <h2 className="mt-1 text-xl font-black">{product.name}</h2>
           </div>
           <button onClick={onClose}>
             <X />
@@ -2098,27 +2144,58 @@ function WeightDialog({
         <p className="mt-3 text-sm text-[#747970]">
           Precio: {formatClp(product.price)} por kilogramo
         </p>
-        <label className="mt-5 block text-xs font-bold">
+        <label className="mt-3 block text-xs font-bold">
           Peso en gramos
           <input
-            autoFocus
+            readOnly
             value={grams}
-            onChange={(event) =>
-              setGrams(event.target.value.replace(/\D/g, ""))
-            }
-            inputMode="numeric"
+            inputMode="none"
             placeholder="Ej: 350"
-            className="input mt-2 text-2xl font-black"
+            className="input mt-1 text-center text-2xl font-black"
           />
         </label>
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-[#eff0e8] p-4">
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
+            <button
+              key={digit}
+              type="button"
+              onClick={() => enterDigit(digit)}
+              className="h-10 rounded-lg bg-[#eff0e8] text-lg font-black text-[#235b45]"
+            >
+              {digit}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setGrams("")}
+            className="h-10 rounded-lg bg-[#fff0e9] text-xs font-black text-[#a24628]"
+          >
+            Limpiar
+          </button>
+          <button
+            type="button"
+            onClick={() => enterDigit("0")}
+            className="h-10 rounded-lg bg-[#eff0e8] text-lg font-black text-[#235b45]"
+          >
+            0
+          </button>
+          <button
+            type="button"
+            onClick={() => setGrams((current) => current.slice(0, -1))}
+            className="h-10 rounded-lg bg-[#eff0e8] text-sm font-black text-[#235b45]"
+            aria-label="Borrar último número"
+          >
+            Borrar
+          </button>
+        </div>
+        <div className="mt-2 flex items-center justify-between rounded-xl bg-[#eff0e8] px-3 py-2">
           <span className="font-bold">Subtotal</span>
-          <b className="money text-2xl">{formatClp(total)}</b>
+          <b className="money text-xl">{formatClp(total)}</b>
         </div>
         <button
           disabled={value <= 0}
           onClick={() => onConfirm(value / 1000)}
-          className="mt-5 h-14 w-full rounded-xl bg-[#235b45] text-lg font-black text-white disabled:opacity-40"
+          className="mt-2 h-11 w-full rounded-xl bg-[#235b45] text-sm font-black text-white disabled:opacity-40"
         >
           Agregar al carro
         </button>
@@ -2927,7 +3004,13 @@ function OpenSession({
     </main>
   );
 }
-function ChangeCalculator({ total }: { total: number }) {
+function ChangeCalculator({
+  total,
+  onClose,
+}: {
+  total: number;
+  onClose: () => void;
+}) {
   const cashPayable = calculateCashPayable(total);
   const cashRounding = calculateCashRounding(total);
   const [cash, setCash] = useState("");
@@ -2938,58 +3021,68 @@ function ChangeCalculator({ total }: { total: number }) {
     .slice(0, 3);
 
   return (
-    <div className="mt-2 rounded-xl border border-[#dfe4da] bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
-            Total en efectivo
-          </p>
-          <p className="money mt-1 text-2xl font-black text-[#20231f]">
-            {formatClp(cashPayable)}
-          </p>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+      <div className="max-h-[92dvh] w-full max-w-sm overflow-y-auto rounded-2xl border border-[#dfe4da] bg-white p-4 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#777]">
+              Total en efectivo
+            </p>
+            <p className="money mt-1 text-2xl font-black text-[#20231f]">
+              {formatClp(cashPayable)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-[#eff0e8]"
+            aria-label="Cerrar calculadora"
+          >
+            <X size={18} />
+          </button>
+          {cashRounding !== 0 && (
+            <p className="max-w-28 text-right text-[10px] leading-4 text-[#777]">
+              Incluye redondeo legal de {cashRounding > 0 ? "+" : ""}
+              {formatClp(cashRounding)}
+            </p>
+          )}
         </div>
-        {cashRounding !== 0 && (
-          <p className="max-w-28 text-right text-[10px] leading-4 text-[#777]">
-            Incluye redondeo legal de {cashRounding > 0 ? "+" : ""}
-            {formatClp(cashRounding)}
-          </p>
+        <label className="mt-3 block text-xs font-bold">
+          Efectivo recibido
+          <input
+            value={cash}
+            onChange={(event) => setCash(event.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            placeholder="Ej: 20000"
+            className="input mt-2 text-xl font-black"
+          />
+        </label>
+        {suggestions.length > 0 && (
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {suggestions.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => setCash(String(amount))}
+                className="min-h-10 rounded-lg bg-[#eff0e8] text-xs font-black text-[#235b45]"
+              >
+                {formatClp(amount)}
+              </button>
+            ))}
+          </div>
         )}
-      </div>
-      <label className="mt-3 block text-xs font-bold">
-        Efectivo recibido
-        <input
-          value={cash}
-          onChange={(event) => setCash(event.target.value.replace(/\D/g, ""))}
-          inputMode="numeric"
-          placeholder="Ej: 20000"
-          className="input mt-2 text-xl font-black"
-        />
-      </label>
-      {suggestions.length > 0 && (
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          {suggestions.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              onClick={() => setCash(String(amount))}
-              className="min-h-10 rounded-lg bg-[#eff0e8] text-xs font-black text-[#235b45]"
-            >
-              {formatClp(amount)}
-            </button>
-          ))}
+        <div
+          className={`mt-3 flex items-center justify-between rounded-xl p-4 ${difference >= 0 ? "bg-[#e8f0e6] text-[#235b45]" : "bg-[#fff4d4] text-[#7c5b13]"}`}
+        >
+          <span className="font-black">
+            {difference >= 0 ? "Vuelto" : "Falta"}
+          </span>
+          <b className="money text-2xl">{formatClp(Math.abs(difference))}</b>
         </div>
-      )}
-      <div
-        className={`mt-3 flex items-center justify-between rounded-xl p-4 ${difference >= 0 ? "bg-[#e8f0e6] text-[#235b45]" : "bg-[#fff4d4] text-[#7c5b13]"}`}
-      >
-        <span className="font-black">
-          {difference >= 0 ? "Vuelto" : "Falta"}
-        </span>
-        <b className="money text-2xl">{formatClp(Math.abs(difference))}</b>
+        <p className="mt-2 text-[10px] leading-4 text-[#777]">
+          Esta calculadora es sólo una ayuda y no registra ni modifica la venta.
+        </p>
       </div>
-      <p className="mt-2 text-[10px] leading-4 text-[#777]">
-        Esta calculadora es sólo una ayuda y no registra ni modifica la venta.
-      </p>
     </div>
   );
 }

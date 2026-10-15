@@ -23,7 +23,7 @@ export default async function PosPage() {
     availability: availability.find((row) => row.productId === product.id),
   }));
   return (
-    <PosShell active="pos">
+    <PosShell active="pos" kiosk>
       <PosClient
         products={productsWithAvailability}
         deliveryProducts={catalog.deliveryProducts.map((product) => ({

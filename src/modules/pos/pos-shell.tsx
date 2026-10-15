@@ -14,8 +14,10 @@ import { signOutAction } from "@/modules/auth/actions";
 export function PosShell({
   children,
   active,
+  kiosk = false,
 }: {
   children: React.ReactNode;
+  kiosk?: boolean;
   active:
     | "sales"
     | "closures"
@@ -25,6 +27,14 @@ export function PosShell({
     | "operations"
     | "inventory";
 }) {
+  if (kiosk) {
+    return (
+      <div className="h-[100dvh] min-w-0 overflow-hidden bg-[#f7f6ee]">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen min-w-0 overflow-x-hidden bg-[#f7f6ee]">
       <header className="relative flex h-16 w-full min-w-0 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
