@@ -184,6 +184,8 @@ export async function saveOperationAction(form: FormData) {
   if (error) throw error;
   const economicMonth = String(form.get("economicMonth") || "");
   const provisionId = String(form.get("provisionId") || "") || null;
+  const obligationId = String(form.get("obligationId") || "");
+  let affectsProfitability = true;
   if (provisionId) {
     const { data: provision } = await supabase
       .from("expense_provisions")
@@ -191,6 +193,16 @@ export async function saveOperationAction(form: FormData) {
       .eq("id", provisionId)
       .maybeSingle();
     if (!provision) throw new Error("Provisión no válida");
+  }
+  if (obligationId) {
+    const { data: obligation } = await supabase
+      .from("financial_obligations")
+      .select("kind")
+      .eq("id", obligationId)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (!obligation) throw new Error("Compromiso no válido");
+    affectsProfitability = obligation.kind !== "loan_payment";
   }
   const { error: statusError } = await supabase
     .from("operational_transactions")
@@ -200,10 +212,10 @@ export async function saveOperationAction(form: FormData) {
         ? `${economicMonth}-01`
         : `${String(form.get("date")).slice(0, 7)}-01`,
       provision_id: provisionId,
+      affects_profitability: affectsProfitability,
     })
     .eq("id", transactionId);
   if (statusError) throw statusError;
-  const obligationId = String(form.get("obligationId") || "");
   if (obligationId && financialStatus === "verified") {
     const { data: paidObligation, error: obligationError } = await supabase
       .from("financial_obligations")

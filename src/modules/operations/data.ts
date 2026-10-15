@@ -82,7 +82,7 @@ export async function getOperationsData() {
       supabase
         .from("operational_transactions")
         .select(
-          "id,transaction_date,economic_month,provision_id,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
+          "id,transaction_date,economic_month,provision_id,affects_profitability,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
         )
         .eq("business_id", membership.business_id)
         .order("transaction_date", { ascending: false }),
@@ -146,6 +146,7 @@ export async function getOperationsData() {
       note: row.note || undefined,
       economicMonth: row.economic_month,
       provisionId: row.provision_id || undefined,
+      affectsProfitability: row.affects_profitability,
       financialStatus: row.financial_status,
       ingredientName: ingredient?.name,
       purchaseQuantity:
@@ -257,8 +258,9 @@ export async function getOperationsData() {
       (operation) =>
         operation.economicMonth.slice(0, 7) === currentMonth &&
         countsInMonthlyBooks(operation) &&
+        operation.affectsProfitability &&
         !operation.provisionId &&
-        ["purchase", "fixed_cost", "expense"].includes(operation.type),
+        ["fixed_cost", "expense"].includes(operation.type),
     )
     .reduce((total, operation) => total + operation.gross, 0);
   const monthlyByType = (type: OperationType) =>

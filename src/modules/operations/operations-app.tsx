@@ -337,7 +337,7 @@ export function OperationsApp({
                 v={summary.netSalesAfterVat}
               />
               <Metric
-                l="Costos económicos del mes"
+                l="Gastos operacionales del mes"
                 v={summary.operatingExpenses}
               />
               <Metric l="Compras de insumos" v={summary.monthlyPurchases} />

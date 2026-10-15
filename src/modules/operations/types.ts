@@ -24,6 +24,7 @@ export type Operation = {
   note?: string;
   economicMonth: string;
   provisionId?: string;
+  affectsProfitability: boolean;
   financialStatus:
     "pending" | "verified" | "historical" | "historical_verified";
 };
