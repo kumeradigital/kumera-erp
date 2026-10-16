@@ -12,6 +12,14 @@ export function calculateCartTotal(items: PricedQuantity[]) {
   return items.reduce((total, item) => total + calculateLineTotal(item), 0);
 }
 
+export function calculateGramsFromAmount(
+  pricePerKilogram: number,
+  amount: number,
+) {
+  if (pricePerKilogram <= 0 || amount <= 0) return 0;
+  return Math.round((amount * 1000) / pricePerKilogram);
+}
+
 export function calculateCashPayable(total: number) {
   const lastDigit = ((total % 10) + 10) % 10;
   if (lastDigit === 0) return total;

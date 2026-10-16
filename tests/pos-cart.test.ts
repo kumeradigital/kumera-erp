@@ -3,6 +3,7 @@ import {
   calculateCashPayable,
   calculateCashRounding,
   calculateCartTotal,
+  calculateGramsFromAmount,
   calculateLineTotal,
 } from "@/modules/pos/cart";
 
@@ -27,6 +28,14 @@ describe("totales de caja en pesos enteros", () => {
     expect(2850 * 0.29).toBeLessThan(826.5);
     expect(calculateLineTotal({ price: 2850, quantity: 0.29 })).toBe(827);
     expect(calculateCartTotal([{ price: 2850, quantity: 0.29 }])).toBe(827);
+  });
+
+  it("convierte el monto de la balanza a gramos y conserva el total", () => {
+    const grams = calculateGramsFromAmount(2850, 1693);
+    expect(grams).toBe(594);
+    expect(calculateLineTotal({ price: 2850, quantity: grams / 1000 })).toBe(
+      1693,
+    );
   });
 
   it("aplica la regla chilena solo al total pagado en efectivo", () => {

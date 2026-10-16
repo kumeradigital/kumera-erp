@@ -20,6 +20,7 @@ import {
   calculateCashPayable,
   calculateCashRounding,
   calculateCartTotal,
+  calculateGramsFromAmount,
   calculateLineTotal,
 } from "./cart";
 import { calculateCardFee, type CardFeeSettings } from "./fees";
@@ -2069,11 +2070,16 @@ function WeightDialog({
   onClose: () => void;
   onConfirm: (kilograms: number) => void;
 }) {
-  const [grams, setGrams] = useState("");
-  const value = Number(grams) || 0;
-  const total = Math.round((product.price * value) / 1000);
+  const [mode, setMode] = useState<"grams" | "amount">("grams");
+  const [enteredValue, setEnteredValue] = useState("");
+  const value = Number(enteredValue) || 0;
+  const grams =
+    mode === "grams" ? value : calculateGramsFromAmount(product.price, value);
+  const total = Math.round((product.price * grams) / 1000);
   function enterDigit(digit: string) {
-    setGrams((current) => `${current}${digit}`.replace(/^0+/, "").slice(0, 5));
+    setEnteredValue((current) =>
+      `${current}${digit}`.replace(/^0+/, "").slice(0, 6),
+    );
   }
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-3">
@@ -2092,13 +2098,35 @@ function WeightDialog({
         <p className="mt-3 text-sm text-[#747970]">
           Precio: {formatClp(product.price)} por kilogramo
         </p>
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-[#eff0e8] p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("grams");
+              setEnteredValue("");
+            }}
+            className={`h-9 rounded-lg text-xs font-black ${mode === "grams" ? "bg-white text-[#235b45] shadow-sm" : "text-[#73786f]"}`}
+          >
+            Ingresar gramos
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("amount");
+              setEnteredValue("");
+            }}
+            className={`h-9 rounded-lg text-xs font-black ${mode === "amount" ? "bg-white text-[#235b45] shadow-sm" : "text-[#73786f]"}`}
+          >
+            Ingresar precio
+          </button>
+        </div>
         <label className="mt-3 block text-xs font-bold">
-          Peso en gramos
+          {mode === "grams" ? "Peso en gramos" : "Monto visto en la balanza"}
           <input
             readOnly
-            value={grams}
+            value={enteredValue}
             inputMode="none"
-            placeholder="Ej: 350"
+            placeholder={mode === "grams" ? "Ej: 350" : "Ej: 1693"}
             className="input mt-1 text-center text-2xl font-black"
           />
         </label>
@@ -2115,7 +2143,7 @@ function WeightDialog({
           ))}
           <button
             type="button"
-            onClick={() => setGrams("")}
+            onClick={() => setEnteredValue("")}
             className="h-10 rounded-lg bg-[#fff0e9] text-xs font-black text-[#a24628]"
           >
             Limpiar
@@ -2129,7 +2157,7 @@ function WeightDialog({
           </button>
           <button
             type="button"
-            onClick={() => setGrams((current) => current.slice(0, -1))}
+            onClick={() => setEnteredValue((current) => current.slice(0, -1))}
             className="h-10 rounded-lg bg-[#eff0e8] text-sm font-black text-[#235b45]"
             aria-label="Borrar último número"
           >
@@ -2137,12 +2165,21 @@ function WeightDialog({
           </button>
         </div>
         <div className="mt-2 flex items-center justify-between rounded-xl bg-[#eff0e8] px-3 py-2">
-          <span className="font-bold">Subtotal</span>
+          <span className="font-bold">
+            {mode === "amount"
+              ? `${grams.toLocaleString("es-CL")} g`
+              : "Subtotal"}
+          </span>
           <b className="money text-xl">{formatClp(total)}</b>
         </div>
+        {mode === "amount" && value > 0 && total !== value && (
+          <p className="mt-1 text-center text-[10px] font-bold text-[#806414]">
+            Por redondeo al gramo, se registrarán {formatClp(total)}.
+          </p>
+        )}
         <button
-          disabled={value <= 0}
-          onClick={() => onConfirm(value / 1000)}
+          disabled={grams <= 0}
+          onClick={() => onConfirm(grams / 1000)}
           className="mt-2 h-11 w-full rounded-xl bg-[#235b45] text-sm font-black text-white disabled:opacity-40"
         >
           Agregar al carro
@@ -2178,6 +2215,9 @@ function CloseSessionDialog({
   const [closingWithdrawalTotal, setClosingWithdrawalTotal] = useState(
     withdrawalTotal ? String(withdrawalTotal) : "",
   );
+  const [recordedWithdrawalTotal, setRecordedWithdrawalTotal] =
+    useState(withdrawalTotal);
+  const [closeError, setCloseError] = useState("");
   const [documentedCash, setDocumentedCash] = useState(0);
   const [documentedCashTransactions, setDocumentedCashTransactions] =
     useState(0);
@@ -2231,6 +2271,15 @@ function CloseSessionDialog({
     derivedCashSales > 0 ? 1 : 0,
     summary.recordedTransactions - externalTransactionCount,
   );
+  const closeBlockReason = !countedCash
+    ? "Ingresa el efectivo final contado en caja."
+    : derivedCashSales < 0
+      ? "El efectivo final más los retiros no puede ser menor que el efectivo inicial. Revisa el total retirado."
+      : documentedCash > derivedCashSales
+        ? "El efectivo boleteado no puede superar las ventas en efectivo calculadas."
+        : documentedCash > 0 && documentedCashTransactions < 1
+          ? "Indica cuántas transacciones componen el efectivo boleteado."
+          : "";
   return (
     <div className="fixed inset-0 z-50 grid place-items-end overflow-y-auto overscroll-contain bg-black/50 md:place-items-center md:p-4">
       <div className="max-h-[100dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[#fffef9] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:max-h-[calc(100dvh-2rem)] md:max-w-md md:rounded-3xl">
@@ -2432,62 +2481,72 @@ function CloseSessionDialog({
         <form
           action={async (form) => {
             setBusy(true);
-            const pendingWithdrawal = declaredWithdrawalTotal - withdrawalTotal;
-            if (pendingWithdrawal < 0) {
-              alert(
-                `El retiro no puede ser menor que los ${formatClp(withdrawalTotal)} ya registrados.`,
+            setCloseError("");
+            try {
+              const pendingWithdrawal =
+                declaredWithdrawalTotal - recordedWithdrawalTotal;
+              if (pendingWithdrawal < 0) {
+                throw new Error(
+                  `El retiro no puede ser menor que los ${formatClp(recordedWithdrawalTotal)} ya registrados.`,
+                );
+              }
+              if (pendingWithdrawal > 0) {
+                await registerCashWithdrawalAction(
+                  session.id,
+                  pendingWithdrawal,
+                  "Total de retiros anotados manualmente al cierre",
+                  "Otros",
+                  false,
+                );
+                setRecordedWithdrawalTotal(declaredWithdrawalTotal);
+              }
+              await closeCashSessionAction(
+                session.id,
+                Number(form.get("countedCash")),
+                {
+                  note: String(form.get("note") || ""),
+                  reason: String(
+                    form.get("reason") || "Totales verificados al cierre",
+                  ),
+                  actual: {
+                    cash: derivedCashSales,
+                    debit: externalTotals.debit,
+                    credit: externalTotals.credit,
+                    transfer: externalTotals.transfer,
+                  },
+                  transactions: {
+                    cash: derivedCashTransactions,
+                    debit: externalTransactions.debit,
+                    credit: externalTransactions.credit,
+                    transfer: externalTransactions.transfer,
+                  },
+                  documentedCash: {
+                    amount: documentedCash,
+                    transactions: documentedCashTransactions,
+                  },
+                  waste: waste
+                    .filter((item) => Number(item.quantity) > 0)
+                    .map((item) => ({
+                      ...item,
+                      quantity: Number(item.quantity),
+                    })),
+                  carryover: carryover
+                    .filter((item) => Number(item.quantity) > 0)
+                    .map((item) => ({
+                      ...item,
+                      quantity: Number(item.quantity),
+                    })),
+                },
+              );
+              location.reload();
+            } catch (error) {
+              setCloseError(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo confirmar el cierre de caja.",
               );
               setBusy(false);
-              return;
             }
-            if (pendingWithdrawal > 0) {
-              await registerCashWithdrawalAction(
-                session.id,
-                pendingWithdrawal,
-                "Total de retiros anotados manualmente al cierre",
-                "Otros",
-                false,
-              );
-            }
-            await closeCashSessionAction(
-              session.id,
-              Number(form.get("countedCash")),
-              {
-                note: String(form.get("note") || ""),
-                reason: String(
-                  form.get("reason") || "Totales verificados al cierre",
-                ),
-                actual: {
-                  cash: derivedCashSales,
-                  debit: externalTotals.debit,
-                  credit: externalTotals.credit,
-                  transfer: externalTotals.transfer,
-                },
-                transactions: {
-                  cash: derivedCashTransactions,
-                  debit: externalTransactions.debit,
-                  credit: externalTransactions.credit,
-                  transfer: externalTransactions.transfer,
-                },
-                documentedCash: {
-                  amount: documentedCash,
-                  transactions: documentedCashTransactions,
-                },
-                waste: waste
-                  .filter((item) => Number(item.quantity) > 0)
-                  .map((item) => ({
-                    ...item,
-                    quantity: Number(item.quantity),
-                  })),
-                carryover: carryover
-                  .filter((item) => Number(item.quantity) > 0)
-                  .map((item) => ({
-                    ...item,
-                    quantity: Number(item.quantity),
-                  })),
-              },
-            );
-            location.reload();
           }}
           className="mt-5 space-y-4"
         >
@@ -2799,13 +2858,13 @@ function CloseSessionDialog({
             Nota opcional
             <input name="note" className="input mt-2" />
           </label>
+          {(closeBlockReason || closeError) && (
+            <div className="rounded-xl border border-[#e4b5a5] bg-[#fff0ea] p-3 text-xs font-bold leading-5 text-[#963d24]">
+              {closeError || closeBlockReason}
+            </div>
+          )}
           <button
-            disabled={
-              busy ||
-              derivedCashSales < 0 ||
-              documentedCash > derivedCashSales ||
-              (documentedCash > 0 && documentedCashTransactions < 1)
-            }
+            disabled={busy || Boolean(closeBlockReason)}
             className="sticky bottom-0 h-13 w-full rounded-xl bg-[#235b45] font-black text-white shadow-[0_-10px_20px_12px_#fffef9] disabled:opacity-50"
           >
             {busy ? "Cerrando..." : "Confirmar cierre"}
