@@ -58,6 +58,9 @@ type ProductTile = {
   saleUnit: "unit" | "kg" | "mixed";
   products: Product[];
 };
+type ProductChoice =
+  | { kind: "product"; key: string; product: Product }
+  | { kind: "variants"; key: string; name: string; products: Product[] };
 
 function normalizedCategory(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
@@ -1458,6 +1461,57 @@ function groupProductsForSale(
   return groups;
 }
 
+function splitProductVariant(name: string) {
+  const [family, ...variantParts] = name.split(/\s+-\s+/);
+  return {
+    family: family.trim(),
+    variant: variantParts.join(" - ").trim(),
+  };
+}
+
+function buildProductChoices(products: Product[]): ProductChoice[] {
+  const productsByFamily = new Map<string, Product[]>();
+
+  for (const product of products) {
+    const { family, variant } = splitProductVariant(product.name);
+    if (!variant) continue;
+    const key = family.toLocaleLowerCase("es");
+    productsByFamily.set(key, [...(productsByFamily.get(key) || []), product]);
+  }
+
+  const groupedProductIds = new Set(
+    [...productsByFamily.values()]
+      .filter((familyProducts) => familyProducts.length > 1)
+      .flatMap((familyProducts) => familyProducts.map((product) => product.id)),
+  );
+  const choices: ProductChoice[] = [];
+
+  for (const product of products) {
+    if (groupedProductIds.has(product.id)) continue;
+    choices.push({ kind: "product", key: product.id, product });
+  }
+  for (const [key, familyProducts] of productsByFamily) {
+    if (familyProducts.length < 2) continue;
+    choices.push({
+      kind: "variants",
+      key: `variants::${key}`,
+      name: splitProductVariant(familyProducts[0].name).family,
+      products: familyProducts.sort((a, b) =>
+        splitProductVariant(a.name).variant.localeCompare(
+          splitProductVariant(b.name).variant,
+          "es",
+        ),
+      ),
+    });
+  }
+
+  return choices.sort((a, b) => {
+    const aName = a.kind === "product" ? a.product.name : a.name;
+    const bName = b.kind === "product" ? b.product.name : b.name;
+    return aName.localeCompare(bName, "es");
+  });
+}
+
 function ProductGroupDialog({
   group,
   cart,
@@ -1471,6 +1525,54 @@ function ProductGroupDialog({
   onClose: () => void;
   onSelect: (product: Product) => void;
 }) {
+  const [selectedFamily, setSelectedFamily] = useState<Extract<
+    ProductChoice,
+    { kind: "variants" }
+  > | null>(null);
+  const choices = buildProductChoices(group.products);
+  const displayedProducts = selectedFamily?.products || [];
+
+  function remainingFor(product: Product) {
+    return product.trackDailyAvailability
+      ? Math.max(
+          0,
+          (availabilityQuantities[product.id] ??
+            product.availability?.availableQuantity ??
+            0) - (cart[product.id] || 0),
+        )
+      : null;
+  }
+
+  function productButton(product: Product, compactName = false) {
+    const remaining = remainingFor(product);
+    const label = compactName
+      ? splitProductVariant(product.name).variant || product.name
+      : product.name;
+    return (
+      <button
+        key={product.id}
+        onClick={() => onSelect(product)}
+        disabled={remaining === 0}
+        className="relative min-h-16 overflow-hidden rounded-xl border border-[#dcdcd3] bg-white p-2.5 text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45"
+      >
+        <span className="block">
+          <b className="block text-xs leading-4 capitalize text-[#171a17]">
+            {label}
+          </b>
+          <span className="money mt-1 block text-xs font-black text-[#235b45]">
+            {formatClp(product.price)}
+            {product.saleUnit === "kg" ? "/kg" : ""}
+          </span>
+          {remaining !== null && (
+            <span className="mt-1 block text-[10px] font-bold text-[#777]">
+              {remaining ? `${remaining} disponibles` : "Agotado"}
+            </span>
+          )}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 min-[700px]:right-[380px] min-[700px]:place-items-stretch min-[700px]:bg-[#f7f6ee] lg:right-[400px]">
       <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12 min-[700px]:max-h-none min-[700px]:rounded-none min-[700px]:bg-[#f7f6ee] min-[700px]:p-3 min-[700px]:pt-12">
@@ -1481,40 +1583,38 @@ function ProductGroupDialog({
         >
           <X size={21} />
         </button>
+        {selectedFamily && (
+          <div className="absolute left-3 top-2 flex h-9 items-center gap-2">
+            <button
+              onClick={() => setSelectedFamily(null)}
+              className="h-9 rounded-full border border-[#d7d7ce] bg-white px-3 text-xs font-black text-[#235b45] shadow-sm"
+            >
+              ← {group.category}
+            </button>
+            <b className="text-sm">{selectedFamily.name}</b>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 min-[700px]:grid-cols-4 min-[1000px]:grid-cols-5">
-          {group.products.map((product) => {
-            const remaining = product.trackDailyAvailability
-              ? Math.max(
-                  0,
-                  (availabilityQuantities[product.id] ??
-                    product.availability?.availableQuantity ??
-                    0) - (cart[product.id] || 0),
-                )
-              : null;
-            return (
-              <button
-                key={product.id}
-                onClick={() => onSelect(product)}
-                disabled={remaining === 0}
-                className="relative min-h-16 overflow-hidden rounded-xl border border-[#dcdcd3] bg-white p-2.5 text-left shadow-sm transition hover:border-[#91a78f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98] disabled:opacity-45"
-              >
-                <span className="block">
-                  <b className="block text-xs leading-4 capitalize text-[#171a17]">
-                    {product.name}
-                  </b>
-                  <span className="money mt-1 block text-xs font-black text-[#235b45]">
-                    {formatClp(product.price)}
-                    {product.saleUnit === "kg" ? "/kg" : ""}
-                  </span>
-                  {remaining !== null && (
-                    <span className="mt-1 block text-[10px] font-bold text-[#777]">
-                      {remaining ? `${remaining} disponibles` : "Agotado"}
+          {selectedFamily
+            ? displayedProducts.map((product) => productButton(product, true))
+            : choices.map((choice) =>
+                choice.kind === "product" ? (
+                  productButton(choice.product)
+                ) : (
+                  <button
+                    key={choice.key}
+                    onClick={() => setSelectedFamily(choice)}
+                    className="relative min-h-16 overflow-hidden rounded-xl border border-[#bfd0bb] bg-[#f0f6ed] p-2.5 text-left shadow-sm transition hover:border-[#6f916b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#9fbd94] active:scale-[.98]"
+                  >
+                    <b className="block text-sm leading-4 text-[#173d2f]">
+                      {choice.name}
+                    </b>
+                    <span className="mt-1 block text-[10px] font-bold text-[#587061]">
+                      {choice.products.length} opciones · Abrir
                     </span>
-                  )}
-                </span>
-              </button>
-            );
-          })}
+                  </button>
+                ),
+              )}
         </div>
       </div>
     </div>
