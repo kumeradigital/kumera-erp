@@ -204,6 +204,13 @@ export async function saveOperationAction(form: FormData) {
   if (error) throw error;
   const economicMonth = String(form.get("economicMonth") || "");
   const provisionId = String(form.get("provisionId") || "") || null;
+  const provisionUnitsValue = Number(form.get("provisionUnits"));
+  const provisionUnits =
+    provisionId &&
+    Number.isFinite(provisionUnitsValue) &&
+    provisionUnitsValue > 0
+      ? provisionUnitsValue
+      : null;
   const obligationId = String(form.get("obligationId") || "");
   let affectsProfitability = ![
     "owner_withdrawal",
@@ -260,6 +267,7 @@ export async function saveOperationAction(form: FormData) {
         ? `${economicMonth}-01`
         : `${String(form.get("date")).slice(0, 7)}-01`,
       provision_id: provisionId,
+      provision_units: provisionUnits,
       affects_profitability: affectsProfitability,
       profitability_amount: profitabilityAmount,
       financial_obligation_id: obligationId || null,
@@ -377,6 +385,13 @@ export async function updateOperationAction(form: FormData) {
   const paymentMethod = String(form.get("paymentMethod") || "") || null;
   const financialStatus = String(form.get("financialStatus") || "verified");
   const provisionId = String(form.get("provisionId") || "") || null;
+  const provisionUnitsValue = Number(form.get("provisionUnits"));
+  const provisionUnits =
+    provisionId &&
+    Number.isFinite(provisionUnitsValue) &&
+    provisionUnitsValue > 0
+      ? provisionUnitsValue
+      : null;
   const taxRate = String(form.get("taxMode")) === "exempt" ? 0 : 19;
   const validTypes = [
     "purchase",
@@ -437,6 +452,7 @@ export async function updateOperationAction(form: FormData) {
       note: String(form.get("note") || "").trim() || null,
       economic_month: `${String(form.get("economicMonth") || String(form.get("date")).slice(0, 7))}-01`,
       provision_id: provisionId,
+      provision_units: provisionUnits,
       affects_profitability:
         type === "owner_withdrawal" || type === "owner_contribution"
           ? false

@@ -42,6 +42,10 @@ export type ExpenseProvision = {
   expectedAmount: number;
   paidAmount: number;
   outstandingAmount: number;
+  trackingMode: "fixed_target" | "accumulating_actual";
+  unitLabel?: string;
+  trackedUnits: number;
+  economicAmount: number;
   dueDate?: string;
   affectsProfitability: boolean;
   status: "estimated" | "partial" | "reconciled" | "cancelled";

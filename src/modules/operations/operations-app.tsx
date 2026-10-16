@@ -892,8 +892,11 @@ function ProvisionsView({
   const visible = [...outstandingFromPriorMonths, ...current];
   const expected = current
     .filter((item) => item.affectsProfitability && item.status !== "cancelled")
-    .reduce((total, item) => total + item.expectedAmount, 0);
+    .reduce((total, item) => total + item.economicAmount, 0);
   const paid = current.reduce((total, item) => total + item.paidAmount, 0);
+  const outstanding = current
+    .filter((item) => item.trackingMode === "fixed_target")
+    .reduce((total, item) => total + item.outstandingAmount, 0);
   return (
     <section>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -920,11 +923,7 @@ function ProvisionsView({
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <Metric l="Costo económico provisionado" v={expected} />
         <Metric l="Pagado y conciliado" v={paid} />
-        <Metric
-          l="Saldo pendiente de pago"
-          v={Math.max(0, expected - paid)}
-          warning
-        />
+        <Metric l="Saldo pendiente de pago" v={outstanding} warning />
       </div>
       <div className="card mt-5 overflow-x-auto">
         <table className="w-full min-w-[880px] text-left text-sm">
@@ -933,9 +932,9 @@ function ProvisionsView({
               <th className="p-4">Concepto</th>
               <th>Categoría</th>
               <th>Vencimiento</th>
-              <th className="text-right">Costo del mes</th>
+              <th className="text-right">Presupuesto / costo</th>
               <th className="text-right">Pagado</th>
-              <th className="text-right">Pendiente</th>
+              <th className="text-right">Pendiente / consumo</th>
               <th className="text-center">Estado</th>
               <th />
             </tr>
@@ -956,22 +955,38 @@ function ProvisionsView({
                 <td className="text-right font-black">
                   {formatClp(item.expectedAmount)}
                 </td>
-                <td className="text-right">{formatClp(item.paidAmount)}</td>
+                <td className="text-right">
+                  {formatClp(item.paidAmount)}
+                  {item.trackingMode === "accumulating_actual" &&
+                    item.unitLabel && (
+                      <span className="mt-1 block text-xs font-bold text-[#657067]">
+                        {item.trackedUnits} {item.unitLabel}
+                      </span>
+                    )}
+                </td>
                 <td className="text-right font-black">
-                  {formatClp(item.outstandingAmount)}
+                  {item.trackingMode === "accumulating_actual"
+                    ? "Sin deuda"
+                    : formatClp(item.outstandingAmount)}
                 </td>
                 <td className="text-center">
-                  <ProvisionStatus status={item.status} />
+                  <ProvisionStatus
+                    status={item.status}
+                    accumulating={item.trackingMode === "accumulating_actual"}
+                  />
                 </td>
                 <td className="p-3 text-right">
-                  {item.status !== "reconciled" &&
-                    item.status !== "cancelled" && (
+                  {item.status !== "cancelled" &&
+                    (item.trackingMode === "accumulating_actual" ||
+                      item.status !== "reconciled") && (
                       <button
                         type="button"
                         onClick={() => onPay(item)}
                         className="rounded-lg border border-[#235b45] px-3 py-2 font-black text-[#235b45]"
                       >
-                        Registrar abono o pago
+                        {item.trackingMode === "accumulating_actual"
+                          ? "Registrar compra"
+                          : "Registrar abono o pago"}
                       </button>
                     )}
                 </td>
@@ -989,7 +1004,13 @@ function ProvisionsView({
   );
 }
 
-function ProvisionStatus({ status }: { status: ExpenseProvision["status"] }) {
+function ProvisionStatus({
+  status,
+  accumulating = false,
+}: {
+  status: ExpenseProvision["status"];
+  accumulating?: boolean;
+}) {
   const labels = {
     estimated: "Estimado",
     partial: "Pago parcial",
@@ -1000,7 +1021,7 @@ function ProvisionStatus({ status }: { status: ExpenseProvision["status"] }) {
     <span
       className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold ${status === "reconciled" ? "bg-[#e7f2e4] text-[#235b45]" : status === "partial" ? "bg-[#fff3cc] text-[#795f0d]" : "bg-[#eeeeea] text-[#70736c]"}`}
     >
-      {labels[status]}
+      {accumulating ? "Acumulando consumo" : labels[status]}
     </span>
   );
 }
@@ -1786,9 +1807,11 @@ function OperationDialog({
           <h2 className="text-2xl font-black">
             {editing
               ? "Editar movimiento"
-              : obligation || provision
-                ? "Registrar pago pendiente"
-                : "Nuevo movimiento"}
+              : provision?.trackingMode === "accumulating_actual"
+                ? "Registrar compra y consumo"
+                : obligation || provision
+                  ? "Registrar pago pendiente"
+                  : "Nuevo movimiento"}
           </h2>
           <button onClick={onClose}>
             <X />
@@ -1890,7 +1913,9 @@ function OperationDialog({
                 defaultValue={
                   operation?.gross ||
                   obligation?.amount ||
-                  provision?.outstandingAmount ||
+                  (provision?.trackingMode === "fixed_target"
+                    ? provision.outstandingAmount
+                    : undefined) ||
                   undefined
                 }
                 className="input mt-2"
@@ -1901,7 +1926,10 @@ function OperationDialog({
               <select
                 name="taxMode"
                 defaultValue={
-                  obligation || provision || operation?.taxRate === 0
+                  obligation ||
+                  (provision &&
+                    provision.trackingMode !== "accumulating_actual") ||
+                  operation?.taxRate === 0
                     ? "exempt"
                     : "included"
                 }
@@ -1912,6 +1940,23 @@ function OperationDialog({
               </select>
             </label>
           </div>
+          {provision?.trackingMode === "accumulating_actual" && (
+            <label className="block text-xs font-bold">
+              Cantidad de {provision.unitLabel || "unidades"}
+              <input
+                name="provisionUnits"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                defaultValue="1"
+                className="input mt-2"
+              />
+              <span className="mt-1 block font-normal text-[#777]">
+                Esta compra se sumará al consumo del mes; no reducirá una deuda.
+              </span>
+            </label>
+          )}
           {obligation?.kind === "loan_payment" && (
             <fieldset className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
               <legend className="px-2 text-xs font-black uppercase tracking-[.12em] text-[#235b45]">

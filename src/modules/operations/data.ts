@@ -139,7 +139,7 @@ export async function getOperationsData() {
       supabase
         .from("expense_provisions")
         .select(
-          "id,name,category,economic_month,expected_amount,due_date,affects_profitability,status,note,operational_transactions(gross_amount,financial_status)",
+          "id,name,category,economic_month,expected_amount,due_date,affects_profitability,status,note,tracking_mode,unit_label,operational_transactions(gross_amount,financial_status,provision_units)",
         )
         .eq("business_id", membership.business_id)
         .order("economic_month", { ascending: false })
@@ -382,14 +382,26 @@ export async function getOperationsData() {
         .filter((payment) => payment.financial_status === "verified")
         .reduce((total, payment) => total + Number(payment.gross_amount), 0);
       const expectedAmount = Number(row.expected_amount);
+      const trackingMode = row.tracking_mode as
+        "fixed_target" | "accumulating_actual";
+      const trackedUnits = (row.operational_transactions || [])
+        .filter((payment) => payment.financial_status === "verified")
+        .reduce(
+          (total, payment) => total + Number(payment.provision_units || 0),
+          0,
+        );
       const calculatedStatus =
         row.status === "cancelled"
           ? "cancelled"
-          : paidAmount >= expectedAmount
-            ? "reconciled"
-            : paidAmount > 0
+          : trackingMode === "accumulating_actual"
+            ? paidAmount > 0
               ? "partial"
-              : "estimated";
+              : "estimated"
+            : paidAmount >= expectedAmount
+              ? "reconciled"
+              : paidAmount > 0
+                ? "partial"
+                : "estimated";
       return {
         id: row.id,
         name: row.name,
@@ -397,7 +409,17 @@ export async function getOperationsData() {
         economicMonth: row.economic_month,
         expectedAmount,
         paidAmount,
-        outstandingAmount: Math.max(0, expectedAmount - paidAmount),
+        outstandingAmount:
+          trackingMode === "accumulating_actual"
+            ? 0
+            : Math.max(0, expectedAmount - paidAmount),
+        trackingMode,
+        unitLabel: row.unit_label || undefined,
+        trackedUnits,
+        economicAmount:
+          trackingMode === "accumulating_actual"
+            ? Math.max(expectedAmount, paidAmount)
+            : expectedAmount,
         dueDate: row.due_date || undefined,
         affectsProfitability: row.affects_profitability,
         status: calculatedStatus,
@@ -412,7 +434,7 @@ export async function getOperationsData() {
       item.status !== "cancelled",
   );
   const provisionedExpenses = currentEconomicProvisions.reduce(
-    (total, item) => total + item.expectedAmount,
+    (total, item) => total + item.economicAmount,
     0,
   );
   const cycleOperations = operations.filter(
