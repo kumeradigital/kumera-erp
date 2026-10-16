@@ -55,9 +55,13 @@ type Cart = Record<string, number>;
 type ProductTile = {
   key: string;
   category: string;
-  saleUnit: "unit" | "kg";
+  saleUnit: "unit" | "kg" | "mixed";
   products: Product[];
 };
+
+function normalizedCategory(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+}
 export function PosClient({
   products,
   deliveryProducts,
@@ -188,12 +192,19 @@ export function PosClient({
   }
   const categories = [
     "Todos",
-    ...[...new Set(products.map((p) => p.category))].sort((a, b) =>
-      a.localeCompare(b, "es"),
-    ),
+    ...[
+      ...new Map(
+        products.map((product) => [
+          normalizedCategory(product.category),
+          product.category.trim().replace(/\s+/g, " "),
+        ]),
+      ).values(),
+    ].sort((a, b) => a.localeCompare(b, "es")),
   ];
   const visibleProducts = products.filter(
-    (product) => category === "Todos" || product.category === category,
+    (product) =>
+      category === "Todos" ||
+      normalizedCategory(product.category) === normalizedCategory(category),
   );
   const productTiles = [
     ...groupProductsForSale(visibleProducts, productionFamilies).values(),
@@ -587,7 +598,9 @@ export function PosClient({
                         <span className="absolute left-2 top-2 z-20 grid h-7 min-w-7 place-items-center rounded-full bg-[#d8f070] px-1.5 text-[10px] font-black text-[#235b45] shadow-sm">
                           {tile.saleUnit === "kg"
                             ? `${Math.round(selectedQuantity * 1000)}g`
-                            : selectedQuantity}
+                            : tile.saleUnit === "mixed"
+                              ? `${tile.products.filter((product) => cart[product.id]).length}`
+                              : selectedQuantity}
                         </span>
                       )}
                       <div
@@ -1412,13 +1425,16 @@ function groupProductsForSale(
         continue;
       }
     }
-    const key = `${product.category}::${product.saleUnit}`;
+    const normalized = normalizedCategory(product.category);
+    const key = `category::${normalized}`;
     const current = groups.get(key);
-    if (current) current.products.push(product);
-    else
+    if (current) {
+      current.products.push(product);
+      if (current.saleUnit !== product.saleUnit) current.saleUnit = "mixed";
+    } else
       groups.set(key, {
         key,
-        category: product.category,
+        category: product.category.trim().replace(/\s+/g, " "),
         saleUnit: product.saleUnit,
         products: [product],
       });
@@ -2082,44 +2098,40 @@ function WeightDialog({
   }
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-3">
-      <div className="w-full max-w-sm rounded-3xl bg-[#fffef9] p-4">
-        <div className="flex justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#777]">
-              Venta por peso
-            </p>
-            <h2 className="mt-1 text-xl font-black">{product.name}</h2>
+      <div className="w-full max-w-sm rounded-3xl bg-[#fffef9] p-3">
+        <div className="flex items-center gap-2">
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl bg-[#eff0e8] p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("grams");
+                setEnteredValue("");
+              }}
+              className={`h-9 rounded-lg text-xs font-black ${mode === "grams" ? "bg-white text-[#235b45] shadow-sm" : "text-[#73786f]"}`}
+            >
+              Ingresar gramos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("amount");
+                setEnteredValue("");
+              }}
+              className={`h-9 rounded-lg text-xs font-black ${mode === "amount" ? "bg-white text-[#235b45] shadow-sm" : "text-[#73786f]"}`}
+            >
+              Ingresar precio
+            </button>
           </div>
-          <button onClick={onClose}>
-            <X />
-          </button>
-        </div>
-        <p className="mt-3 text-sm text-[#747970]">
-          Precio: {formatClp(product.price)} por kilogramo
-        </p>
-        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-[#eff0e8] p-1">
           <button
             type="button"
-            onClick={() => {
-              setMode("grams");
-              setEnteredValue("");
-            }}
-            className={`h-9 rounded-lg text-xs font-black ${mode === "grams" ? "bg-white text-[#235b45] shadow-sm" : "text-[#73786f]"}`}
+            onClick={onClose}
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-[#eff0e8]"
+            aria-label="Cerrar ingreso por peso"
           >
-            Ingresar gramos
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("amount");
-              setEnteredValue("");
-            }}
-            className={`h-9 rounded-lg text-xs font-black ${mode === "amount" ? "bg-white text-[#235b45] shadow-sm" : "text-[#73786f]"}`}
-          >
-            Ingresar precio
+            <X size={18} />
           </button>
         </div>
-        <label className="mt-3 block text-xs font-bold">
+        <label className="mt-2 block text-xs font-bold">
           {mode === "grams" ? "Peso en gramos" : "Monto visto en la balanza"}
           <input
             readOnly
