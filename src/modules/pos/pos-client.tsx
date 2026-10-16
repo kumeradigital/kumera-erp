@@ -1416,12 +1416,28 @@ function groupProductsForSale(
         families.find((family) => family.product.id === product.id)?.members ||
         [];
       if (members.length) {
-        groups.set(`family::${product.id}`, {
-          key: `family::${product.id}`,
-          category: product.name,
-          saleUnit: product.saleUnit,
-          products: members,
-        });
+        const key = `category::${normalizedCategory(product.name)}`;
+        const current = groups.get(key);
+        const memberUnits = new Set(members.map((member) => member.saleUnit));
+        const familySaleUnit =
+          memberUnits.size > 1 ? "mixed" : members[0].saleUnit;
+        if (current) {
+          current.products.push(
+            ...members.filter(
+              (member) =>
+                !current.products.some((item) => item.id === member.id),
+            ),
+          );
+          if (current.saleUnit !== familySaleUnit) current.saleUnit = "mixed";
+          current.category = product.name;
+        } else {
+          groups.set(key, {
+            key,
+            category: product.name,
+            saleUnit: familySaleUnit,
+            products: [...members],
+          });
+        }
         continue;
       }
     }
