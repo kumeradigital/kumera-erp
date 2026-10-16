@@ -393,8 +393,7 @@ export function PosClient({
       setBusy(false);
     }
   }
-  if (!session)
-    return <OpenSession latestSession={latestSession} products={products} />;
+  if (!session) return <OpenSession latestSession={latestSession} />;
   return (
     <main className="grid h-[100dvh] min-h-0 min-w-0 overflow-hidden min-[700px]:grid-cols-[minmax(0,1fr)_380px] lg:grid-cols-[minmax(0,1fr)_400px]">
       <section className="flex min-h-0 min-w-0 flex-col p-2.5 pb-24 sm:p-3 min-[700px]:pb-3">
@@ -2874,27 +2873,18 @@ function CloseSessionDialog({
     </div>
   );
 }
-function OpenSession({
-  latestSession,
-  products,
-}: {
-  latestSession: CashSession | null;
-  products: Product[];
-}) {
+function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
   const [busy, setBusy] = useState(false);
   const [reconciling, setReconciling] = useState(false);
-  const trackedProducts = products.filter(
-    (product) => product.trackDailyAvailability && product.saleUnit === "unit",
-  );
   return (
-    <main className="grid min-h-[calc(100vh-64px)] w-full min-w-0 place-items-center overflow-x-hidden p-3 sm:p-5">
-      <div className="card min-w-0 w-full max-w-2xl p-5 text-center sm:p-7">
+    <main className="grid h-[100dvh] w-full min-w-0 place-items-center overflow-hidden p-3 sm:p-5">
+      <div className="card min-w-0 w-full max-w-md p-5 text-center sm:p-7">
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#d8f070] text-[#235b45]">
           <Banknote />
         </div>
         <h1 className="mt-5 text-2xl font-black">Abrir jornada de caja</h1>
         <p className="mt-2 text-sm text-[#747970]">
-          Indica el efectivo inicial y los productos frescos disponibles.
+          Indica cuánto efectivo queda preparado para comenzar la jornada.
         </p>
         {latestSession?.autoClosed && (
           <div className="mt-5 rounded-xl border border-[#e7d8a5] bg-[#fff8dc] p-4 text-left text-xs text-[#6f5b17]">
@@ -2979,15 +2969,20 @@ function OpenSession({
         <form
           action={async (form) => {
             setBusy(true);
-            await openCashSessionAction(
-              Number(form.get("openingCash")),
-              String(form.get("note") || ""),
-              trackedProducts.map((product) => ({
-                product_id: product.id,
-                quantity: Number(form.get(`availability-${product.id}`) || 0),
-              })),
-            );
-            location.reload();
+            try {
+              await openCashSessionAction(
+                Number(form.get("openingCash")),
+                String(form.get("note") || ""),
+              );
+              location.reload();
+            } catch (error) {
+              alert(
+                error instanceof Error
+                  ? error.message
+                  : "No se pudo abrir la caja",
+              );
+              setBusy(false);
+            }
           }}
           className="mt-6 space-y-4 text-left"
         >
@@ -3001,37 +2996,6 @@ function OpenSession({
               className="input mt-2"
             />
           </label>
-          {trackedProducts.length > 0 && (
-            <fieldset className="min-w-0 rounded-2xl border border-[#dfe3d8] bg-[#f4f6ef] p-3 sm:p-4">
-              <legend className="px-2 text-xs font-black uppercase tracking-wider text-[#235b45]">
-                Disponibilidad al abrir
-              </legend>
-              <p className="mb-4 text-xs font-normal leading-5 text-[#70766e]">
-                Indica las unidades listas para vender. Puedes agregar nuevas
-                hornadas durante la jornada.
-              </p>
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                {trackedProducts.map((product) => (
-                  <label
-                    key={product.id}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 text-sm font-bold"
-                  >
-                    <span className="min-w-0 truncate">{product.name}</span>
-                    <input
-                      name={`availability-${product.id}`}
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      step="1"
-                      defaultValue="0"
-                      required
-                      className="h-11 w-24 rounded-lg border border-[#d8d8cf] px-3 text-right text-lg font-black outline-none focus:border-[#235b45]"
-                    />
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
           <label className="block text-xs font-bold">
             Nota opcional
             <input name="note" className="input mt-2" />
