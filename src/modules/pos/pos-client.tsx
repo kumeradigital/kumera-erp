@@ -2335,12 +2335,9 @@ function CloseSessionDialog({
   session,
   withdrawalTotal,
   onClose,
-  availability,
   products,
   summary,
   productionFamilies,
-  productionBatches,
-  deliveryOrders,
 }: {
   session: CashSession;
   withdrawalTotal: number;
@@ -2493,168 +2490,6 @@ function CloseSessionDialog({
             Ventas en efectivo = efectivo final + retiros − efectivo inicial.
           </p>
         </div>
-        {availability.length > 0 && (
-          <div className="mt-4 rounded-xl border border-[#e1e1d7] p-4">
-            <p className="text-xs font-black uppercase tracking-wider text-[#777]">
-              Disponibilidad final teórica
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs">
-              {availability.map((item) => (
-                <div
-                  key={item.productId}
-                  className="flex justify-between gap-2"
-                >
-                  <span className="truncate">{item.productName}</span>
-                  <b>{item.availableQuantity}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="mt-4 rounded-xl border border-[#e1e1d7] p-4">
-          <p className="text-xs font-black uppercase tracking-wider text-[#777]">
-            Ventas registradas
-          </p>
-          <div className="mt-3 space-y-2 text-xs">
-            {summary.products.map((item) => (
-              <div key={item.name} className="flex justify-between gap-3">
-                <span>
-                  {item.name} ·{" "}
-                  {item.saleUnit === "kg"
-                    ? `${item.quantity.toLocaleString("es-CL", { maximumFractionDigits: 3 })} kg`
-                    : `${item.quantity} un.`}
-                </span>
-                <b>{formatClp(item.total)}</b>
-              </div>
-            ))}
-          </div>
-        </div>
-        {deliveryOrders.length > 0 && (
-          <div className="mt-4 rounded-xl border border-[#f2c7d2] bg-[#fff5f7] p-4">
-            <p className="text-xs font-black uppercase tracking-wider text-[#d91f4b]">
-              PedidosYa de la jornada
-            </p>
-            <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-              <div>
-                <span className="block text-[10px] text-[#777]">Pedidos</span>
-                <b>{deliveryOrders.length}</b>
-              </div>
-              <div>
-                <span className="block text-[10px] text-[#777]">
-                  Venta bruta
-                </span>
-                <b className="money">
-                  {formatClp(
-                    deliveryOrders.reduce(
-                      (sum, order) => sum + order.grossAmount,
-                      0,
-                    ),
-                  )}
-                </b>
-              </div>
-              <div>
-                <span className="block text-[10px] text-[#777]">
-                  Ingreso estimado
-                </span>
-                <b className="money">
-                  {formatClp(
-                    deliveryOrders.reduce(
-                      (sum, order) => sum + order.estimatedNetAmount,
-                      0,
-                    ),
-                  )}
-                </b>
-              </div>
-            </div>
-            <p className="mt-3 text-[10px] leading-4 text-[#777]">
-              Se muestran aparte porque PedidosYa deposita el ingreso después de
-              descontar su comisión.
-            </p>
-          </div>
-        )}
-        {productionFamilies.map((family) => {
-          const familyBatches = productionBatches.filter(
-            (batch) => batch.familyProductId === family.product.id,
-          );
-          const produced = familyBatches.reduce(
-            (sum, batch) => sum + batch.quantity,
-            0,
-          );
-          const sold = summary.products
-            .filter((item) => item.productId === family.product.id)
-            .reduce((sum, item) => sum + item.quantity, 0);
-          const memberIds = new Set(family.members.map((member) => member.id));
-          const wasted = waste
-            .filter(
-              (item) =>
-                item.product_id &&
-                (memberIds.has(item.product_id) ||
-                  item.product_id === family.product.id),
-            )
-            .reduce(
-              (sum, item) => sum + parseDecimalInput(item.quantity),
-              family.product.id === panFamily?.id
-                ? parseDecimalInput(ownBreadWaste)
-                : 0,
-            );
-          const carried = carryover
-            .filter(
-              (item) =>
-                item.product_id &&
-                (memberIds.has(item.product_id) ||
-                  item.product_id === family.product.id),
-            )
-            .reduce((sum, item) => sum + parseDecimalInput(item.quantity), 0);
-          const difference = produced - sold - wasted - carried;
-          const productionCost = familyBatches.reduce(
-            (sum, batch) => sum + batch.quantity * batch.unitCost,
-            0,
-          );
-          return (
-            <div
-              key={family.product.id}
-              className="mt-4 rounded-xl border border-[#cbdcc6] bg-[#edf4e9] p-4"
-            >
-              <p className="text-xs font-black uppercase tracking-wider text-[#235b45]">
-                Conciliación de {family.product.name}
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <span>Producido</span>
-                <b className="text-right">
-                  {produced.toLocaleString("es-CL")} kg
-                </b>
-                <span>Vendido</span>
-                <b className="text-right">{sold.toLocaleString("es-CL")} kg</b>
-                <span>Merma informada</span>
-                <b className="text-right">
-                  {wasted.toLocaleString("es-CL")} kg
-                </b>
-                <span>Sobrante vendible</span>
-                <b className="text-right">
-                  {carried.toLocaleString("es-CL")} kg
-                </b>
-                <span>Diferencia pendiente</span>
-                <b
-                  className={`text-right ${Math.abs(difference) <= 0.01 ? "text-[#235b45]" : "text-[#a24628]"}`}
-                >
-                  {difference.toLocaleString("es-CL", {
-                    maximumFractionDigits: 3,
-                  })}{" "}
-                  kg
-                </b>
-                <span>Costo de producción</span>
-                <b className="money text-right">
-                  {formatClp(Math.round(productionCost))}
-                </b>
-              </div>
-              <p className="mt-3 text-[10px] leading-4 text-[#667067]">
-                {family.product.id === panFamily?.id
-                  ? "En KUMERA, todo el pan propio restante al cierre se registra como merma. La marraqueta no se incluye."
-                  : "Registra como sobrante lo que pueda venderse mañana. Usa merma solamente para lo descartado, regalado o definitivamente perdido."}
-              </p>
-            </div>
-          );
-        })}
         <form
           action={async (form) => {
             setBusy(true);
@@ -2876,86 +2711,11 @@ function CloseSessionDialog({
               <span>Pagos informados: {formatClp(allocatedTotal)}</span>
             </div>
           </div>
-          <label className="block text-xs font-bold">
-            Fuente de los totales
-            <input
-              name="reason"
-              required
-              defaultValue="Totales verificados al cierre"
-              className="input mt-2"
-            />
-          </label>
-          <div className="rounded-xl border border-[#e1e1d7] p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <b className="text-sm">Sobrante vendible</b>
-                <p className="mt-1 text-[10px] text-[#777]">
-                  Producto que queda al cierre y todavía se venderá o
-                  reutilizará.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setCarryover((items) => [
-                    ...items,
-                    { product_name: "", quantity: "", sale_unit: "unit" },
-                  ])
-                }
-                className="text-xs font-bold text-[#235b45]"
-              >
-                + Agregar sobrante
-              </button>
-            </div>
-            {carryover.map((item, index) => (
-              <div key={index} className="mt-3 grid grid-cols-[1fr_90px] gap-2">
-                <select
-                  value={item.product_id || ""}
-                  onChange={(event) => {
-                    const product = carryoverProducts.find(
-                      (candidate) => candidate.id === event.target.value,
-                    );
-                    setCarryover((items) =>
-                      items.map((row, i) =>
-                        i === index
-                          ? {
-                              ...row,
-                              product_id: product?.id,
-                              product_name: product?.name || "",
-                              sale_unit: product?.saleUnit || "unit",
-                            }
-                          : row,
-                      ),
-                    );
-                  }}
-                  className="input"
-                >
-                  <option value="">Producto</option>
-                  {carryoverProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  aria-label="Cantidad de sobrante vendible"
-                  inputMode="decimal"
-                  placeholder={item.sale_unit === "kg" ? "kg" : "Un."}
-                  value={item.quantity}
-                  onChange={(event) =>
-                    setCarryover((items) =>
-                      items.map((row, i) =>
-                        i === index
-                          ? { ...row, quantity: event.target.value }
-                          : row,
-                      ),
-                    )
-                  }
-                  className="input"
-                />
-              </div>
-            ))}
-          </div>
+          <input
+            type="hidden"
+            name="reason"
+            value="Totales verificados al cierre"
+          />
           {panFamily && (
             <div className="rounded-xl border border-[#d8c88d] bg-[#fff8df] p-4">
               <label className="block text-sm font-black text-[#5f4c13]">
@@ -2982,93 +2742,176 @@ function CloseSessionDialog({
               </label>
             </div>
           )}
-          <div className="rounded-xl border border-[#e1e1d7] p-4">
-            <div className="flex items-center justify-between">
-              <b className="text-sm">Mermas del día</b>
-              <button
-                type="button"
-                onClick={() =>
-                  setWaste((items) => [
-                    ...items,
-                    { product_name: "", quantity: "", sale_unit: "unit" },
-                  ])
-                }
-                className="text-xs font-bold text-[#235b45]"
-              >
-                + Agregar merma
-              </button>
-            </div>
-            {waste.map((item, index) => (
-              <div
-                key={index}
-                className="mt-3 grid grid-cols-[1fr_90px_70px] gap-2"
-              >
-                <select
-                  value={item.product_id || ""}
-                  onChange={(event) => {
-                    const product = detailedWasteProducts.find(
-                      (candidate) => candidate.id === event.target.value,
-                    );
-                    setWaste((items) =>
-                      items.map((row, i) =>
-                        i === index
-                          ? {
-                              ...row,
-                              product_id: product?.id,
-                              product_name: product?.name || "",
-                              sale_unit: product?.saleUnit || "unit",
-                            }
-                          : row,
-                      ),
-                    );
-                  }}
-                  className="input"
-                >
-                  <option value="">Producto / descripción</option>
-                  {detailedWasteProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  aria-label="Cantidad de merma"
-                  inputMode="decimal"
-                  placeholder="Cantidad"
-                  value={item.quantity}
-                  onChange={(event) =>
-                    setWaste((items) =>
-                      items.map((row, i) =>
-                        i === index
-                          ? { ...row, quantity: event.target.value }
-                          : row,
-                      ),
-                    )
+          <details className="rounded-xl border border-[#e1e1d7] p-4">
+            <summary className="cursor-pointer text-sm font-black text-[#235b45]">
+              Otros sobrantes y mermas (opcional)
+            </summary>
+            <p className="mt-2 text-[10px] leading-4 text-[#777]">
+              Úsalo solamente cuando necesites registrar productos distintos al
+              pan propio.
+            </p>
+            <div className="mt-4 border-t border-[#ecebe4] pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <b className="text-sm">Sobrante vendible</b>
+                  <p className="mt-1 text-[10px] text-[#777]">
+                    Producto que queda al cierre y todavía se venderá o
+                    reutilizará.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCarryover((items) => [
+                      ...items,
+                      { product_name: "", quantity: "", sale_unit: "unit" },
+                    ])
                   }
-                  className="input"
-                />
-                <select
-                  value={item.sale_unit}
-                  onChange={(event) =>
-                    setWaste((items) =>
-                      items.map((row, i) =>
-                        i === index
-                          ? {
-                              ...row,
-                              sale_unit: event.target.value as "unit" | "kg",
-                            }
-                          : row,
-                      ),
-                    )
-                  }
-                  className="input"
+                  className="text-xs font-bold text-[#235b45]"
                 >
-                  <option value="unit">un.</option>
-                  <option value="kg">kg</option>
-                </select>
+                  + Agregar sobrante
+                </button>
               </div>
-            ))}
-          </div>
+              {carryover.map((item, index) => (
+                <div
+                  key={index}
+                  className="mt-3 grid grid-cols-[1fr_90px] gap-2"
+                >
+                  <select
+                    value={item.product_id || ""}
+                    onChange={(event) => {
+                      const product = carryoverProducts.find(
+                        (candidate) => candidate.id === event.target.value,
+                      );
+                      setCarryover((items) =>
+                        items.map((row, i) =>
+                          i === index
+                            ? {
+                                ...row,
+                                product_id: product?.id,
+                                product_name: product?.name || "",
+                                sale_unit: product?.saleUnit || "unit",
+                              }
+                            : row,
+                        ),
+                      );
+                    }}
+                    className="input"
+                  >
+                    <option value="">Producto</option>
+                    {carryoverProducts.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label="Cantidad de sobrante vendible"
+                    inputMode="decimal"
+                    placeholder={item.sale_unit === "kg" ? "kg" : "Un."}
+                    value={item.quantity}
+                    onChange={(event) =>
+                      setCarryover((items) =>
+                        items.map((row, i) =>
+                          i === index
+                            ? { ...row, quantity: event.target.value }
+                            : row,
+                        ),
+                      )
+                    }
+                    className="input"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 border-t border-[#ecebe4] pt-4">
+              <div className="flex items-center justify-between">
+                <b className="text-sm">Mermas del día</b>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setWaste((items) => [
+                      ...items,
+                      { product_name: "", quantity: "", sale_unit: "unit" },
+                    ])
+                  }
+                  className="text-xs font-bold text-[#235b45]"
+                >
+                  + Agregar merma
+                </button>
+              </div>
+              {waste.map((item, index) => (
+                <div
+                  key={index}
+                  className="mt-3 grid grid-cols-[1fr_90px_70px] gap-2"
+                >
+                  <select
+                    value={item.product_id || ""}
+                    onChange={(event) => {
+                      const product = detailedWasteProducts.find(
+                        (candidate) => candidate.id === event.target.value,
+                      );
+                      setWaste((items) =>
+                        items.map((row, i) =>
+                          i === index
+                            ? {
+                                ...row,
+                                product_id: product?.id,
+                                product_name: product?.name || "",
+                                sale_unit: product?.saleUnit || "unit",
+                              }
+                            : row,
+                        ),
+                      );
+                    }}
+                    className="input"
+                  >
+                    <option value="">Producto / descripción</option>
+                    {detailedWasteProducts.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label="Cantidad de merma"
+                    inputMode="decimal"
+                    placeholder="Cantidad"
+                    value={item.quantity}
+                    onChange={(event) =>
+                      setWaste((items) =>
+                        items.map((row, i) =>
+                          i === index
+                            ? { ...row, quantity: event.target.value }
+                            : row,
+                        ),
+                      )
+                    }
+                    className="input"
+                  />
+                  <select
+                    value={item.sale_unit}
+                    onChange={(event) =>
+                      setWaste((items) =>
+                        items.map((row, i) =>
+                          i === index
+                            ? {
+                                ...row,
+                                sale_unit: event.target.value as "unit" | "kg",
+                              }
+                            : row,
+                        ),
+                      )
+                    }
+                    className="input"
+                  >
+                    <option value="unit">un.</option>
+                    <option value="kg">kg</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </details>
           <label className="block text-xs font-bold">
             Nota opcional
             <input name="note" className="input mt-2" />
