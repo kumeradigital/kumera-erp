@@ -65,6 +65,10 @@ type ProductChoice =
 function normalizedCategory(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 }
+
+function parseDecimalInput(value: string) {
+  return Number(value.trim().replace(",", ".")) || 0;
+}
 export function PosClient({
   products,
   deliveryProducts,
@@ -2369,6 +2373,7 @@ function CloseSessionDialog({
     credit: summary.transactionsByPayment.credit,
     transfer: summary.transactionsByPayment.transfer,
   });
+  const [ownBreadWaste, setOwnBreadWaste] = useState("");
   const [waste, setWaste] = useState<
     {
       product_id?: string;
@@ -2393,6 +2398,25 @@ function CloseSessionDialog({
   const wasteProducts = [...products, ...productionMembers].filter(
     (product, index, list) =>
       list.findIndex((candidate) => candidate.id === product.id) === index,
+  );
+  const panFamily = products.find(
+    (product) =>
+      product.isSalesFamily &&
+      product.saleUnit === "kg" &&
+      normalizedCategory(product.name) === "pan",
+  );
+  const panMemberIds = new Set(
+    productionFamilies
+      .find((family) => family.product.id === panFamily?.id)
+      ?.members.map((member) => member.id) || [],
+  );
+  const isOwnBreadProduct = (product: Product) =>
+    product.id === panFamily?.id || panMemberIds.has(product.id);
+  const carryoverProducts = wasteProducts.filter(
+    (product) => !isOwnBreadProduct(product),
+  );
+  const detailedWasteProducts = wasteProducts.filter(
+    (product) => !isOwnBreadProduct(product),
   );
   const declaredWithdrawalTotal = Number(closingWithdrawalTotal || 0);
   const derivedCashSales =
@@ -2561,11 +2585,26 @@ function CloseSessionDialog({
             .reduce((sum, item) => sum + item.quantity, 0);
           const memberIds = new Set(family.members.map((member) => member.id));
           const wasted = waste
-            .filter((item) => item.product_id && memberIds.has(item.product_id))
-            .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+            .filter(
+              (item) =>
+                item.product_id &&
+                (memberIds.has(item.product_id) ||
+                  item.product_id === family.product.id),
+            )
+            .reduce(
+              (sum, item) => sum + parseDecimalInput(item.quantity),
+              family.product.id === panFamily?.id
+                ? parseDecimalInput(ownBreadWaste)
+                : 0,
+            );
           const carried = carryover
-            .filter((item) => item.product_id && memberIds.has(item.product_id))
-            .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+            .filter(
+              (item) =>
+                item.product_id &&
+                (memberIds.has(item.product_id) ||
+                  item.product_id === family.product.id),
+            )
+            .reduce((sum, item) => sum + parseDecimalInput(item.quantity), 0);
           const difference = produced - sold - wasted - carried;
           const productionCost = familyBatches.reduce(
             (sum, batch) => sum + batch.quantity * batch.unitCost,
@@ -2609,9 +2648,9 @@ function CloseSessionDialog({
                 </b>
               </div>
               <p className="mt-3 text-[10px] leading-4 text-[#667067]">
-                Registra como sobrante lo que pueda venderse mañana. Usa merma
-                solamente para lo descartado, regalado o definitivamente
-                perdido.
+                {family.product.id === panFamily?.id
+                  ? "En KUMERA, todo el pan propio restante al cierre se registra como merma. La marraqueta no se incluye."
+                  : "Registra como sobrante lo que pueda venderse mañana. Usa merma solamente para lo descartado, regalado o definitivamente perdido."}
               </p>
             </div>
           );
@@ -2663,16 +2702,28 @@ function CloseSessionDialog({
                     transactions: documentedCashTransactions,
                   },
                   waste: waste
-                    .filter((item) => Number(item.quantity) > 0)
+                    .filter((item) => parseDecimalInput(item.quantity) > 0)
                     .map((item) => ({
                       ...item,
-                      quantity: Number(item.quantity),
-                    })),
+                      quantity: parseDecimalInput(item.quantity),
+                    }))
+                    .concat(
+                      panFamily && parseDecimalInput(ownBreadWaste) > 0
+                        ? [
+                            {
+                              product_id: panFamily.id,
+                              product_name: panFamily.name,
+                              quantity: parseDecimalInput(ownBreadWaste),
+                              sale_unit: "kg" as const,
+                            },
+                          ]
+                        : [],
+                    ),
                   carryover: carryover
-                    .filter((item) => Number(item.quantity) > 0)
+                    .filter((item) => parseDecimalInput(item.quantity) > 0)
                     .map((item) => ({
                       ...item,
-                      quantity: Number(item.quantity),
+                      quantity: parseDecimalInput(item.quantity),
                     })),
                 },
               );
@@ -2861,7 +2912,7 @@ function CloseSessionDialog({
                 <select
                   value={item.product_id || ""}
                   onChange={(event) => {
-                    const product = wasteProducts.find(
+                    const product = carryoverProducts.find(
                       (candidate) => candidate.id === event.target.value,
                     );
                     setCarryover((items) =>
@@ -2880,7 +2931,7 @@ function CloseSessionDialog({
                   className="input"
                 >
                   <option value="">Producto</option>
-                  {wasteProducts.map((product) => (
+                  {carryoverProducts.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.name}
                     </option>
@@ -2905,6 +2956,32 @@ function CloseSessionDialog({
               </div>
             ))}
           </div>
+          {panFamily && (
+            <div className="rounded-xl border border-[#d8c88d] bg-[#fff8df] p-4">
+              <label className="block text-sm font-black text-[#5f4c13]">
+                Pan propio restante al cierre
+                <span className="mt-1 block text-[10px] font-medium leading-4 text-[#77652e]">
+                  Pesa juntos Amasado, Hallulla, Coliza y Dobladitas. No
+                  incluyas marraqueta. Se registrará como merma operacional.
+                </span>
+                <span className="mt-3 flex items-center gap-2">
+                  <input
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={ownBreadWaste}
+                    onChange={(event) =>
+                      setOwnBreadWaste(
+                        event.target.value.replace(/[^0-9.,]/g, ""),
+                      )
+                    }
+                    className="input bg-white text-lg font-black"
+                    aria-label="Kilos de pan propio restantes al cierre"
+                  />
+                  <b className="text-sm">kg</b>
+                </span>
+              </label>
+            </div>
+          )}
           <div className="rounded-xl border border-[#e1e1d7] p-4">
             <div className="flex items-center justify-between">
               <b className="text-sm">Mermas del día</b>
@@ -2929,8 +3006,8 @@ function CloseSessionDialog({
                 <select
                   value={item.product_id || ""}
                   onChange={(event) => {
-                    const product = products.find(
-                      (p) => p.id === event.target.value,
+                    const product = detailedWasteProducts.find(
+                      (candidate) => candidate.id === event.target.value,
                     );
                     setWaste((items) =>
                       items.map((row, i) =>
@@ -2948,7 +3025,7 @@ function CloseSessionDialog({
                   className="input"
                 >
                   <option value="">Producto / descripción</option>
-                  {wasteProducts.map((product) => (
+                  {detailedWasteProducts.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.name}
                     </option>
