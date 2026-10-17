@@ -1414,6 +1414,17 @@ function groupProductsForSale(
 ) {
   const groups = new Map<string, ProductTile>();
   for (const product of products) {
+    // Ciabatta belongs to Pan envasado for reporting, but it is sold directly
+    // from its own tile instead of through the Pan envasado picker.
+    if (normalizedCategory(product.name) === "ciabatta") {
+      groups.set(`product::${product.id}`, {
+        key: `product::${product.id}`,
+        category: product.name,
+        saleUnit: product.saleUnit,
+        products: [product],
+      });
+      continue;
+    }
     if (product.isSalesFamily && product.sellMembersIndividually) {
       const members =
         families.find((family) => family.product.id === product.id)?.members ||
