@@ -15,6 +15,7 @@ import type {
   Product,
   ProductionBatch,
   ProductionFamily,
+  ProductionPlanning,
   RecentSale,
   SalePaymentMethod,
   SaleSummary,
@@ -1096,6 +1097,109 @@ export async function getCashClosureHistory(
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
   });
+}
+
+export async function getProductionPlanning(): Promise<ProductionPlanning> {
+  const { businessId, supabase } = await businessContext();
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("cash_sessions")
+    .select("id,opened_at")
+    .eq("business_id", businessId)
+    .eq("status", "closed")
+    .gte("opened_at", santiagoMidnightUtc(profitabilityBaselineDate))
+    .order("opened_at", { ascending: true });
+  if (sessionsError) throw sessionsError;
+
+  const dayBySession = new Map<string, string>();
+  for (const session of sessions || [])
+    dayBySession.set(
+      session.id,
+      chileDateFormatter.format(new Date(session.opened_at)),
+    );
+  const days = [...new Set(dayBySession.values())].map((date) => ({
+    date,
+    weekday: new Date(`${date}T12:00:00Z`).getUTCDay(),
+  }));
+  const sessionIds = [...dayBySession.keys()];
+  if (!sessionIds.length)
+    return { baselineDate: profitabilityBaselineDate, days: [], products: [] };
+
+  const [salesResult, wasteResult] = await Promise.all([
+    supabase
+      .from("sales")
+      .select(
+        "cash_session_id,sale_items(product_id,product_name,quantity,sale_unit,products(product_categories(name)))",
+      )
+      .eq("business_id", businessId)
+      .eq("status", "completed")
+      .in("cash_session_id", sessionIds),
+    supabase
+      .from("cash_session_product_waste")
+      .select(
+        "cash_session_id,product_id,product_name,quantity,sale_unit,products(product_categories(name))",
+      )
+      .eq("business_id", businessId)
+      .in("cash_session_id", sessionIds),
+  ]);
+  if (salesResult.error) throw salesResult.error;
+  if (wasteResult.error) throw wasteResult.error;
+
+  type PlanningProduct = ProductionPlanning["products"][number];
+  const products = new Map<string, PlanningProduct>();
+  const productKey = (id: string | null, name: string) =>
+    id || `name:${name.trim().toLocaleLowerCase("es")}`;
+  const categoryName = (
+    relation:
+      | { product_categories: { name: string } | { name: string }[] | null }
+      | {
+          product_categories: { name: string } | { name: string }[] | null;
+        }[]
+      | null,
+  ) => {
+    const product = oneRelation(relation);
+    return oneRelation(product?.product_categories)?.name || "Sin categoría";
+  };
+
+  for (const sale of salesResult.data || []) {
+    const date = dayBySession.get(sale.cash_session_id);
+    if (!date) continue;
+    for (const item of sale.sale_items || []) {
+      const key = productKey(item.product_id, item.product_name);
+      const existing: PlanningProduct = products.get(key) || {
+        id: key,
+        name: item.product_name,
+        category: categoryName(item.products),
+        saleUnit: item.sale_unit as "unit" | "kg",
+        firstSaleDate: date,
+        dailySales: {},
+        dailyWaste: {},
+      };
+      existing.firstSaleDate =
+        date < existing.firstSaleDate ? date : existing.firstSaleDate;
+      existing.dailySales[date] =
+        (existing.dailySales[date] || 0) + Number(item.quantity);
+      products.set(key, existing);
+    }
+  }
+
+  for (const item of wasteResult.data || []) {
+    const date = dayBySession.get(item.cash_session_id);
+    if (!date) continue;
+    const key = productKey(item.product_id, item.product_name);
+    const existing = products.get(key);
+    if (!existing || existing.saleUnit !== item.sale_unit) continue;
+    existing.dailyWaste[date] =
+      (existing.dailyWaste[date] || 0) + Number(item.quantity);
+  }
+
+  return {
+    baselineDate: profitabilityBaselineDate,
+    lastObservedDate: days.at(-1)?.date,
+    days,
+    products: [...products.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, "es"),
+    ),
+  };
 }
 
 export async function getSalesSummary(range: SalesRange): Promise<{

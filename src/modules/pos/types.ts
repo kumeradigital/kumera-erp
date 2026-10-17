@@ -127,6 +127,25 @@ export type SalesPace = {
   comparableDays: number;
   comparisonLabel: string;
 };
+export type ProductionPlanningDay = {
+  date: string;
+  weekday: number;
+};
+export type ProductionPlanningProduct = {
+  id: string;
+  name: string;
+  category: string;
+  saleUnit: SaleUnit;
+  firstSaleDate: string;
+  dailySales: Record<string, number>;
+  dailyWaste: Record<string, number>;
+};
+export type ProductionPlanning = {
+  baselineDate: string;
+  lastObservedDate?: string;
+  days: ProductionPlanningDay[];
+  products: ProductionPlanningProduct[];
+};
 export type SaleSummary = {
   total: number;
   recordedTotal: number;
