@@ -549,8 +549,7 @@ export async function getOperationsData() {
       item.trackingMode === "fixed_target" &&
       item.status !== "cancelled" &&
       item.outstandingAmount > 0 &&
-      ((item.dueDate && item.dueDate.slice(0, 7) <= currentMonth) ||
-        (!item.dueDate && item.economicMonth.slice(0, 7) < currentMonth)),
+      item.economicMonth.slice(0, 7) < currentMonth,
   );
   const pendingProvisions = provisionsDueThisMonth.reduce(
     (total, item) => total + item.outstandingAmount,
@@ -586,17 +585,7 @@ export async function getOperationsData() {
   const cyclePendingPayments = obligations
     .filter((item) => item.dueDate >= cycle.start && item.dueDate <= cycle.end)
     .reduce((total, item) => total + (item.amount || 0), 0);
-  const cyclePendingProvisions = provisions
-    .filter(
-      (item) =>
-        item.trackingMode === "fixed_target" &&
-        item.status !== "cancelled" &&
-        item.outstandingAmount > 0 &&
-        !!item.dueDate &&
-        item.dueDate >= cycle.start &&
-        item.dueDate <= cycle.end,
-    )
-    .reduce((total, item) => total + item.outstandingAmount, 0);
+  const cyclePendingProvisions = pendingProvisions;
 
   return {
     operations,
