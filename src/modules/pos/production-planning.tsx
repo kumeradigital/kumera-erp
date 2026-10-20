@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarRange, Search, Sparkles } from "lucide-react";
+import { CalendarRange, ChevronDown, Search, Sparkles } from "lucide-react";
 import type { ProductionPlanning, ProductionPlanningProduct } from "./types";
 
 const weekdayNames = [
@@ -147,6 +147,16 @@ export function ProductionPlanningPanel({
         .sort((a, b) => b.average - a.average),
     [category, dates, planning.days, planning.products, search, weekday],
   );
+  const groupedRows = useMemo(
+    () =>
+      categories
+        .map((categoryName) => ({
+          category: categoryName,
+          rows: rows.filter((row) => row.product.category === categoryName),
+        }))
+        .filter((group) => group.rows.length > 0),
+    [categories, rows],
+  );
 
   return (
     <section className="mt-6">
@@ -160,7 +170,9 @@ export function ProductionPlanningPanel({
             <p className="mt-1 text-xs leading-5 text-[#647064]">
               Usa jornadas cerradas desde el 1 de octubre. Los días abiertos en
               que un producto no se vendió cuentan como cero. Es una guía de
-              demanda, no una orden automática de producción.
+              demanda, no una orden automática de producción. Las ventas
+              antiguas registradas sólo como “Dulce” se excluyen porque no
+              identifican la variedad vendida.
             </p>
           </div>
         </div>
@@ -240,57 +252,79 @@ export function ProductionPlanningPanel({
             la recomendación. El rango sugerido llega hasta el percentil 75.
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-left text-sm">
-            <thead className="bg-[#f2f2ea] text-[10px] uppercase text-[#777]">
-              <tr>
-                <th className="px-5 py-3">Producto</th>
-                <th className="px-5 py-3">Evidencia</th>
-                <th className="px-5 py-3">Promedio</th>
-                <th className="px-5 py-3">Máximo</th>
-                <th className="px-5 py-3">Tendencia</th>
-                <th className="px-5 py-3">Merma prom.</th>
-                <th className="px-5 py-3 text-right">Sugerencia</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.product.id} className="border-t border-[#eeede6]">
-                  <td className="px-5 py-3">
-                    <b>{row.product.name}</b>
-                    <p className="mt-1 text-[10px] text-[#777]">
-                      {row.product.category}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <b>{row.samples}</b> {row.samples === 1 ? "día" : "días"}
-                    {row.samples < 2 && (
-                      <p className="mt-1 text-[10px] font-bold text-[#9a5c17]">
-                        Muy preliminar
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    {quantity(row.average, row.product.saleUnit)}
-                  </td>
-                  <td className="px-5 py-3">
-                    {quantity(row.maximum, row.product.saleUnit)}
-                  </td>
-                  <td className="px-5 py-3">{row.trend}</td>
-                  <td className="px-5 py-3">
-                    {row.wasteAverage > 0
-                      ? quantity(row.wasteAverage, row.product.saleUnit)
-                      : "—"}
-                  </td>
-                  <td className="px-5 py-3 text-right font-black text-[#235b45]">
-                    {quantity(row.suggestionLow, row.product.saleUnit)}
-                    {row.suggestionHigh > row.suggestionLow &&
-                      `–${quantity(row.suggestionHigh, row.product.saleUnit)}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="divide-y divide-[#e6e5dd]">
+          {groupedRows.map((group) => (
+            <details key={group.category} className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-[#f7f6ef] px-5 py-4 marker:hidden hover:bg-[#f2f2ea] [&::-webkit-details-marker]:hidden">
+                <div>
+                  <h3 className="font-black text-[#235b45]">
+                    {group.category}
+                  </h3>
+                  <p className="mt-1 text-xs text-[#777]">
+                    {group.rows.length}{" "}
+                    {group.rows.length === 1 ? "producto" : "productos"}
+                  </p>
+                </div>
+                <ChevronDown
+                  size={20}
+                  className="shrink-0 text-[#235b45] transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[920px] text-left text-sm">
+                  <thead className="bg-[#f2f2ea] text-[10px] uppercase text-[#777]">
+                    <tr>
+                      <th className="px-5 py-3">Producto</th>
+                      <th className="px-5 py-3">Evidencia</th>
+                      <th className="px-5 py-3">Promedio</th>
+                      <th className="px-5 py-3">Máximo</th>
+                      <th className="px-5 py-3">Tendencia</th>
+                      <th className="px-5 py-3">Merma prom.</th>
+                      <th className="px-5 py-3 text-right">Sugerencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.rows.map((row) => (
+                      <tr
+                        key={row.product.id}
+                        className="border-t border-[#eeede6]"
+                      >
+                        <td className="px-5 py-3 font-bold">
+                          {row.product.name}
+                        </td>
+                        <td className="px-5 py-3">
+                          <b>{row.samples}</b>{" "}
+                          {row.samples === 1 ? "día" : "días"}
+                          {row.samples < 2 && (
+                            <p className="mt-1 text-[10px] font-bold text-[#9a5c17]">
+                              Muy preliminar
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          {quantity(row.average, row.product.saleUnit)}
+                        </td>
+                        <td className="px-5 py-3">
+                          {quantity(row.maximum, row.product.saleUnit)}
+                        </td>
+                        <td className="px-5 py-3">{row.trend}</td>
+                        <td className="px-5 py-3">
+                          {row.wasteAverage > 0
+                            ? quantity(row.wasteAverage, row.product.saleUnit)
+                            : "—"}
+                        </td>
+                        <td className="px-5 py-3 text-right font-black text-[#235b45]">
+                          {quantity(row.suggestionLow, row.product.saleUnit)}
+                          {row.suggestionHigh > row.suggestionLow &&
+                            `–${quantity(row.suggestionHigh, row.product.saleUnit)}`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ))}
         </div>
         {!rows.length && (
           <p className="p-8 text-center text-sm text-[#777]">

@@ -1159,16 +1159,28 @@ export async function getProductionPlanning(): Promise<ProductionPlanning> {
     const product = oneRelation(relation);
     return oneRelation(product?.product_categories)?.name || "Sin categoría";
   };
+  const isGenericSweetSale = (name: string, category: string) => {
+    const normalizedName = name.trim().toLocaleLowerCase("es");
+    return (
+      category.trim().toLocaleLowerCase("es") === "dulces" &&
+      (normalizedName === "dulce" || normalizedName === "dulces")
+    );
+  };
 
   for (const sale of salesResult.data || []) {
     const date = dayBySession.get(sale.cash_session_id);
     if (!date) continue;
     for (const item of sale.sale_items || []) {
+      const itemCategory = categoryName(item.products);
+      // Antes de exigir la variedad, el botón genérico de $1.500 mezclaba
+      // dulces distintos. Conservamos esa venta en los totales históricos,
+      // pero no sirve como evidencia para planificar productos individuales.
+      if (isGenericSweetSale(item.product_name, itemCategory)) continue;
       const key = productKey(item.product_id, item.product_name);
       const existing: PlanningProduct = products.get(key) || {
         id: key,
         name: item.product_name,
-        category: categoryName(item.products),
+        category: itemCategory,
         saleUnit: item.sale_unit as "unit" | "kg",
         firstSaleDate: date,
         dailySales: {},

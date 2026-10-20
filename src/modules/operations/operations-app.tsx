@@ -1,6 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
   Calculator,
   Landmark,
@@ -37,6 +39,9 @@ import {
   type Operation,
   type OperationType,
 } from "./types";
+
+const OPERATIONS_PER_PAGE = 25;
+
 export function OperationsApp({
   operations,
   ingredients,
@@ -106,18 +111,13 @@ export function OperationsApp({
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [groupByType, setGroupByType] = useState(false);
+  const [operationsPage, setOperationsPage] = useState(1);
   const currentMonth = todayInChile().slice(0, 7);
   const currentMonthLabel = new Intl.DateTimeFormat("es-CL", {
     month: "long",
     year: "numeric",
     timeZone: "America/Santiago",
   }).format(new Date(`${currentMonth}-15T12:00:00`));
-  const currentObligations = obligations.filter(
-    (item) => item.dueDate.slice(0, 7) <= currentMonth,
-  );
-  const futureObligations = obligations.filter(
-    (item) => item.dueDate.slice(0, 7) > currentMonth,
-  );
   const categories = useMemo(
     () => [...new Set(operations.map((item) => item.category))].sort(),
     [operations],
@@ -134,9 +134,19 @@ export function OperationsApp({
           item.supplier?.toLocaleLowerCase("es").includes(term)),
     );
   }, [operations, search, typeFilter, categoryFilter]);
+  const operationsPageCount = Math.max(
+    1,
+    Math.ceil(visibleOperations.length / OPERATIONS_PER_PAGE),
+  );
+  const currentOperationsPage = Math.min(operationsPage, operationsPageCount);
+  const pageStart = (currentOperationsPage - 1) * OPERATIONS_PER_PAGE;
+  const paginatedOperations = visibleOperations.slice(
+    pageStart,
+    pageStart + OPERATIONS_PER_PAGE,
+  );
   const groups = groupByType
     ? Object.entries(
-        visibleOperations.reduce(
+        paginatedOperations.reduce(
           (result, item) => {
             (result[item.type] ||= []).push(item);
             return result;
@@ -276,11 +286,18 @@ export function OperationsApp({
           />
         )}
         {financeView === "provisions" && (
-          <ProvisionsView
-            provisions={provisions}
-            onAdd={() => setAddingProvision(true)}
-            onPay={setPayingProvision}
-          />
+          <>
+            <ProvisionsView
+              provisions={provisions}
+              onAdd={() => setAddingProvision(true)}
+              onPay={setPayingProvision}
+            />
+            <CashCommitmentsView
+              obligations={obligations}
+              onAdd={() => setAddingObligation(true)}
+              onPay={setPayingObligation}
+            />
+          </>
         )}
         {financeView === "overview" && (
           <>
@@ -442,7 +459,7 @@ export function OperationsApp({
                     value={summary.estimatedVatPayable}
                   />
                   <ReservedRow
-                    label="Compromisos pendientes"
+                    label="Otros compromisos de caja"
                     value={summary.pendingObligations}
                   />
                   <ReservedRow
@@ -496,59 +513,6 @@ export function OperationsApp({
               octubre. Un compromiso pendiente no baja el saldo bancario hasta
               que se paga.
             </div>
-            {!!obligations.length && (
-              <section className="card mt-6 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-black">Próximos pagos</h2>
-                    <p className="mt-1 text-xs text-[#777]">
-                      Incluye montos confirmados y recordatorios por calcular.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAddingObligation(true)}
-                    className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
-                  >
-                    <Plus size={16} /> Compromiso
-                  </button>
-                </div>
-                <div className="mt-4 grid gap-5 lg:grid-cols-2">
-                  <ObligationGroup
-                    title="Este mes"
-                    subtitle="Pagos que todavía corresponden al período actual"
-                    obligations={currentObligations}
-                    empty="No quedan compromisos con monto conocido para este mes."
-                    onPay={setPayingObligation}
-                    current
-                  />
-                  <ObligationGroup
-                    title="Mes siguiente"
-                    subtitle="Reservas futuras; todavía no están vencidas"
-                    obligations={futureObligations}
-                    empty="No hay compromisos futuros registrados."
-                    onPay={setPayingObligation}
-                  />
-                </div>
-              </section>
-            )}
-            {!obligations.length && (
-              <section className="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
-                <div>
-                  <h2 className="font-black">Próximos pagos</h2>
-                  <p className="mt-1 text-sm text-[#777]">
-                    No hay compromisos pendientes registrados.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAddingObligation(true)}
-                  className="flex items-center gap-2 rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45]"
-                >
-                  <Plus size={16} /> Compromiso
-                </button>
-              </section>
-            )}
             {ledger?.status !== "closed" && (
               <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
                 Cierra primero la Puesta en marcha para fijar oficialmente la
@@ -564,14 +528,20 @@ export function OperationsApp({
                   />
                   <input
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setOperationsPage(1);
+                    }}
                     placeholder="Buscar descripción o proveedor"
                     className="input pl-10"
                   />
                 </label>
                 <select
                   value={typeFilter}
-                  onChange={(event) => setTypeFilter(event.target.value)}
+                  onChange={(event) => {
+                    setTypeFilter(event.target.value);
+                    setOperationsPage(1);
+                  }}
                   className="input"
                   aria-label="Filtrar por tipo"
                 >
@@ -584,7 +554,10 @@ export function OperationsApp({
                 </select>
                 <select
                   value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
+                  onChange={(event) => {
+                    setCategoryFilter(event.target.value);
+                    setOperationsPage(1);
+                  }}
                   className="input"
                   aria-label="Filtrar por categoría"
                 >
@@ -595,14 +568,22 @@ export function OperationsApp({
                 </select>
                 <button
                   type="button"
-                  onClick={() => setGroupByType((value) => !value)}
+                  onClick={() => {
+                    setGroupByType((value) => !value);
+                    setOperationsPage(1);
+                  }}
                   className={`rounded-xl border px-4 text-sm font-black ${groupByType ? "border-[#235b45] bg-[#eaf3ea] text-[#235b45]" : "border-[#deded5]"}`}
                 >
                   {groupByType ? "Vista normal" : "Agrupar por tipo"}
                 </button>
               </div>
               <p className="mt-3 text-xs text-[#777]">
-                {visibleOperations.length} de {operations.length} movimientos
+                {visibleOperations.length
+                  ? `Mostrando ${pageStart + 1}–${pageStart + paginatedOperations.length} de ${visibleOperations.length}`
+                  : "0"}{" "}
+                movimientos
+                {visibleOperations.length !== operations.length &&
+                  ` (${operations.length} registrados en total)`}
               </p>
             </div>
             <div className="card mt-4 overflow-x-auto">
@@ -629,7 +610,7 @@ export function OperationsApp({
                           onEdit={setEditing}
                         />
                       ))
-                    : visibleOperations.map((operation) => (
+                    : paginatedOperations.map((operation) => (
                         <OperationRow
                           key={operation.id}
                           operation={operation}
@@ -642,6 +623,59 @@ export function OperationsApp({
                 <p className="p-10 text-center text-sm text-[#777]">
                   No hay movimientos que coincidan con los filtros.
                 </p>
+              )}
+              {!!visibleOperations.length && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e6e5dd] px-4 py-3">
+                  <p className="text-xs font-bold text-[#777]">
+                    Página {currentOperationsPage} de {operationsPageCount}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOperationsPage((page) => Math.max(1, page - 1))
+                      }
+                      disabled={currentOperationsPage === 1}
+                      className="rounded-lg border border-[#deded5] p-2 text-[#235b45] disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label="Página anterior"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <label className="flex items-center gap-2 text-xs font-bold text-[#62675f]">
+                      Ir a
+                      <select
+                        value={currentOperationsPage}
+                        onChange={(event) =>
+                          setOperationsPage(Number(event.target.value))
+                        }
+                        className="rounded-lg border border-[#deded5] bg-white px-3 py-2"
+                        aria-label="Seleccionar página de movimientos"
+                      >
+                        {Array.from(
+                          { length: operationsPageCount },
+                          (_, index) => index + 1,
+                        ).map((page) => (
+                          <option key={page} value={page}>
+                            {page}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOperationsPage((page) =>
+                          Math.min(operationsPageCount, page + 1),
+                        )
+                      }
+                      disabled={currentOperationsPage === operationsPageCount}
+                      className="rounded-lg border border-[#deded5] p-2 text-[#235b45] disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label="Página siguiente"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </>
@@ -999,6 +1033,68 @@ function ProvisionsView({
             No hay provisiones para este mes.
           </p>
         )}
+      </div>
+    </section>
+  );
+}
+
+function CashCommitmentsView({
+  obligations,
+  onAdd,
+  onPay,
+}: {
+  obligations: FinancialObligation[];
+  onAdd: () => void;
+  onPay: (obligation: FinancialObligation) => void;
+}) {
+  const currentMonth = todayInChile().slice(0, 7);
+  const current = obligations.filter(
+    (item) => item.dueDate.slice(0, 7) <= currentMonth,
+  );
+  const future = obligations.filter(
+    (item) => item.dueDate.slice(0, 7) > currentMonth,
+  );
+
+  return (
+    <section className="mt-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
+            Liquidez y deudas
+          </p>
+          <h2 className="mt-2 text-2xl font-black">
+            Otros compromisos de caja
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#747970]">
+            Aquí van IVA, créditos y pagos excepcionales que no están cubiertos
+            por una provisión. Arriendos, remuneraciones, imposiciones y
+            servicios se controlan arriba para no reservarlos dos veces.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex items-center gap-2 rounded-xl border border-[#235b45] bg-white px-4 py-3 text-sm font-black text-[#235b45]"
+        >
+          <Plus size={17} /> Nuevo compromiso
+        </button>
+      </div>
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <ObligationGroup
+          title="Vigentes"
+          subtitle="Vencidos o con pago dentro del mes actual"
+          obligations={current}
+          empty="No hay otros compromisos exigibles este mes."
+          onPay={onPay}
+          current
+        />
+        <ObligationGroup
+          title="Próximos"
+          subtitle="Pagos posteriores al mes actual"
+          obligations={future}
+          empty="No hay otros compromisos futuros registrados."
+          onPay={onPay}
+        />
       </div>
     </section>
   );

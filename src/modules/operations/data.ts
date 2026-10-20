@@ -36,6 +36,36 @@ function liquidityCycle(today: string) {
   };
 }
 
+function provisionCoversObligation(
+  provision: ExpenseProvision,
+  obligation: FinancialObligation,
+) {
+  if (provision.status === "cancelled" || !provision.dueDate) return false;
+  const dueDateDistance = Math.abs(
+    Date.parse(`${provision.dueDate}T12:00:00Z`) -
+      Date.parse(`${obligation.dueDate}T12:00:00Z`),
+  );
+  if (dueDateDistance > 45 * 24 * 60 * 60 * 1000) return false;
+
+  const provisionName = provision.name.toLocaleLowerCase("es");
+  const obligationName = obligation.name.toLocaleLowerCase("es");
+  const sameConcept = (terms: string[]) =>
+    terms.some(
+      (term) => provisionName.includes(term) && obligationName.includes(term),
+    );
+
+  if (sameConcept(["arriendo", "electricidad", "gas"])) return true;
+  if (
+    /imposiciones|cotizaciones/.test(provisionName) &&
+    /imposiciones|cotizaciones/.test(obligationName)
+  )
+    return true;
+
+  return ["panadero", "pastelera", "cajera"].some(
+    (role) => provisionName.includes(role) && obligationName.includes(role),
+  );
+}
+
 export async function getOperationsData() {
   const supabase = await createClient();
   const {
@@ -113,7 +143,8 @@ export async function getOperationsData() {
           "id,transaction_date,economic_month,provision_id,financial_obligation_id,affects_profitability,profitability_amount,principal_amount,interest_amount,charges_amount,type,description,category,payment_method,gross_amount,net_amount,tax_amount,tax_rate,ingredient_id,purchase_quantity,purchase_unit,supplier,note,financial_status,created_at,ingredients(name)",
         )
         .eq("business_id", membership.business_id)
-        .order("transaction_date", { ascending: false }),
+        .order("transaction_date", { ascending: false })
+        .order("created_at", { ascending: false }),
       supabase
         .from("ingredients")
         .select("id,name,base_unit")
@@ -326,6 +357,7 @@ export async function getOperationsData() {
         (operation) =>
           operation.date.slice(0, 7) === currentMonth &&
           countsInMonthlyBooks(operation) &&
+          operation.affectsProfitability &&
           operation.type === type,
       )
       .reduce((total, operation) => total + operation.gross, 0);
@@ -360,21 +392,21 @@ export async function getOperationsData() {
   const expectedBank =
     cutoff.openingBank + bankSales - cardFees + signedTotal(bankOperations);
 
-  const obligations: FinancialObligation[] = (obligationsResult.data || []).map(
-    (row) => ({
-      id: row.id,
-      name: row.name,
-      amount: row.amount == null ? null : Number(row.amount),
-      dueDate: row.due_date,
-      kind: row.kind,
-      recurrence: row.recurrence || undefined,
-      carryAmount: Boolean(row.carry_amount),
-      note: row.note || undefined,
-      principalAmount: Number(row.principal_amount),
-      interestAmount: Number(row.interest_amount),
-      chargesAmount: Number(row.charges_amount),
-    }),
-  );
+  const allObligations: FinancialObligation[] = (
+    obligationsResult.data || []
+  ).map((row) => ({
+    id: row.id,
+    name: row.name,
+    amount: row.amount == null ? null : Number(row.amount),
+    dueDate: row.due_date,
+    kind: row.kind,
+    recurrence: row.recurrence || undefined,
+    carryAmount: Boolean(row.carry_amount),
+    note: row.note || undefined,
+    principalAmount: Number(row.principal_amount),
+    interestAmount: Number(row.interest_amount),
+    chargesAmount: Number(row.charges_amount),
+  }));
 
   const provisions: ExpenseProvision[] = (provisionsResult.data || []).map(
     (row) => {
@@ -426,6 +458,12 @@ export async function getOperationsData() {
         note: row.note || undefined,
       };
     },
+  );
+  const obligations = allObligations.filter(
+    (obligation) =>
+      !provisions.some((provision) =>
+        provisionCoversObligation(provision, obligation),
+      ),
   );
   const currentEconomicProvisions = provisions.filter(
     (item) =>

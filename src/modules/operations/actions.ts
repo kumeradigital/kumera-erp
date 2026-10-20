@@ -229,12 +229,16 @@ export async function saveOperationAction(form: FormData) {
   if (obligationId) {
     const { data: obligation } = await supabase
       .from("financial_obligations")
-      .select("kind,principal_amount,interest_amount,charges_amount")
+      .select("name,kind,principal_amount,interest_amount,charges_amount")
       .eq("id", obligationId)
       .eq("status", "pending")
       .maybeSingle();
     if (!obligation) throw new Error("Compromiso no válido");
-    affectsProfitability = obligation.kind !== "loan_payment";
+    const taxObligation = /iva|impuesto|f29|formulario 29/i.test(
+      obligation.name,
+    );
+    affectsProfitability = obligation.kind !== "loan_payment" && !taxObligation;
+    if (taxObligation) profitabilityAmount = 0;
     if (obligation.kind === "loan_payment") {
       const formPrincipal = Math.round(
         Number(form.get("principalAmount")) ||
