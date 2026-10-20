@@ -85,6 +85,7 @@ export function OperationsApp({
     withdrawals: number;
     monthlyOwnerWithdrawals: number;
     pendingObligations: number;
+    pendingProvisions: number;
     salesTaxDebit: number;
     recoverableTaxCredit: number;
     estimatedVatPayable: number;
@@ -187,14 +188,14 @@ export function OperationsApp({
         </button>
         <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-4">
           <p className="text-xs font-black uppercase tracking-[.12em] text-[#795f0d]">
-            Reserva tributaria del mes
+            IVA del mes en formación
           </p>
           <p className="money mt-2 text-2xl font-black">
             {formatClp(summary.estimatedVatPayable)}
           </p>
           <p className="mt-2 text-xs leading-5 text-[#6d6450]">
-            No considerar como dinero disponible. Liquidez libre estimada:{" "}
-            <strong>{formatClp(summary.availableLiquidity)}</strong>.
+            Estimación informativa para el F29 del mes siguiente; todavía no se
+            descuenta de la liquidez actual.
           </p>
         </div>
         <div className="mt-4 rounded-2xl border border-[#d8dfd5] bg-white p-4">
@@ -354,7 +355,7 @@ export function OperationsApp({
                 className={`rounded-2xl border p-6 xl:col-span-7 ${summary.availableLiquidity < 0 ? "border-[#e2b9aa] bg-[#fff0ea]" : "border-[#b9d0b8] bg-[#e8f0e6]"}`}
               >
                 <p className="text-xs font-black uppercase tracking-[.14em] text-[#59635b]">
-                  Dinero realmente disponible
+                  Liquidez disponible del ciclo actual
                 </p>
                 <p
                   className={`money mt-3 text-4xl font-black ${summary.availableLiquidity < 0 ? "text-[#9a3f22]" : "text-[#235b45]"}`}
@@ -362,9 +363,10 @@ export function OperationsApp({
                   {formatClp(summary.availableLiquidity)}
                 </p>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-[#59635b]">
-                  Es la liquidez estimada después de apartar el IVA y los
-                  compromisos conocidos. Este es el monto útil para decidir si
-                  puedes comprar, invertir o retirar sin ocupar dinero ajeno.
+                  Saldo estimado después de descontar provisiones y compromisos
+                  cuyo pago corresponde a este mes. El IVA que se está formando
+                  para el próximo mes se informa aparte, pero todavía no reduce
+                  esta cifra.
                 </p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
                   <MiniAmount
@@ -448,23 +450,25 @@ export function OperationsApp({
               </section>
 
               <section className="card p-5 xl:col-span-4">
-                <h2 className="font-black">Dinero apartado</h2>
+                <h2 className="font-black">
+                  Compromisos e información tributaria
+                </h2>
                 <p className="mt-1 text-xs leading-5 text-[#777]">
-                  No necesariamente salió todavía del banco, pero ya tiene un
-                  destino y no debe tratarse como disponible.
+                  Los compromisos del mes reducen la liquidez. El IVA actual se
+                  muestra sólo como referencia hasta el mes de su pago.
                 </p>
                 <div className="mt-4 space-y-3">
                   <ReservedRow
-                    label="IVA estimado acumulado"
+                    label="IVA en formación (pago próximo mes)"
                     value={summary.estimatedVatPayable}
+                  />
+                  <ReservedRow
+                    label="Provisiones por pagar este mes"
+                    value={summary.pendingProvisions}
                   />
                   <ReservedRow
                     label="Otros compromisos de caja"
                     value={summary.pendingObligations}
-                  />
-                  <ReservedRow
-                    label="Costos provisionados del mes"
-                    value={summary.provisionedExpenses}
                   />
                 </div>
               </section>
@@ -487,19 +491,21 @@ export function OperationsApp({
                 </div>
                 <p className="mt-4 text-xs leading-5 text-[#777]">
                   Las ventas brutas incluyen IVA. Para medir rentabilidad el
-                  sistema trabaja con la venta sin IVA; para medir caja, reserva
-                  el IVA estimado hasta pagarlo en el F29.
+                  sistema trabaja con la venta sin IVA. La estimación del F29 se
+                  informa durante el mes y pasa a compromiso de caja al comenzar
+                  el mes siguiente.
                 </p>
               </section>
             </div>
             <div className="mt-4 rounded-2xl border border-[#e6d397] bg-[#fff9e8] p-5 text-sm text-[#6d6450]">
               <strong className="text-[#5d4b12]">
-                Reserva tributaria automática.
+                IVA del período en formación.
               </strong>{" "}
               De {formatClp(summary.salesTaxDebit)} de IVA estimado en ventas se
               descuentan {formatClp(summary.recoverableTaxCredit)} de crédito
-              por compras y comisiones registradas. Esta reserva no es un gasto:
-              es dinero que debe permanecer disponible para el F29.
+              por compras y comisiones registradas. Es una referencia que puede
+              cambiar hasta cerrar el mes; el día 1 siguiente se transforma en
+              compromiso con vencimiento el día 20.
             </div>
             <CashCyclePanel cycle={summary.cashCycle} />
             <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
