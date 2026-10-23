@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   Building2,
   Boxes,
-  ClipboardList,
   History,
   House,
   LayoutDashboard,
@@ -92,11 +91,6 @@ export function PosShell({
             icon={<LayoutDashboard size={16} />}
           />
           <Nav
-            href="/ventas?view=planning"
-            label="Producción"
-            icon={<ClipboardList size={16} />}
-          />
-          <Nav
             href="/cierres"
             label="Historial de cierres"
             active={active === "closures"}
@@ -159,12 +153,6 @@ export function PosShell({
               label="Ventas"
               active={active === "sales"}
               icon={<LayoutDashboard size={19} />}
-            />
-            <MobileNavLink
-              href="/ventas?view=planning"
-              label="Producción"
-              active={false}
-              icon={<ClipboardList size={19} />}
             />
             <MobileNavLink
               href="/inventario"
