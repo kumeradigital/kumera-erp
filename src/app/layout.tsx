@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ERP KUMERA",
-  description: "Control simple y claro para abrir tu negocio",
+  description: "Control operativo y financiero de KUMERA",
 };
 
 export default function RootLayout({

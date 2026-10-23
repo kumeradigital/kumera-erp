@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
-  BookOpen,
+  Building2,
   Boxes,
+  ClipboardList,
   History,
+  House,
   LayoutDashboard,
   LineChart,
   Menu,
@@ -25,7 +27,9 @@ export function PosShell({
     | "products"
     | "costs"
     | "operations"
-    | "inventory";
+    | "inventory"
+    | "home"
+    | "business";
 }) {
   if (kiosk) {
     return (
@@ -65,8 +69,9 @@ export function PosShell({
         <nav className="scrollbar hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs font-bold md:flex md:justify-center">
           <Nav
             href="/"
-            label="Puesta en marcha"
-            icon={<BookOpen size={16} />}
+            label="Inicio"
+            active={active === "home"}
+            icon={<House size={16} />}
           />
           <Nav
             href="/operacion"
@@ -87,6 +92,11 @@ export function PosShell({
             icon={<LayoutDashboard size={16} />}
           />
           <Nav
+            href="/ventas?view=planning"
+            label="Producción"
+            icon={<ClipboardList size={16} />}
+          />
+          <Nav
             href="/cierres"
             label="Historial de cierres"
             active={active === "closures"}
@@ -94,7 +104,7 @@ export function PosShell({
           />
           <Nav
             href="/caja"
-            label="Iniciar caja"
+            label="Caja"
             active={active === "pos"}
             icon={<ShoppingCart size={16} />}
           />
@@ -110,6 +120,12 @@ export function PosShell({
             active={active === "costs"}
             icon={<LineChart size={16} />}
           />
+          <Nav
+            href="/empresa"
+            label="Empresa"
+            active={active === "business"}
+            icon={<Building2 size={16} />}
+          />
         </nav>
         <details className="group relative ml-auto md:hidden">
           <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl bg-[#235b45] px-3 text-sm font-black text-white [&::-webkit-details-marker]:hidden">
@@ -120,6 +136,12 @@ export function PosShell({
             className="absolute right-0 top-[calc(100%+0.6rem)] z-50 grid w-52 gap-1 rounded-2xl border border-[#deded4] bg-[#fffef9] p-2 shadow-[0_18px_45px_rgba(31,45,37,.2)]"
             aria-label="Navegación móvil"
           >
+            <MobileNavLink
+              href="/"
+              label="Inicio"
+              active={active === "home"}
+              icon={<House size={19} />}
+            />
             <MobileNavLink
               href="/caja"
               label="Caja"
@@ -133,10 +155,46 @@ export function PosShell({
               icon={<ReceiptText size={19} />}
             />
             <MobileNavLink
-              href="/ventas-hoy"
-              label="Venta de hoy"
+              href="/ventas"
+              label="Ventas"
               active={active === "sales"}
               icon={<LayoutDashboard size={19} />}
+            />
+            <MobileNavLink
+              href="/ventas?view=planning"
+              label="Producción"
+              active={false}
+              icon={<ClipboardList size={19} />}
+            />
+            <MobileNavLink
+              href="/inventario"
+              label="Inventario"
+              active={active === "inventory"}
+              icon={<Warehouse size={19} />}
+            />
+            <MobileNavLink
+              href="/productos"
+              label="Productos"
+              active={active === "products"}
+              icon={<Boxes size={19} />}
+            />
+            <MobileNavLink
+              href="/costos"
+              label="Costeo"
+              active={active === "costs"}
+              icon={<LineChart size={19} />}
+            />
+            <MobileNavLink
+              href="/cierres"
+              label="Cierres"
+              active={active === "closures"}
+              icon={<History size={19} />}
+            />
+            <MobileNavLink
+              href="/empresa"
+              label="Empresa"
+              active={active === "business"}
+              icon={<Building2 size={19} />}
             />
           </nav>
         </details>

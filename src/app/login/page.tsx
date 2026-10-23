@@ -45,7 +45,7 @@ export default function Login() {
             Bienvenido de vuelta
           </h1>
           <p className="mt-2 text-sm text-[#777c73]">
-            Ingresa para continuar con la apertura de tu negocio.
+            Ingresa para continuar con la operación de tu negocio.
           </p>
         </div>
         <form onSubmit={submit} className="mt-7 space-y-4">

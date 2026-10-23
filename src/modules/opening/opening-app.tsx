@@ -380,7 +380,11 @@ export function OpeningApp({
           />
         </nav>
         <div className="mt-auto">
-          <Nav icon={<Settings size={17} />} label="Configuración" />
+          <Nav
+            onClick={() => (location.href = "/empresa")}
+            icon={<Settings size={17} />}
+            label="Datos de la empresa"
+          />
           <form action={signOutAction} className="mt-1">
             <button
               type="submit"
