@@ -9,7 +9,8 @@ alter table public.businesses
   add column if not exists updated_at timestamptz not null default now();
 
 update public.businesses
-set legal_name = coalesce(legal_name, 'GOYA SPA'),
+set rut = coalesce(nullif(rut, ''), '78.460.151-K'),
+    legal_name = coalesce(legal_name, 'GOYA SPA'),
     business_activity = coalesce(
       business_activity,
       'Elaboración y venta de pan, bollería, dulces y empanadas.'
@@ -18,7 +19,8 @@ set legal_name = coalesce(legal_name, 'GOYA SPA'),
     commune = coalesce(commune, 'ÑUÑOA'),
     city = coalesce(city, 'Santiago'),
     updated_at = now()
-where replace(replace(upper(coalesce(rut, '')), '.', ''), '-', '') = '78460151K';
+where replace(replace(upper(coalesce(rut, '')), '.', ''), '-', '') = '78460151K'
+   or lower(trim(name)) = 'kumera panadería';
 
 drop policy if exists "business admin update" on public.businesses;
 create policy "business admin update"
