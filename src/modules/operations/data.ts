@@ -7,6 +7,7 @@ import type {
   OperationType,
 } from "./types";
 import { calculateTaxReserve } from "./calculations";
+import { normalizeOperationCategory } from "./categories";
 
 type Reconciliation = {
   actual_cash_sales: number | string;
@@ -506,7 +507,11 @@ export async function getOperationsData() {
       return {
         id: row.id,
         name: row.name,
-        category: row.category,
+        category: normalizeOperationCategory(
+          row.category,
+          "fixed_cost",
+          row.name,
+        ),
         economicMonth: row.economic_month,
         expectedAmount,
         paidAmount,

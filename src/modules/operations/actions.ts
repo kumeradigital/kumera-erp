@@ -1,7 +1,40 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/server/supabase/server";
-import { OPERATION_CATEGORIES } from "./categories";
+import { normalizeOperationCategory, OPERATION_CATEGORIES } from "./categories";
+
+export type OperationActionResult = { ok: true } | { ok: false; error: string };
+
+function operationErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const knownMessages = [
+    "Monto inválido",
+    "Categoría inválida",
+    "Estado financiero inválido",
+    "Provisión no válida",
+    "Compromiso no válido",
+    "Descripción obligatoria",
+    "Medio de pago inválido",
+    "Tipo inválido",
+  ];
+  return (
+    knownMessages.find((known) => message.includes(known)) ||
+    "No pudimos registrar el movimiento. No se descontó la provisión; vuelve a intentarlo o revisa los datos."
+  );
+}
+
+export async function submitOperationAction(
+  form: FormData,
+): Promise<OperationActionResult> {
+  try {
+    if (form.get("id")) await updateOperationAction(form);
+    else await saveOperationAction(form);
+    return { ok: true };
+  } catch (error) {
+    console.error("No se pudo guardar el movimiento financiero", error);
+    return { ok: false, error: operationErrorMessage(error) };
+  }
+}
 
 export async function saveFinancialReconciliationAction(form: FormData) {
   const supabase = await createClient();
@@ -167,10 +200,15 @@ export async function saveOperationAction(form: FormData) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Sesión no válida");
   const type = String(form.get("type"));
+  const description = String(form.get("description") || "").trim();
   const gross = Math.round(Number(form.get("amount")));
   const taxMode = String(form.get("taxMode"));
   const taxRate = taxMode === "exempt" ? 0 : 19;
-  const category = String(form.get("category") || "").trim();
+  const category = normalizeOperationCategory(
+    String(form.get("category") || "").trim(),
+    type as Parameters<typeof normalizeOperationCategory>[1],
+    description,
+  );
   if (!gross || gross < 1) throw new Error("Monto inválido");
   if (
     !OPERATION_CATEGORIES.includes(
@@ -184,24 +222,13 @@ export async function saveOperationAction(form: FormData) {
   const financialStatus = String(form.get("financialStatus") || "verified");
   if (!["verified", "pending"].includes(financialStatus))
     throw new Error("Estado financiero inválido");
-  const { data: transactionId, error } = await supabase.rpc(
-    "record_operational_transaction",
-    {
-      p_date: String(form.get("date")),
-      p_type: type,
-      p_description: String(form.get("description")).trim(),
-      p_category: category,
-      p_payment_method: String(form.get("paymentMethod") || "") || null,
-      p_gross_amount: gross,
-      p_tax_rate: taxRate,
-      p_ingredient_id: ingredientId,
-      p_purchase_quantity: quantity,
-      p_purchase_unit: unit,
-      p_supplier: String(form.get("supplier") || "") || null,
-      p_note: String(form.get("note") || "") || null,
-    },
-  );
-  if (error) throw error;
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
   const economicMonth = String(form.get("economicMonth") || "");
   const provisionId = String(form.get("provisionId") || "") || null;
   const provisionUnitsValue = Number(form.get("provisionUnits"));
@@ -223,6 +250,7 @@ export async function saveOperationAction(form: FormData) {
       .from("expense_provisions")
       .select("id")
       .eq("id", provisionId)
+      .eq("business_id", membership.business_id)
       .maybeSingle();
     if (!provision) throw new Error("Provisión no válida");
   }
@@ -231,6 +259,7 @@ export async function saveOperationAction(form: FormData) {
       .from("financial_obligations")
       .select("name,kind,principal_amount,interest_amount,charges_amount")
       .eq("id", obligationId)
+      .eq("business_id", membership.business_id)
       .eq("status", "pending")
       .maybeSingle();
     if (!obligation) throw new Error("Compromiso no válido");
@@ -263,6 +292,24 @@ export async function saveOperationAction(form: FormData) {
       profitabilityAmount = loanBreakdown.interest + loanBreakdown.charges;
     }
   }
+  const { data: transactionId, error } = await supabase.rpc(
+    "record_operational_transaction",
+    {
+      p_date: String(form.get("date")),
+      p_type: type,
+      p_description: description,
+      p_category: category,
+      p_payment_method: String(form.get("paymentMethod") || "") || null,
+      p_gross_amount: gross,
+      p_tax_rate: taxRate,
+      p_ingredient_id: ingredientId,
+      p_purchase_quantity: quantity,
+      p_purchase_unit: unit,
+      p_supplier: String(form.get("supplier") || "") || null,
+      p_note: String(form.get("note") || "") || null,
+    },
+  );
+  if (error) throw error;
   const { error: statusError } = await supabase
     .from("operational_transactions")
     .update({
@@ -375,7 +422,13 @@ export async function updateOperationAction(form: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Sesión no válida");
-  const category = String(form.get("category") || "").trim();
+  const type = String(form.get("type"));
+  const description = String(form.get("description")).trim();
+  const category = normalizeOperationCategory(
+    String(form.get("category") || "").trim(),
+    type as Parameters<typeof normalizeOperationCategory>[1],
+    description,
+  );
   const gross = Math.round(Number(form.get("amount")));
   if (!gross || gross < 1) throw new Error("Monto inválido");
   if (
@@ -384,8 +437,6 @@ export async function updateOperationAction(form: FormData) {
     )
   )
     throw new Error("Categoría inválida");
-  const type = String(form.get("type"));
-  const description = String(form.get("description")).trim();
   const paymentMethod = String(form.get("paymentMethod") || "") || null;
   const financialStatus = String(form.get("financialStatus") || "verified");
   const provisionId = String(form.get("provisionId") || "") || null;

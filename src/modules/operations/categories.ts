@@ -59,6 +59,31 @@ export const DEFAULT_OPERATION_CATEGORY = {
   owner_withdrawal: "Retiros personales",
 } as const;
 
+export function normalizeOperationCategory(
+  category: string,
+  type: keyof typeof OPERATION_CATEGORIES_BY_TYPE,
+  description = "",
+) {
+  if (OPERATION_CATEGORIES.includes(category as never)) return category;
+
+  const context = `${category} ${description}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es");
+
+  if (/plaga|mantencion|reparacion/.test(context))
+    return "Mantención y reparaciones";
+  if (/\bgas\b|electric|\bluz\b|\bagua\b|internet|telefon/.test(context))
+    return "Servicios básicos";
+  if (/sueldo|remuneracion|pasteler|panader|cajer/.test(context))
+    return "Remuneraciones";
+  if (/cotizacion|prevision|previred/.test(context))
+    return "Cotizaciones previsionales";
+  if (/arriendo|alquiler/.test(context)) return "Arriendo";
+
+  return DEFAULT_OPERATION_CATEGORY[type];
+}
+
 export const CASH_WITHDRAWAL_CATEGORIES = [
   "Compra menor del negocio",
   "Alimentación del personal",

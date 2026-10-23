@@ -24,7 +24,7 @@ import {
   saveObligationAction,
   saveOperationAction,
   saveProvisionAction,
-  updateOperationAction,
+  submitOperationAction,
 } from "./actions";
 import {
   DEFAULT_OPERATION_CATEGORY,
@@ -1896,6 +1896,8 @@ function OperationDialog({
       obligationCategory ||
       "Materias primas",
   );
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const categoriesForType: readonly string[] =
     OPERATION_CATEGORIES_BY_TYPE[type];
   const visibleFormCategories = categoriesForType.includes(category)
@@ -1921,8 +1923,14 @@ function OperationDialog({
         </div>
         <form
           action={async (f) => {
-            if (editing) await updateOperationAction(f);
-            else await saveOperationAction(f);
+            setSaving(true);
+            setFormError(null);
+            const result = await submitOperationAction(f);
+            if (!result.ok) {
+              setFormError(result.error);
+              setSaving(false);
+              return;
+            }
             location.reload();
           }}
           className="mt-5 space-y-4"
@@ -2243,12 +2251,25 @@ function OperationDialog({
               className="input mt-2 min-h-20 py-3"
             />
           </label>
-          <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
-            {editing
-              ? "Guardar corrección"
-              : obligation || provision
-                ? "Registrar pago y descontar"
-                : "Guardar movimiento"}
+          {formError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-[#dfaaa0] bg-[#fff0ed] p-3 text-sm font-bold text-[#8a2f24]"
+            >
+              {formError}
+            </p>
+          )}
+          <button
+            disabled={saving}
+            className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:cursor-wait disabled:opacity-60"
+          >
+            {saving
+              ? "Guardando…"
+              : editing
+                ? "Guardar corrección"
+                : obligation || provision
+                  ? "Registrar pago y descontar"
+                  : "Guardar movimiento"}
           </button>
         </form>
       </div>
