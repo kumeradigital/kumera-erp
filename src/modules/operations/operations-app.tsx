@@ -87,6 +87,8 @@ export function OperationsApp({
     withdrawals: number;
     monthlyOwnerWithdrawals: number;
     pendingObligations: number;
+    pendingVatObligations: number;
+    pendingOtherObligations: number;
     pendingProvisions: number;
     salesTaxDebit: number;
     recoverableTaxCredit: number;
@@ -481,9 +483,15 @@ export function OperationsApp({
                     value={summary.pendingProvisions}
                   />
                   <ReservedRow
-                    label="Otros compromisos de caja"
-                    value={summary.pendingObligations}
+                    label="IVA del mes anterior por pagar"
+                    value={summary.pendingVatObligations}
                   />
+                  {summary.pendingOtherObligations > 0 && (
+                    <ReservedRow
+                      label="Otros compromisos de caja"
+                      value={summary.pendingOtherObligations}
+                    />
+                  )}
                 </div>
               </section>
 

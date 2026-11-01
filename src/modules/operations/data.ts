@@ -569,14 +569,17 @@ export async function getOperationsData() {
     (total, item) => total + item.outstandingAmount,
     0,
   );
-  const pendingObligations = obligations.reduce(
-    (total, item) =>
-      total +
-      (item.dueDate.slice(0, 7) <= currentMonth
-        ? (item.amount ?? item.erpEstimatedAmount ?? 0)
-        : 0),
-    0,
-  );
+  const obligationAmountDueThisMonth = (item: FinancialObligation) =>
+    item.dueDate.slice(0, 7) <= currentMonth
+      ? (item.amount ?? item.erpEstimatedAmount ?? 0)
+      : 0;
+  const pendingVatObligations = obligations
+    .filter((item) => /iva|impuesto|f29|formulario 29/i.test(item.name))
+    .reduce((total, item) => total + obligationAmountDueThisMonth(item), 0);
+  const pendingOtherObligations = obligations
+    .filter((item) => !/iva|impuesto|f29|formulario 29/i.test(item.name))
+    .reduce((total, item) => total + obligationAmountDueThisMonth(item), 0);
+  const pendingObligations = pendingVatObligations + pendingOtherObligations;
   const cycleOperations = operations.filter(
     (operation) =>
       operation.date >= cycle.start &&
@@ -637,6 +640,8 @@ export async function getOperationsData() {
       withdrawals,
       monthlyOwnerWithdrawals,
       pendingObligations,
+      pendingVatObligations,
+      pendingOtherObligations,
       pendingProvisions,
       ...taxReserve,
       availableLiquidity:
