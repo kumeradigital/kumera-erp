@@ -1331,11 +1331,12 @@ function ProvisionStatus({
 }
 
 function formatEconomicMonth(value: string) {
+  const month = value.slice(0, 7);
   const label = new Intl.DateTimeFormat("es-CL", {
     month: "long",
     year: "numeric",
     timeZone: "America/Santiago",
-  }).format(new Date(`${value}-15T12:00:00Z`));
+  }).format(new Date(`${month}-15T12:00:00Z`));
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
