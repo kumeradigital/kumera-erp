@@ -299,7 +299,6 @@ export function OperationsApp({
                 );
                 if (!confirmed) return;
                 await closeAccumulatingProvisionAction(provision.id);
-                location.reload();
               }}
             />
             <CashCommitmentsView
@@ -1266,7 +1265,7 @@ function ProvisionDialog({ onClose }: { onClose: () => void }) {
         <form
           action={async (form) => {
             await saveProvisionAction(form);
-            location.reload();
+            onClose();
           }}
           className="mt-5 space-y-4"
         >
@@ -2051,7 +2050,7 @@ function OperationDialog({
               setSaving(false);
               return;
             }
-            location.reload();
+            onClose();
           }}
           className="mt-5 space-y-4"
         >
