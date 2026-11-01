@@ -1503,6 +1503,19 @@ function ObligationGroup({
               </div>
               <p className="money font-black">
                 {item.amount == null ? "Por calcular" : formatClp(item.amount)}
+                {item.erpEstimatedAmount != null && (
+                  <span className="mt-1 block text-right text-xs font-bold text-[#6f746c]">
+                    ERP estima {formatClp(item.erpEstimatedAmount)}
+                  </span>
+                )}
+                {item.amount != null && item.erpEstimatedAmount != null && (
+                  <span
+                    className={`mt-1 block text-right text-xs font-bold ${item.amount === item.erpEstimatedAmount ? "text-[#235b45]" : "text-[#9a5b21]"}`}
+                  >
+                    Diferencia{" "}
+                    {formatSigned(item.amount - item.erpEstimatedAmount)}
+                  </span>
+                )}
               </p>
             </div>
             {item.kind === "loan_payment" && item.amount != null && (
@@ -1578,6 +1591,14 @@ function ObligationAmountDialog({
   obligation: FinancialObligation;
   onClose: () => void;
 }) {
+  const [amount, setAmount] = useState(
+    obligation.amount == null ? "" : String(obligation.amount),
+  );
+  const parsedAmount = Number(amount);
+  const difference =
+    obligation.erpEstimatedAmount != null && Number.isFinite(parsedAmount)
+      ? Math.round(parsedAmount) - obligation.erpEstimatedAmount
+      : null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
       <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
@@ -1597,6 +1618,20 @@ function ObligationAmountDialog({
           pero no registra ningún pago ni salida bancaria. Puedes corregirlo
           después de revisar el detalle completo del F29.
         </p>
+        {obligation.erpEstimatedAmount != null && (
+          <div className="mt-4 rounded-xl border border-[#cdd9ca] bg-[#f1f7ee] p-4">
+            <p className="text-xs font-black uppercase tracking-[.12em] text-[#56705e]">
+              Estimación del ERP
+            </p>
+            <p className="money mt-1 text-2xl font-black text-[#235b45]">
+              {formatClp(obligation.erpEstimatedAmount)}
+            </p>
+            <p className="mt-1 text-xs text-[#6f746c]">
+              Calculada desde ventas conciliadas, IVA débito, compras y
+              comisiones registradas del mes anterior.
+            </p>
+          </div>
+        )}
         <form
           action={async (form) => {
             await updateObligationAmountAction(form);
@@ -1613,12 +1648,20 @@ function ObligationAmountDialog({
               min="1"
               required
               inputMode="numeric"
-              defaultValue={obligation.amount ?? ""}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
               className="input mt-2 text-lg font-black"
               placeholder="Ej. 616629"
               autoFocus
             />
           </label>
+          {difference != null && amount !== "" && (
+            <div
+              className={`rounded-xl p-3 text-sm font-bold ${difference === 0 ? "bg-[#edf6e9] text-[#235b45]" : "bg-[#fff3d5] text-[#725b1b]"}`}
+            >
+              Diferencia frente al ERP: {formatSigned(difference)}
+            </div>
+          )}
           <div className="rounded-xl bg-[#fff3d5] p-3 text-xs leading-5 text-[#725b1b]">
             Aún no estás declarando ni pagando. Cuando confirmes el F29, usa
             “Registrar pago” en este mismo compromiso.

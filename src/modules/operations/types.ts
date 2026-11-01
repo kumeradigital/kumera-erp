@@ -76,6 +76,7 @@ export type FinancialObligation = {
   id: string;
   name: string;
   amount: number | null;
+  erpEstimatedAmount?: number;
   dueDate: string;
   kind: "payable" | "loan_payment";
   recurrence?: "monthly";

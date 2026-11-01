@@ -446,7 +446,7 @@ export async function getOperationsData() {
       .insert({
         business_id: membership.business_id,
         name: `IVA ${previousMonthLabel} (estimado)`,
-        amount: previousMonthTax.estimatedVatPayable,
+        amount: null,
         due_date: `${currentMonth}-20`,
         kind: "payable",
         recurrence: null,
@@ -468,6 +468,11 @@ export async function getOperationsData() {
       id: row.id,
       name: row.name,
       amount: row.amount == null ? null : Number(row.amount),
+      erpEstimatedAmount:
+        /iva|f29|formulario 29/i.test(row.name) &&
+        row.due_date.slice(0, 7) === currentMonth
+          ? previousMonthTax.estimatedVatPayable
+          : undefined,
       dueDate: row.due_date,
       kind: row.kind,
       recurrence: row.recurrence || undefined,
@@ -566,7 +571,10 @@ export async function getOperationsData() {
   );
   const pendingObligations = obligations.reduce(
     (total, item) =>
-      total + (item.dueDate.slice(0, 7) <= currentMonth ? item.amount || 0 : 0),
+      total +
+      (item.dueDate.slice(0, 7) <= currentMonth
+        ? (item.amount ?? item.erpEstimatedAmount ?? 0)
+        : 0),
     0,
   );
   const cycleOperations = operations.filter(
@@ -593,7 +601,10 @@ export async function getOperationsData() {
     .reduce((total, operation) => total + operation.gross, 0);
   const cyclePendingPayments = obligations
     .filter((item) => item.dueDate >= cycle.start && item.dueDate <= cycle.end)
-    .reduce((total, item) => total + (item.amount || 0), 0);
+    .reduce(
+      (total, item) => total + (item.amount ?? item.erpEstimatedAmount ?? 0),
+      0,
+    );
   const cyclePendingProvisions = pendingProvisions;
 
   return {
