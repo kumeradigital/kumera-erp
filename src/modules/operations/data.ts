@@ -175,7 +175,7 @@ export async function getOperationsData() {
       supabase
         .from("cash_sessions")
         .select(
-          "id,opened_at,closed_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,commission_net_amount,commission_tax_amount),cash_session_withdrawals(amount,category,is_business_expense,created_at)",
+          "id,opened_at,closed_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales,commission_net_amount,commission_tax_amount),cash_session_withdrawals(amount,reason,category,is_business_expense,created_at)",
         )
         .eq("business_id", membership.business_id)
         .eq("status", "closed")
@@ -670,6 +670,10 @@ export async function getOperationsData() {
     string,
     Map<string, number>
   >();
+  const cashWithdrawalDetailsByMonth = new Map<
+    string,
+    Map<string, Map<string, number>>
+  >();
   for (const session of sessions.data || []) {
     for (const withdrawal of session.cash_session_withdrawals || []) {
       const month = new Intl.DateTimeFormat("en-CA", {
@@ -689,6 +693,18 @@ export async function getOperationsData() {
         : "Retiros personales";
       categories.set(category, (categories.get(category) || 0) + amount);
       cashWithdrawalCategoriesByMonth.set(month, categories);
+      const monthDetails =
+        cashWithdrawalDetailsByMonth.get(month) ||
+        new Map<string, Map<string, number>>();
+      const categoryDetails =
+        monthDetails.get(category) || new Map<string, number>();
+      const description = withdrawal.reason || "Retiro registrado en caja";
+      categoryDetails.set(
+        description,
+        (categoryDetails.get(description) || 0) + amount,
+      );
+      monthDetails.set(category, categoryDetails);
+      cashWithdrawalDetailsByMonth.set(month, monthDetails);
     }
   }
   const detailedByMonth = new Map<
@@ -824,7 +840,14 @@ export async function getOperationsData() {
         purchaseTaxCredit,
         cardFeeTaxCredit: reconciled.commissionTax,
       });
+      const confirmedVat = obligationRows.find(
+        (row) =>
+          /iva|f29|formulario 29/i.test(row.name) &&
+          row.name.toLocaleLowerCase("es").includes(monthName(month)) &&
+          row.amount != null,
+      );
       const spendingCategories = new Map<string, number>();
+      const spendingDetails = new Map<string, Map<string, number>>();
       for (const operation of paidOperations) {
         if (["other_income", "owner_contribution"].includes(operation.type))
           continue;
@@ -832,21 +855,42 @@ export async function getOperationsData() {
           operation.category,
           (spendingCategories.get(operation.category) || 0) + operation.gross,
         );
+        const categoryDetails =
+          spendingDetails.get(operation.category) || new Map<string, number>();
+        categoryDetails.set(
+          operation.description,
+          (categoryDetails.get(operation.description) || 0) + operation.gross,
+        );
+        spendingDetails.set(operation.category, categoryDetails);
       }
       for (const [category, total] of cashWithdrawalCategoriesByMonth.get(
         month,
-      ) || [])
+      ) || []) {
         spendingCategories.set(
           category,
           (spendingCategories.get(category) || 0) + total,
         );
+        const categoryDetails =
+          spendingDetails.get(category) || new Map<string, number>();
+        for (const [description, detailTotal] of cashWithdrawalDetailsByMonth
+          .get(month)
+          ?.get(category) || [])
+          categoryDetails.set(
+            description,
+            (categoryDetails.get(description) || 0) + detailTotal,
+          );
+        spendingDetails.set(category, categoryDetails);
+      }
       const salesCategories = new Map(detail.categories);
       const unallocatedSales = Math.max(
         0,
         reconciled.grossSales - detail.detailedSales,
       );
       if (unallocatedSales > 0)
-        salesCategories.set("Sin desglose", unallocatedSales);
+        salesCategories.set(
+          "Cierres sin detalle de productos",
+          unallocatedSales,
+        );
       return {
         month,
         closedDays: reconciled.closedDays,
@@ -866,15 +910,32 @@ export async function getOperationsData() {
         purchasesPaid: Math.round(purchasesPaid),
         businessExpensesPaid: Math.round(businessExpensesPaid),
         ownerWithdrawals: Math.round(ownerWithdrawals),
-        estimatedVatPayable: vat.estimatedVatPayable,
+        estimatedVatPayable:
+          confirmedVat?.amount == null
+            ? vat.estimatedVatPayable
+            : Number(confirmedVat.amount),
+        erpEstimatedVatPayable: vat.estimatedVatPayable,
+        vatAmountSource: confirmedVat?.amount == null ? "erp" : "sii",
         costCoveragePercentage: reconciled.grossSales
           ? Math.min(100, (detail.costedSales / reconciled.grossSales) * 100)
+          : 0,
+        salesDetailCoveragePercentage: reconciled.grossSales
+          ? Math.min(100, (detail.detailedSales / reconciled.grossSales) * 100)
           : 0,
         salesByCategory: [...salesCategories]
           .map(([category, total]) => ({ category, total: Math.round(total) }))
           .sort((a, b) => b.total - a.total),
         spendingByCategory: [...spendingCategories]
-          .map(([category, total]) => ({ category, total: Math.round(total) }))
+          .map(([category, total]) => ({
+            category,
+            total: Math.round(total),
+            details: [...(spendingDetails.get(category) || [])]
+              .map(([description, detailTotal]) => ({
+                description,
+                total: Math.round(detailTotal),
+              }))
+              .sort((a, b) => b.total - a.total),
+          }))
           .sort((a, b) => b.total - a.total),
       };
     });

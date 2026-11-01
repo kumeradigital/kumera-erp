@@ -859,10 +859,21 @@ function MonthlyHistoryView({
           <div className="mt-4 grid grid-cols-2 gap-3">
             <MiniAmount label="Venta sin IVA" value={summary.netSales} />
             <MiniAmount
-              label="IVA estimado del período"
+              label={
+                summary.vatAmountSource === "sii"
+                  ? "IVA confirmado según SII"
+                  : "IVA estimado por el ERP"
+              }
               value={summary.estimatedVatPayable}
             />
           </div>
+          {summary.vatAmountSource === "sii" && (
+            <p className="mt-3 text-xs leading-5 text-[#667066]">
+              Estimación previa del ERP:{" "}
+              {formatClp(summary.erpEstimatedVatPayable)}. El cierre usa el
+              monto manual confirmado en el SII.
+            </p>
+          )}
         </div>
 
         <section className="card p-5 xl:col-span-7">
@@ -941,10 +952,12 @@ function MonthlyHistoryView({
         <BreakdownCard
           title="Ventas por categoría"
           items={summary.salesByCategory}
+          note={`El ${summary.salesDetailCoveragePercentage.toFixed(1)}% de las ventas tiene productos individualizados. Los cierres anteriores a ese registro se muestran separados, sin inventar una categoría.`}
         />
         <BreakdownCard
           title="Pagos por categoría"
           items={summary.spendingByCategory}
+          expandable
         />
       </div>
     </section>
@@ -954,14 +967,23 @@ function MonthlyHistoryView({
 function BreakdownCard({
   title,
   items,
+  note,
+  expandable = false,
 }: {
   title: string;
-  items: { category: string; total: number }[];
+  items: {
+    category: string;
+    total: number;
+    details?: { description: string; total: number }[];
+  }[];
+  note?: string;
+  expandable?: boolean;
 }) {
   const maximum = Math.max(1, ...items.map((item) => item.total));
   return (
     <section className="card p-5 xl:col-span-6">
       <h2 className="text-lg font-black">{title}</h2>
+      {note && <p className="mt-1 text-xs leading-5 text-[#777]">{note}</p>}
       <div className="mt-4 space-y-4">
         {items.slice(0, 8).map((item) => (
           <div key={item.category}>
@@ -977,6 +999,27 @@ function BreakdownCard({
                 }}
               />
             </div>
+            {expandable && Boolean(item.details?.length) && (
+              <details className="mt-2 rounded-xl border border-[#e0e2da] bg-[#fafaf5] px-3 py-2">
+                <summary className="cursor-pointer text-xs font-black text-[#235b45]">
+                  Ver {item.details!.length} movimiento
+                  {item.details!.length === 1 ? "" : "s"}
+                </summary>
+                <div className="mt-2 divide-y divide-[#e5e6df]">
+                  {item.details!.map((detail) => (
+                    <div
+                      key={`${item.category}-${detail.description}`}
+                      className="flex items-start justify-between gap-4 py-2 text-xs"
+                    >
+                      <span>{detail.description}</span>
+                      <span className="money shrink-0 font-black">
+                        {formatClp(detail.total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         ))}
         {!items.length && (

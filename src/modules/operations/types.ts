@@ -81,9 +81,16 @@ export type MonthlyFinancialSummary = {
   businessExpensesPaid: number;
   ownerWithdrawals: number;
   estimatedVatPayable: number;
+  erpEstimatedVatPayable: number;
+  vatAmountSource: "sii" | "erp";
   costCoveragePercentage: number;
+  salesDetailCoveragePercentage: number;
   salesByCategory: { category: string; total: number }[];
-  spendingByCategory: { category: string; total: number }[];
+  spendingByCategory: {
+    category: string;
+    total: number;
+    details: { description: string; total: number }[];
+  }[];
 };
 
 export type FinancialCutoff = {
