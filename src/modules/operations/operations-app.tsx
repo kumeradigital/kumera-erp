@@ -306,8 +306,10 @@ export function OperationsApp({
             />
             <CashCommitmentsView
               obligations={obligations}
+              provisions={provisions}
               onAdd={() => setAddingObligation(true)}
               onPay={setPayingObligation}
+              onPayProvision={setPayingProvision}
               onSetAmount={setSettingObligationAmount}
             />
           </>
@@ -943,14 +945,6 @@ function ProvisionsView({
   const current = provisions.filter(
     (item) => item.economicMonth.slice(0, 7) === currentMonth,
   );
-  const openPensionPaymentsDueNow = provisions.filter(
-    (item) =>
-      isPensionProvision(item) &&
-      item.economicMonth.slice(0, 7) < currentMonth &&
-      item.status !== "reconciled" &&
-      item.status !== "cancelled",
-  );
-  const pensionProvisionInFormation = current.filter(isPensionProvision);
   const currentWithoutPension = current.filter(
     (item) => !isPensionProvision(item),
   );
@@ -1001,16 +995,6 @@ function ProvisionsView({
         <Metric l="Pagado y conciliado" v={paid} />
         <Metric l="Saldo pendiente de pago" v={outstanding} warning />
       </div>
-      {openPensionPaymentsDueNow.length > 0 && (
-        <ProvisionSection
-          title={`Cotizaciones por pagar en ${formatEconomicMonth(currentMonth)}`}
-          subtitle="Corresponden al personal del mes anterior y ahora sí son una salida de caja. La fecha objetivo es el día 10; mantenlas reservadas y registra aquí el pago real de Previred."
-          provisions={openPensionPaymentsDueNow}
-          onPay={onPay}
-          onClose={onClose}
-          warning
-        />
-      )}
       {outstandingFromPriorMonths.length > 0 && (
         <ProvisionSection
           title="Pendientes de meses anteriores"
@@ -1029,16 +1013,6 @@ function ProvisionsView({
         onClose={onClose}
         empty="Todavía no hay provisiones para el mes actual."
       />
-      {pensionProvisionInFormation.length > 0 && (
-        <ProvisionSection
-          title={`Cotizaciones de ${formatEconomicMonth(currentMonth)} en formación`}
-          subtitle="Este costo pertenece al mes actual, pero se pagará el día 10 del mes siguiente. Por ahora sirve como monto estimado para reservar; el pago se habilita cuando pase a la sección de vencimientos del próximo mes."
-          provisions={pensionProvisionInFormation}
-          onPay={onPay}
-          onClose={onClose}
-          paymentsEnabled={false}
-        />
-      )}
       {concludedFromPriorMonths.length > 0 && (
         <details className="card mt-5 overflow-hidden">
           <summary className="cursor-pointer px-5 py-4 font-black text-[#4f574f]">
@@ -1063,7 +1037,6 @@ function ProvisionSection({
   onClose,
   empty,
   warning = false,
-  paymentsEnabled = true,
 }: {
   title: string;
   subtitle: string;
@@ -1072,7 +1045,6 @@ function ProvisionSection({
   onClose: (provision: ExpenseProvision) => void | Promise<void>;
   empty?: string;
   warning?: boolean;
-  paymentsEnabled?: boolean;
 }) {
   return (
     <div className="mt-5">
@@ -1088,7 +1060,6 @@ function ProvisionSection({
           onPay={onPay}
           onClose={onClose}
           empty={empty}
-          paymentsEnabled={paymentsEnabled}
         />
       </div>
     </div>
@@ -1100,13 +1071,11 @@ function ProvisionTable({
   onPay,
   onClose,
   empty,
-  paymentsEnabled = true,
 }: {
   provisions: ExpenseProvision[];
   onPay: (provision: ExpenseProvision) => void;
   onClose: (provision: ExpenseProvision) => void | Promise<void>;
   empty?: string;
-  paymentsEnabled?: boolean;
 }) {
   const sortedProvisions = [...provisions].sort((a, b) => {
     if (!a.dueDate && !b.dueDate) return a.name.localeCompare(b.name, "es");
@@ -1189,8 +1158,7 @@ function ProvisionTable({
                   />
                 </td>
                 <td className="p-3 text-right">
-                  {paymentsEnabled &&
-                    item.status !== "cancelled" &&
+                  {item.status !== "cancelled" &&
                     item.status !== "reconciled" && (
                       <div className="flex justify-end gap-2">
                         <button
@@ -1212,13 +1180,6 @@ function ProvisionTable({
                           </button>
                         )}
                       </div>
-                    )}
-                  {!paymentsEnabled &&
-                    item.status !== "cancelled" &&
-                    item.status !== "reconciled" && (
-                      <span className="inline-block rounded-full bg-[#edf3e8] px-3 py-2 text-xs font-black text-[#45614d]">
-                        Reservar para el próximo mes
-                      </span>
                     )}
                 </td>
               </tr>
@@ -1259,13 +1220,17 @@ function provisionUrgency(provision: ExpenseProvision) {
 
 function CashCommitmentsView({
   obligations,
+  provisions,
   onAdd,
   onPay,
+  onPayProvision,
   onSetAmount,
 }: {
   obligations: FinancialObligation[];
+  provisions: ExpenseProvision[];
   onAdd: () => void;
   onPay: (obligation: FinancialObligation) => void;
+  onPayProvision: (provision: ExpenseProvision) => void;
   onSetAmount: (obligation: FinancialObligation) => void;
 }) {
   const currentMonth = todayInChile().slice(0, 7);
@@ -1275,6 +1240,20 @@ function CashCommitmentsView({
   const future = obligations.filter(
     (item) => item.dueDate.slice(0, 7) > currentMonth,
   );
+  const openPensionProvisions = provisions.filter(
+    (item) =>
+      isPensionProvision(item) &&
+      item.trackingMode === "fixed_target" &&
+      item.status !== "reconciled" &&
+      item.status !== "cancelled" &&
+      item.dueDate,
+  );
+  const currentPensionProvisions = openPensionProvisions.filter(
+    (item) => item.dueDate!.slice(0, 7) <= currentMonth,
+  );
+  const futurePensionProvisions = openPensionProvisions.filter(
+    (item) => item.dueDate!.slice(0, 7) > currentMonth,
+  );
 
   return (
     <section className="mt-8">
@@ -1283,13 +1262,11 @@ function CashCommitmentsView({
           <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
             Liquidez y deudas
           </p>
-          <h2 className="mt-2 text-2xl font-black">
-            Otros compromisos de caja
-          </h2>
+          <h2 className="mt-2 text-2xl font-black">Compromisos de caja</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#747970]">
-            Aquí van IVA, créditos y pagos excepcionales que no están cubiertos
-            por una provisión. Arriendos, remuneraciones, imposiciones y
-            servicios se controlan arriba para no reservarlos dos veces.
+            Aquí se agrupan IVA, cotizaciones previsionales, créditos y pagos
+            excepcionales según el mes en que saldrá el dinero. El costo de las
+            cotizaciones sigue reconocido en su mes de origen y no se duplica.
           </p>
         </div>
         <button
@@ -1303,19 +1280,23 @@ function CashCommitmentsView({
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <ObligationGroup
           title="Vigentes"
-          subtitle="Vencidos o con pago dentro del mes actual"
+          subtitle="IVA, cotizaciones y otros pagos exigibles este mes"
           obligations={current}
+          provisions={currentPensionProvisions}
           empty="No hay otros compromisos exigibles este mes."
           onPay={onPay}
+          onPayProvision={onPayProvision}
           onSetAmount={onSetAmount}
           current
         />
         <ObligationGroup
           title="Próximos"
-          subtitle="Pagos posteriores al mes actual"
+          subtitle="Montos en formación o pagos posteriores al mes actual"
           obligations={future}
+          provisions={futurePensionProvisions}
           empty="No hay otros compromisos futuros registrados."
           onPay={onPay}
+          onPayProvision={onPayProvision}
           onSetAmount={onSetAmount}
         />
       </div>
@@ -1566,16 +1547,20 @@ function ObligationGroup({
   title,
   subtitle,
   obligations,
+  provisions,
   empty,
   onPay,
+  onPayProvision,
   onSetAmount,
   current = false,
 }: {
   title: string;
   subtitle: string;
   obligations: FinancialObligation[];
+  provisions: ExpenseProvision[];
   empty: string;
   onPay: (obligation: FinancialObligation) => void;
+  onPayProvision: (provision: ExpenseProvision) => void;
   onSetAmount: (obligation: FinancialObligation) => void;
   current?: boolean;
 }) {
@@ -1667,7 +1652,40 @@ function ObligationGroup({
             </div>
           </div>
         ))}
-        {!obligations.length && (
+        {provisions.map((item) => (
+          <div key={item.id} className="rounded-xl border bg-[#fffef9] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-black">{item.name}</p>
+                <p className="mt-1 text-xs text-[#777]">
+                  Vence {item.dueDate ? formatDate(item.dueDate) : "—"} · Costo
+                  reconocido en {formatEconomicMonth(item.economicMonth)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="money font-black">
+                  {formatClp(item.outstandingAmount)}
+                </p>
+                <span className="mt-1 inline-block rounded-full bg-[#eeeeea] px-2 py-1 text-xs font-bold text-[#70736c]">
+                  {current ? "Por pagar" : "En formación"}
+                </span>
+              </div>
+            </div>
+            {item.note && (
+              <p className="mt-3 text-xs text-[#777]">{item.note}</p>
+            )}
+            {current && (
+              <button
+                type="button"
+                onClick={() => onPayProvision(item)}
+                className="mt-4 w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
+              >
+                Registrar pago
+              </button>
+            )}
+          </div>
+        ))}
+        {!obligations.length && !provisions.length && (
           <p className="rounded-xl border border-dashed border-[#cfd3ca] p-4 text-sm text-[#777]">
             {empty}
           </p>
