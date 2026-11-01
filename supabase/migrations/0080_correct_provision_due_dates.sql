@@ -1,7 +1,6 @@
--- Arriendo y electricidad corresponden económicamente al mes provisionado,
--- pero se pagan el día 5 del mes siguiente.
+-- Arriendo y electricidad vencen el día 5 del mes provisionado.
 update public.expense_provisions
-set due_date = (economic_month + interval '1 month 4 days')::date,
+set due_date = (economic_month + interval '4 days')::date,
     updated_at = now()
 where economic_month >= date '2026-11-01'
   and status in ('estimated', 'partial')
@@ -70,7 +69,7 @@ begin
         or lower(fc.name) like '%arriendo%'
         or lower(fc.name) like '%electric%'
         or lower(fc.name) like '%luz%'
-        then (p_month + interval '1 month 4 days')::date
+        then (p_month + interval '4 days')::date
       else (p_month + interval '1 month - 1 day')::date
     end,
     fc.affects_profitability,
