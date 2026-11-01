@@ -38,6 +38,7 @@ import {
   type FinancialCutoff,
   type FinancialObligation,
   type ExpenseProvision,
+  type MonthlyFinancialSummary,
   type Operation,
   type OperationType,
 } from "./types";
@@ -56,6 +57,7 @@ export function OperationsApp({
   monthlyFixedCosts,
   costSettings,
   businessPulse,
+  monthlyHistory,
 }: {
   operations: Operation[];
   ingredients: { id: string; name: string; base_unit: string }[];
@@ -67,6 +69,7 @@ export function OperationsApp({
   monthlyFixedCosts: number;
   costSettings: CostSettings;
   businessPulse: BusinessPulse;
+  monthlyHistory: MonthlyFinancialSummary[];
   summary: {
     openingBalance: number;
     expectedBank: number;
@@ -90,6 +93,7 @@ export function OperationsApp({
     pendingVatObligations: number;
     pendingOtherObligations: number;
     pendingProvisions: number;
+    currentMonthClosedDays: number;
     salesTaxDebit: number;
     recoverableTaxCredit: number;
     estimatedVatPayable: number;
@@ -99,7 +103,7 @@ export function OperationsApp({
 }) {
   const [open, setOpen] = useState(false);
   const [financeView, setFinanceView] = useState<
-    "overview" | "structure" | "provisions" | "projection"
+    "overview" | "history" | "structure" | "provisions" | "projection"
   >("overview");
   const [quickOpen, setQuickOpen] = useState(false);
   const [showMobileDashboard, setShowMobileDashboard] = useState(false);
@@ -166,10 +170,21 @@ export function OperationsApp({
     summary.provisionedExpenses > 0
       ? summary.provisionedExpenses
       : monthlyFixedCosts;
-  const projectedOperatingResult =
-    businessPulse.projectedMonthlyContribution -
-    businessPulse.projectedMonthlyWasteReserve -
-    effectiveMonthlyCosts;
+  const remainingOperatingDays = Math.max(
+    0,
+    businessPulse.operatingDaysMonth - summary.currentMonthClosedDays,
+  );
+  const projectedRemainingContribution = Math.round(
+    businessPulse.averageDailySales *
+      ((businessPulse.observedContributionPercentage -
+        businessPulse.operationalWastePercentage) /
+        100) *
+      remainingOperatingDays,
+  );
+  const projectedMonthEndCash =
+    summary.availableLiquidity + projectedRemainingContribution;
+  const commitmentsDueThisMonth =
+    summary.pendingObligations + summary.pendingProvisions;
   const otherPaidExpenses =
     summary.monthlyFixedPayments +
     summary.monthlyVariableExpenses +
@@ -251,6 +266,11 @@ export function OperationsApp({
               icon: <LayoutDashboard size={16} />,
             },
             {
+              id: "history" as const,
+              label: "Cierres mensuales",
+              icon: <Landmark size={16} />,
+            },
+            {
               id: "structure" as const,
               label: "Gastos planificados",
               icon: <Calculator size={16} />,
@@ -291,6 +311,9 @@ export function OperationsApp({
             estimatedVatPayable={summary.estimatedVatPayable}
             vatRate={costSettings.vatRate}
           />
+        )}
+        {financeView === "history" && (
+          <MonthlyHistoryView summaries={monthlyHistory} />
         )}
         {financeView === "provisions" && (
           <>
@@ -367,24 +390,19 @@ export function OperationsApp({
               </p>
             </div>
             <div className="mt-4 grid gap-4 xl:grid-cols-12">
-              <div
-                className={`rounded-2xl border p-6 xl:col-span-7 ${summary.availableLiquidity < 0 ? "border-[#e2b9aa] bg-[#fff0ea]" : "border-[#b9d0b8] bg-[#e8f0e6]"}`}
-              >
+              <div className="rounded-2xl border border-[#cbd8c7] bg-[#f2f7ef] p-6 xl:col-span-7">
                 <p className="text-xs font-black uppercase tracking-[.14em] text-[#59635b]">
-                  Liquidez disponible del ciclo actual
+                  Saldo disponible hoy
                 </p>
-                <p
-                  className={`money mt-3 text-4xl font-black ${summary.availableLiquidity < 0 ? "text-[#9a3f22]" : "text-[#235b45]"}`}
-                >
-                  {formatClp(summary.availableLiquidity)}
+                <p className="money mt-3 text-4xl font-black text-[#235b45]">
+                  {formatClp(summary.expectedTotal)}
                 </p>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-[#59635b]">
-                  Saldo estimado después de descontar provisiones y compromisos
-                  cuyo pago corresponde a este mes. El IVA que se está formando
-                  para el próximo mes se informa aparte, pero todavía no reduce
-                  esta cifra.
+                  Banco y efectivo estimados después de todos los movimientos
+                  efectivamente registrados desde el último corte. Aquí todavía
+                  no se descuentan pagos futuros.
                 </p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <MiniAmount
                     label="Banco esperado"
                     value={summary.expectedBank}
@@ -393,43 +411,46 @@ export function OperationsApp({
                     label="Efectivo esperado"
                     value={summary.expectedCash}
                   />
-                  <MiniAmount
-                    label="Saldo total esperado"
-                    value={summary.expectedTotal}
-                  />
                 </div>
               </div>
 
               <div
-                className={`rounded-2xl border p-6 xl:col-span-5 ${projectedOperatingResult >= 0 ? "border-[#c9d8c5] bg-[#f2f7ef]" : "border-[#e6d397] bg-[#fff9e8]"}`}
+                className={`rounded-2xl border p-6 xl:col-span-5 ${projectedMonthEndCash >= 0 ? "border-[#c9d8c5] bg-[#f2f7ef]" : "border-[#e2b9aa] bg-[#fff0ea]"}`}
               >
                 <p className="text-xs font-black uppercase tracking-[.14em] text-[#59635b]">
-                  Salud operativa proyectada
+                  Caja proyectada al cierre del mes
                 </p>
-                <p className="money mt-3 text-3xl font-black">
-                  {formatClp(Math.round(projectedOperatingResult))}
+                <p
+                  className={`money mt-3 text-3xl font-black ${projectedMonthEndCash < 0 ? "text-[#9a3f22]" : "text-[#235b45]"}`}
+                >
+                  {formatClp(projectedMonthEndCash)}
                 </p>
-                <p className="mt-2 text-sm font-black text-[#235b45]">
-                  {projectedOperatingResult < 0
-                    ? "El negocio no alcanza a cubrir su estructura"
-                    : businessPulse.projectedMonthlySales > 0 &&
-                        projectedOperatingResult /
-                          businessPulse.projectedMonthlySales <
-                          0.1
-                      ? "Resultado positivo, pero todavía ajustado"
-                      : "Resultado operativo saludable"}
-                </p>
-                <p className="mt-3 text-xs leading-5 text-[#666]">
-                  Proyección automática con ventas conciliadas, recetas,
-                  comisiones, merma adicional y provisiones del mes. No es el
-                  saldo bancario ni incluye impuesto a la renta.
+                <div className="mt-4 space-y-2 text-sm">
+                  <ProjectionLine
+                    label="Saldo disponible hoy"
+                    value={summary.expectedTotal}
+                  />
+                  <ProjectionLine
+                    label="Compromisos con vencimiento este mes"
+                    value={-commitmentsDueThisMonth}
+                  />
+                  <ProjectionLine
+                    label={`Aporte esperado de ${remainingOperatingDays} jornadas restantes`}
+                    value={projectedRemainingContribution}
+                  />
+                </div>
+                <p className="mt-4 text-xs leading-5 text-[#666]">
+                  El aporte esperado descuenta IVA, costo de recetas y
+                  comisiones según el margen real observado. Los pagos se
+                  incluyen por su fecha de vencimiento, sin importar el mes
+                  económico al que pertenecen.
                 </p>
                 <button
                   type="button"
-                  onClick={() => setFinanceView("projection")}
+                  onClick={() => setFinanceView("provisions")}
                   className="mt-5 rounded-xl border border-[#235b45] bg-white px-4 py-2.5 text-xs font-black text-[#235b45]"
                 >
-                  Ver cálculo completo
+                  Ver compromisos y vencimientos
                 </button>
               </div>
 
@@ -764,6 +785,219 @@ export function OperationsApp({
         />
       )}
     </main>
+  );
+}
+
+function MonthlyHistoryView({
+  summaries,
+}: {
+  summaries: MonthlyFinancialSummary[];
+}) {
+  const [selectedMonth, setSelectedMonth] = useState(summaries[0]?.month || "");
+  const summary =
+    summaries.find((item) => item.month === selectedMonth) || summaries[0];
+  if (!summary)
+    return (
+      <section className="card p-10 text-center">
+        <h1 className="text-2xl font-black">Cierres mensuales</h1>
+        <p className="mt-3 text-sm text-[#777]">
+          Todavía no existe un mes cerrado con ventas conciliadas.
+        </p>
+      </section>
+    );
+  const resultHealthy = summary.operatingResult >= 0;
+  return (
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-[#6e746c]">
+            Historia financiera
+          </p>
+          <h1 className="mt-2 text-3xl font-black">Cierre mensual</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#747970]">
+            Ventas conciliadas, resultado económico y movimientos de caja del
+            mes. Rentabilidad y liquidez se muestran por separado para no
+            confundir compras, pagos y costos.
+          </p>
+        </div>
+        <label className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
+          Mes analizado
+          <select
+            value={summary.month}
+            onChange={(event) => setSelectedMonth(event.target.value)}
+            className="input mt-2 min-w-56 bg-white normal-case tracking-normal"
+          >
+            {summaries.map((item) => (
+              <option key={item.month} value={item.month}>
+                {formatEconomicMonth(item.month)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-12">
+        <div className="rounded-2xl border border-[#c9d8c5] bg-[#edf5e9] p-6 xl:col-span-7">
+          <p className="text-xs font-black uppercase tracking-[.14em] text-[#59635b]">
+            Resultado operacional reconstruido
+          </p>
+          <p
+            className={`money mt-3 text-4xl font-black ${resultHealthy ? "text-[#235b45]" : "text-[#9a3f22]"}`}
+          >
+            {formatClp(summary.operatingResult)}
+          </p>
+          <p className="mt-2 text-sm font-black">
+            {resultHealthy
+              ? `El negocio generó un margen operacional de ${summary.operatingMarginPercentage.toFixed(1)}% sobre la venta neta.`
+              : "El margen del mes no alcanzó a cubrir los costos operacionales."}
+          </p>
+          <p className="mt-3 text-xs leading-5 text-[#667066]">
+            Se reconstruye con las ventas reales del mes y los costos de receta
+            actualmente registrados. Cobertura de costeo:{" "}
+            {summary.costCoveragePercentage.toFixed(1)}%. No incluye impuesto a
+            la renta ni representa el saldo bancario final.
+          </p>
+        </div>
+        <div className="card p-6 xl:col-span-5">
+          <p className="text-xs font-black uppercase tracking-[.14em] text-[#6e746c]">
+            Actividad del mes
+          </p>
+          <p className="money mt-3 text-3xl font-black">
+            {formatClp(summary.grossSales)}
+          </p>
+          <p className="mt-1 text-sm text-[#6e746c]">
+            ventas brutas en {summary.closedDays} jornadas conciliadas
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <MiniAmount label="Venta sin IVA" value={summary.netSales} />
+            <MiniAmount
+              label="IVA estimado del período"
+              value={summary.estimatedVatPayable}
+            />
+          </div>
+        </div>
+
+        <section className="card p-5 xl:col-span-7">
+          <h2 className="text-lg font-black">Cómo se formó el resultado</h2>
+          <p className="mt-1 text-xs text-[#777]">
+            Lectura económica: cada cifra pertenece al mes, aunque se haya
+            pagado después.
+          </p>
+          <div className="mt-5 divide-y divide-[#e6e6dd]">
+            <ProjectionLine
+              label="Ventas netas sin IVA"
+              value={summary.netSales}
+            />
+            <ProjectionLine
+              label="Costo estimado de productos vendidos"
+              value={-summary.estimatedProductCost}
+            />
+            <ProjectionLine
+              label="Comisiones netas de tarjetas"
+              value={-summary.commissions}
+            />
+            <ProjectionLine
+              label="Contribución de las ventas"
+              value={summary.estimatedContribution}
+              strong
+            />
+            <ProjectionLine
+              label="Reserva adicional de merma"
+              value={-summary.wasteReserve}
+            />
+            <ProjectionLine
+              label="Remuneraciones, arriendo y otros costos del mes"
+              value={-summary.recognizedOperatingExpenses}
+            />
+            {summary.otherIncome > 0 && (
+              <ProjectionLine
+                label="Otros ingresos"
+                value={summary.otherIncome}
+              />
+            )}
+            <ProjectionLine
+              label="Resultado operacional"
+              value={summary.operatingResult}
+              strong
+            />
+          </div>
+        </section>
+
+        <section className="card p-5 xl:col-span-5">
+          <h2 className="text-lg font-black">En qué salió dinero</h2>
+          <p className="mt-1 text-xs text-[#777]">
+            Lectura de caja: pagos registrados durante el mes, aunque su costo
+            económico pueda pertenecer a otro período.
+          </p>
+          <div className="mt-4 space-y-3">
+            <SpendCard
+              title="Compras de insumos"
+              value={summary.purchasesPaid}
+              detail="Compras pagadas; no se restan otra vez del resultado porque el costo de receta ya representa lo vendido."
+              primary
+            />
+            <SpendCard
+              title="Otros pagos del negocio"
+              value={summary.businessExpensesPaid}
+              detail="Servicios, remuneraciones y gastos efectivamente pagados."
+            />
+            <SpendCard
+              title="Retiros personales"
+              value={summary.ownerWithdrawals}
+              detail="Reducen caja, pero no son un costo del negocio."
+              warning
+            />
+          </div>
+        </section>
+
+        <BreakdownCard
+          title="Ventas por categoría"
+          items={summary.salesByCategory}
+        />
+        <BreakdownCard
+          title="Pagos por categoría"
+          items={summary.spendingByCategory}
+        />
+      </div>
+    </section>
+  );
+}
+
+function BreakdownCard({
+  title,
+  items,
+}: {
+  title: string;
+  items: { category: string; total: number }[];
+}) {
+  const maximum = Math.max(1, ...items.map((item) => item.total));
+  return (
+    <section className="card p-5 xl:col-span-6">
+      <h2 className="text-lg font-black">{title}</h2>
+      <div className="mt-4 space-y-4">
+        {items.slice(0, 8).map((item) => (
+          <div key={item.category}>
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="font-bold">{item.category}</span>
+              <span className="money font-black">{formatClp(item.total)}</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e8e9e2]">
+              <div
+                className="h-full rounded-full bg-[#235b45]"
+                style={{
+                  width: `${Math.max(2, (item.total / maximum) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+        {!items.length && (
+          <p className="text-sm text-[#777]">
+            No hay movimientos clasificados.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -2213,6 +2447,30 @@ function MiniAmount({ label, value }: { label: string; value: number }) {
         {label}
       </p>
       <p className="money mt-2 text-lg font-black">{formatClp(value)}</p>
+    </div>
+  );
+}
+
+function ProjectionLine({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-4 py-2 text-sm ${strong ? "font-black" : ""}`}
+    >
+      <span>{label}</span>
+      <span
+        className={`money shrink-0 ${value < 0 ? "text-[#9a3f22]" : "text-[#235b45]"}`}
+      >
+        {value > 0 ? "+" : ""}
+        {formatClp(value)}
+      </span>
     </div>
   );
 }

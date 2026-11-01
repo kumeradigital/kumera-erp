@@ -1,10 +1,12 @@
 import { createClient } from "@/server/supabase/server";
+import { getCostingData } from "@/modules/costs/data";
 import type {
   FinancialCutoff,
   FinancialObligation,
   ExpenseProvision,
   Operation,
   OperationType,
+  MonthlyFinancialSummary,
 } from "./types";
 import { calculateTaxReserve } from "./calculations";
 import { normalizeOperationCategory } from "./categories";
@@ -47,6 +49,11 @@ function monthName(month: string) {
     month: "long",
     timeZone: "UTC",
   }).format(new Date(`${month}-15T12:00:00Z`));
+}
+
+function nextMonthPaymentDate(economicMonth: string, day: number) {
+  const [year, month] = economicMonth.slice(0, 7).split("-").map(Number);
+  return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
 }
 
 function provisionCoversObligation(
@@ -134,7 +141,7 @@ export async function getOperationsData() {
   if (!cutoffResult.data)
     throw new Error("Falta crear el corte financiero inicial");
 
-  const monthStart = `${previousMonth}-01T00:00:00`;
+  const monthStart = "2026-10-01T00:00:00";
   const sessionQueryStart =
     Date.parse(cutoffResult.data.cutoff_at) < Date.parse(monthStart)
       ? cutoffResult.data.cutoff_at
@@ -197,6 +204,24 @@ export async function getOperationsData() {
     provisionsResult,
   ])
     if (result.error) throw result.error;
+
+  const historicalSessionIds = (sessions.data || []).map(
+    (session) => session.id,
+  );
+  const [historicalSalesResult, historicalCosting] = await Promise.all([
+    historicalSessionIds.length
+      ? supabase
+          .from("sales")
+          .select(
+            "cash_session_id,sale_items(product_id,quantity,line_total,products(product_categories(name)))",
+          )
+          .eq("business_id", membership.business_id)
+          .eq("status", "completed")
+          .in("cash_session_id", historicalSessionIds)
+      : Promise.resolve({ data: [], error: null }),
+    getCostingData({ includeArchivedProducts: true }),
+  ]);
+  if (historicalSalesResult.error) throw historicalSalesResult.error;
 
   const operations: Operation[] = (ops.data || []).map((row) => {
     const ingredient = one(
@@ -274,6 +299,7 @@ export async function getOperationsData() {
   let withdrawals = 0;
   let cycleSales = 0;
   let cycleOwnerWithdrawals = 0;
+  let currentMonthClosedDays = 0;
   for (const session of sessions.data || []) {
     const reconciliation = one(
       session.cash_session_reconciliations as
@@ -293,6 +319,7 @@ export async function getOperationsData() {
           month: "2-digit",
         }).format(new Date(session.closed_at)) === currentMonth
       ) {
+        currentMonthClosedDays += 1;
         monthlySales += sessionCashSales + sessionBankSales;
         monthlyCardFees +=
           Number(reconciliation.commission_net_amount || 0) +
@@ -511,6 +538,14 @@ export async function getOperationsData() {
                 : paidAmount > 0
                   ? "partial"
                   : "estimated";
+      const provisionIdentity = `${row.category} ${row.name}`.toLocaleLowerCase(
+        "es",
+      );
+      const normalizedDueDate = /remuner/.test(provisionIdentity)
+        ? nextMonthPaymentDate(row.economic_month, 5)
+        : /cotiza|previsional|imposiciones/.test(provisionIdentity)
+          ? nextMonthPaymentDate(row.economic_month, 10)
+          : row.due_date || undefined;
       return {
         id: row.id,
         name: row.name,
@@ -535,7 +570,7 @@ export async function getOperationsData() {
               ? paidAmount
               : Math.max(expectedAmount, paidAmount)
             : expectedAmount,
-        dueDate: row.due_date || undefined,
+        dueDate: normalizedDueDate,
         affectsProfitability: row.affects_profitability,
         status: calculatedStatus,
         note: row.note || undefined,
@@ -563,7 +598,8 @@ export async function getOperationsData() {
       item.trackingMode === "fixed_target" &&
       item.status !== "cancelled" &&
       item.outstandingAmount > 0 &&
-      item.economicMonth.slice(0, 7) < currentMonth,
+      item.dueDate != null &&
+      item.dueDate.slice(0, 7) <= currentMonth,
   );
   const pendingProvisions = provisionsDueThisMonth.reduce(
     (total, item) => total + item.outstandingAmount,
@@ -580,6 +616,268 @@ export async function getOperationsData() {
     .filter((item) => !/iva|impuesto|f29|formulario 29/i.test(item.name))
     .reduce((total, item) => total + obligationAmountDueThisMonth(item), 0);
   const pendingObligations = pendingVatObligations + pendingOtherObligations;
+
+  const monthBySession = new Map<string, string>();
+  const reconciledByMonth = new Map<
+    string,
+    {
+      grossSales: number;
+      closedDays: number;
+      commissionNet: number;
+      commissionTax: number;
+    }
+  >();
+  for (const session of sessions.data || []) {
+    if (!session.closed_at) continue;
+    const month = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Santiago",
+      year: "numeric",
+      month: "2-digit",
+    }).format(new Date(session.closed_at));
+    monthBySession.set(session.id, month);
+    const reconciliation = one(
+      session.cash_session_reconciliations as
+        Reconciliation | Reconciliation[] | null,
+    );
+    if (!reconciliation) continue;
+    const accumulated = reconciledByMonth.get(month) || {
+      grossSales: 0,
+      closedDays: 0,
+      commissionNet: 0,
+      commissionTax: 0,
+    };
+    accumulated.grossSales +=
+      Number(reconciliation.actual_cash_sales || 0) +
+      Number(reconciliation.actual_debit_sales || 0) +
+      Number(reconciliation.actual_credit_sales || 0) +
+      Number(reconciliation.actual_transfer_sales || 0);
+    accumulated.closedDays += 1;
+    accumulated.commissionNet += Number(
+      reconciliation.commission_net_amount || 0,
+    );
+    accumulated.commissionTax += Number(
+      reconciliation.commission_tax_amount || 0,
+    );
+    reconciledByMonth.set(month, accumulated);
+  }
+
+  const analysisMap = new Map(
+    historicalCosting.analyses.map((analysis) => [analysis.id, analysis]),
+  );
+  const cashBusinessWithdrawalsByMonth = new Map<string, number>();
+  const cashOwnerWithdrawalsByMonth = new Map<string, number>();
+  const cashWithdrawalCategoriesByMonth = new Map<
+    string,
+    Map<string, number>
+  >();
+  for (const session of sessions.data || []) {
+    for (const withdrawal of session.cash_session_withdrawals || []) {
+      const month = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Santiago",
+        year: "numeric",
+        month: "2-digit",
+      }).format(new Date(withdrawal.created_at));
+      const amount = Number(withdrawal.amount);
+      const target = withdrawal.is_business_expense
+        ? cashBusinessWithdrawalsByMonth
+        : cashOwnerWithdrawalsByMonth;
+      target.set(month, (target.get(month) || 0) + amount);
+      const categories =
+        cashWithdrawalCategoriesByMonth.get(month) || new Map<string, number>();
+      const category = withdrawal.is_business_expense
+        ? withdrawal.category || "Gastos desde caja"
+        : "Retiros personales";
+      categories.set(category, (categories.get(category) || 0) + amount);
+      cashWithdrawalCategoriesByMonth.set(month, categories);
+    }
+  }
+  const detailedByMonth = new Map<
+    string,
+    {
+      detailedSales: number;
+      costedSales: number;
+      directProductCost: number;
+      categories: Map<string, number>;
+    }
+  >();
+  for (const sale of historicalSalesResult.data || []) {
+    const month = monthBySession.get(sale.cash_session_id);
+    if (!month) continue;
+    const detail = detailedByMonth.get(month) || {
+      detailedSales: 0,
+      costedSales: 0,
+      directProductCost: 0,
+      categories: new Map<string, number>(),
+    };
+    for (const item of sale.sale_items || []) {
+      const lineTotal = Number(item.line_total);
+      detail.detailedSales += lineTotal;
+      const product = one(item.products);
+      const category =
+        one(product?.product_categories || null)?.name || "Sin categoría";
+      detail.categories.set(
+        category,
+        (detail.categories.get(category) || 0) + lineTotal,
+      );
+      const analysis = analysisMap.get(item.product_id);
+      if (!analysis?.complete) continue;
+      detail.costedSales += lineTotal;
+      detail.directProductCost +=
+        (analysis.physicalCost + analysis.wasteCost) * Number(item.quantity);
+    }
+    detailedByMonth.set(month, detail);
+  }
+
+  const monthlyHistory: MonthlyFinancialSummary[] = [
+    ...reconciledByMonth.keys(),
+  ]
+    .filter((month) => month < currentMonth)
+    .sort((a, b) => b.localeCompare(a))
+    .map((month) => {
+      const reconciled = reconciledByMonth.get(month)!;
+      const detail = detailedByMonth.get(month) || {
+        detailedSales: 0,
+        costedSales: 0,
+        directProductCost: 0,
+        categories: new Map<string, number>(),
+      };
+      const estimatedProductCost = detail.costedSales
+        ? Math.round(
+            reconciled.grossSales *
+              (detail.directProductCost / detail.costedSales),
+          )
+        : 0;
+      const netSales = Math.round(
+        reconciled.grossSales / (1 + historicalCosting.settings.vatRate / 100),
+      );
+      const estimatedContribution = Math.round(
+        netSales - estimatedProductCost - reconciled.commissionNet,
+      );
+      const wasteReserve = Math.round(
+        reconciled.grossSales *
+          (historicalCosting.settings.operationalWastePercentage / 100),
+      );
+      const recognizedOperatingExpenses =
+        operations
+          .filter(
+            (operation) =>
+              operation.economicMonth.slice(0, 7) === month &&
+              countsInMonthlyBooks(operation) &&
+              operation.affectsProfitability &&
+              !operation.provisionId &&
+              ["fixed_cost", "expense"].includes(operation.type),
+          )
+          .reduce(
+            (total, operation) => total + operation.profitabilityAmount,
+            0,
+          ) +
+        provisions
+          .filter(
+            (item) =>
+              item.economicMonth.slice(0, 7) === month &&
+              item.affectsProfitability &&
+              item.status !== "cancelled",
+          )
+          .reduce((total, item) => total + item.economicAmount, 0) +
+        (cashBusinessWithdrawalsByMonth.get(month) || 0);
+      const otherIncome = operations
+        .filter(
+          (operation) =>
+            operation.economicMonth.slice(0, 7) === month &&
+            countsInMonthlyBooks(operation) &&
+            operation.type === "other_income",
+        )
+        .reduce((total, operation) => total + operation.gross, 0);
+      const operatingResult = Math.round(
+        estimatedContribution -
+          wasteReserve -
+          recognizedOperatingExpenses +
+          otherIncome,
+      );
+      const paidOperations = operations.filter(
+        (operation) =>
+          operation.date.slice(0, 7) === month &&
+          countsInMonthlyBooks(operation),
+      );
+      const purchasesPaid = paidOperations
+        .filter((operation) => operation.type === "purchase")
+        .reduce((total, operation) => total + operation.gross, 0);
+      const businessExpensesPaid =
+        paidOperations
+          .filter((operation) =>
+            ["fixed_cost", "expense"].includes(operation.type),
+          )
+          .reduce((total, operation) => total + operation.gross, 0) +
+        (cashBusinessWithdrawalsByMonth.get(month) || 0);
+      const ownerWithdrawals =
+        paidOperations
+          .filter((operation) => operation.type === "owner_withdrawal")
+          .reduce((total, operation) => total + operation.gross, 0) +
+        (cashOwnerWithdrawalsByMonth.get(month) || 0);
+      const purchaseTaxCredit = paidOperations
+        .filter((operation) =>
+          ["purchase", "fixed_cost", "expense"].includes(operation.type),
+        )
+        .reduce((total, operation) => total + operation.tax, 0);
+      const vat = calculateTaxReserve({
+        grossSales: reconciled.grossSales,
+        purchaseTaxCredit,
+        cardFeeTaxCredit: reconciled.commissionTax,
+      });
+      const spendingCategories = new Map<string, number>();
+      for (const operation of paidOperations) {
+        if (["other_income", "owner_contribution"].includes(operation.type))
+          continue;
+        spendingCategories.set(
+          operation.category,
+          (spendingCategories.get(operation.category) || 0) + operation.gross,
+        );
+      }
+      for (const [category, total] of cashWithdrawalCategoriesByMonth.get(
+        month,
+      ) || [])
+        spendingCategories.set(
+          category,
+          (spendingCategories.get(category) || 0) + total,
+        );
+      const salesCategories = new Map(detail.categories);
+      const unallocatedSales = Math.max(
+        0,
+        reconciled.grossSales - detail.detailedSales,
+      );
+      if (unallocatedSales > 0)
+        salesCategories.set("Sin desglose", unallocatedSales);
+      return {
+        month,
+        closedDays: reconciled.closedDays,
+        grossSales: Math.round(reconciled.grossSales),
+        netSales,
+        commissions: Math.round(reconciled.commissionNet),
+        commissionTaxCredit: Math.round(reconciled.commissionTax),
+        estimatedProductCost,
+        estimatedContribution,
+        wasteReserve,
+        recognizedOperatingExpenses: Math.round(recognizedOperatingExpenses),
+        otherIncome: Math.round(otherIncome),
+        operatingResult,
+        operatingMarginPercentage: netSales
+          ? (operatingResult / netSales) * 100
+          : 0,
+        purchasesPaid: Math.round(purchasesPaid),
+        businessExpensesPaid: Math.round(businessExpensesPaid),
+        ownerWithdrawals: Math.round(ownerWithdrawals),
+        estimatedVatPayable: vat.estimatedVatPayable,
+        costCoveragePercentage: reconciled.grossSales
+          ? Math.min(100, (detail.costedSales / reconciled.grossSales) * 100)
+          : 0,
+        salesByCategory: [...salesCategories]
+          .map(([category, total]) => ({ category, total: Math.round(total) }))
+          .sort((a, b) => b.total - a.total),
+        spendingByCategory: [...spendingCategories]
+          .map(([category, total]) => ({ category, total: Math.round(total) }))
+          .sort((a, b) => b.total - a.total),
+      };
+    });
   const cycleOperations = operations.filter(
     (operation) =>
       operation.date >= cycle.start &&
@@ -617,6 +915,7 @@ export async function getOperationsData() {
     cutoff,
     obligations,
     provisions,
+    monthlyHistory,
     summary: {
       openingBalance: cutoff.openingBank + cutoff.openingCash,
       expectedBank,
@@ -643,6 +942,7 @@ export async function getOperationsData() {
       pendingVatObligations,
       pendingOtherObligations,
       pendingProvisions,
+      currentMonthClosedDays,
       ...taxReserve,
       availableLiquidity:
         expectedBank + expectedCash - pendingObligations - pendingProvisions,

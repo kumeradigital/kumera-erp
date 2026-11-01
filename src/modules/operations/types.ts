@@ -63,6 +63,29 @@ export type CashCycleSummary = {
   projectedAvailable: number;
 };
 
+export type MonthlyFinancialSummary = {
+  month: string;
+  closedDays: number;
+  grossSales: number;
+  netSales: number;
+  commissions: number;
+  commissionTaxCredit: number;
+  estimatedProductCost: number;
+  estimatedContribution: number;
+  wasteReserve: number;
+  recognizedOperatingExpenses: number;
+  otherIncome: number;
+  operatingResult: number;
+  operatingMarginPercentage: number;
+  purchasesPaid: number;
+  businessExpensesPaid: number;
+  ownerWithdrawals: number;
+  estimatedVatPayable: number;
+  costCoveragePercentage: number;
+  salesByCategory: { category: string; total: number }[];
+  spendingByCategory: { category: string; total: number }[];
+};
+
 export type FinancialCutoff = {
   cutoffAt: string;
   cutoffDate: string;
