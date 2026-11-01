@@ -20,6 +20,7 @@ import { FixedCostsView, ProjectionsView } from "@/modules/costs/costs-app";
 import type { CostSettings, FixedCost } from "@/modules/costs/types";
 import type { BusinessPulse } from "@/modules/pos/types";
 import {
+  closeAccumulatingProvisionAction,
   saveFinancialReconciliationAction,
   saveObligationAction,
   saveOperationAction,
@@ -292,6 +293,14 @@ export function OperationsApp({
               provisions={provisions}
               onAdd={() => setAddingProvision(true)}
               onPay={setPayingProvision}
+              onClose={async (provision) => {
+                const confirmed = window.confirm(
+                  `¿Cerrar ${provision.name}? Ya no se registrarán más compras en este mes y el costo real quedará en ${formatClp(provision.paidAmount)}.`,
+                );
+                if (!confirmed) return;
+                await closeAccumulatingProvisionAction(provision.id);
+                location.reload();
+              }}
             />
             <CashCommitmentsView
               obligations={obligations}
@@ -914,10 +923,12 @@ function ProvisionsView({
   provisions,
   onAdd,
   onPay,
+  onClose,
 }: {
   provisions: ExpenseProvision[];
   onAdd: () => void;
   onPay: (provision: ExpenseProvision) => void;
+  onClose: (provision: ExpenseProvision) => void | Promise<void>;
 }) {
   const currentMonth = todayInChile().slice(0, 7);
   const current = provisions.filter(
@@ -929,7 +940,11 @@ function ProvisionsView({
       item.status !== "reconciled" &&
       item.status !== "cancelled",
   );
-  const visible = [...outstandingFromPriorMonths, ...current];
+  const concludedFromPriorMonths = provisions.filter(
+    (item) =>
+      item.economicMonth.slice(0, 7) < currentMonth &&
+      (item.status === "reconciled" || item.status === "cancelled"),
+  );
   const expected = current
     .filter((item) => item.affectsProfitability && item.status !== "cancelled")
     .reduce((total, item) => total + item.economicAmount, 0);
@@ -965,60 +980,143 @@ function ProvisionsView({
         <Metric l="Pagado y conciliado" v={paid} />
         <Metric l="Saldo pendiente de pago" v={outstanding} warning />
       </div>
-      <div className="card mt-5 overflow-x-auto">
-        <table className="w-full min-w-[880px] text-left text-sm">
-          <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
-            <tr>
-              <th className="p-4">Concepto</th>
-              <th>Categoría</th>
-              <th>Vencimiento</th>
-              <th className="text-right">Presupuesto / costo</th>
-              <th className="text-right">Pagado</th>
-              <th className="text-right">Pendiente / consumo</th>
-              <th className="text-center">Estado</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {visible.map((item) => (
-              <tr key={item.id}>
-                <td className="p-4">
-                  <p className="font-black">{item.name}</p>
-                  {item.note && (
-                    <p className="mt-1 max-w-md text-xs text-[#777]">
-                      {item.note}
-                    </p>
+      {outstandingFromPriorMonths.length > 0 && (
+        <ProvisionSection
+          title="Pendientes de meses anteriores"
+          subtitle="Pagos y consumos todavía abiertos. Ciérralos aquí sin mezclarlos con los costos nuevos."
+          provisions={outstandingFromPriorMonths}
+          onPay={onPay}
+          onClose={onClose}
+          warning
+        />
+      )}
+      <ProvisionSection
+        title={`Costos de ${formatEconomicMonth(currentMonth)}`}
+        subtitle="Provisiones económicas del mes actual; se pagan ahora o en el mes siguiente según su vencimiento."
+        provisions={current}
+        onPay={onPay}
+        onClose={onClose}
+        empty="Todavía no hay provisiones para el mes actual."
+      />
+      {concludedFromPriorMonths.length > 0 && (
+        <details className="card mt-5 overflow-hidden">
+          <summary className="cursor-pointer px-5 py-4 font-black text-[#4f574f]">
+            Historial concluido ({concludedFromPriorMonths.length})
+          </summary>
+          <ProvisionTable
+            provisions={concludedFromPriorMonths}
+            onPay={onPay}
+            onClose={onClose}
+          />
+        </details>
+      )}
+    </section>
+  );
+}
+
+function ProvisionSection({
+  title,
+  subtitle,
+  provisions,
+  onPay,
+  onClose,
+  empty,
+  warning = false,
+}: {
+  title: string;
+  subtitle: string;
+  provisions: ExpenseProvision[];
+  onPay: (provision: ExpenseProvision) => void;
+  onClose: (provision: ExpenseProvision) => void | Promise<void>;
+  empty?: string;
+  warning?: boolean;
+}) {
+  return (
+    <div className="mt-5">
+      <div
+        className={`rounded-t-2xl border border-b-0 px-5 py-4 ${warning ? "border-[#ead9a6] bg-[#fff8e5]" : "border-[#deddd4] bg-[#f7f7f1]"}`}
+      >
+        <h2 className="text-lg font-black">{title}</h2>
+        <p className="mt-1 text-xs text-[#747970]">{subtitle}</p>
+      </div>
+      <div className="card overflow-x-auto rounded-t-none">
+        <ProvisionTable
+          provisions={provisions}
+          onPay={onPay}
+          onClose={onClose}
+          empty={empty}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ProvisionTable({
+  provisions,
+  onPay,
+  onClose,
+  empty,
+}: {
+  provisions: ExpenseProvision[];
+  onPay: (provision: ExpenseProvision) => void;
+  onClose: (provision: ExpenseProvision) => void | Promise<void>;
+  empty?: string;
+}) {
+  return (
+    <>
+      <table className="w-full min-w-[980px] text-left text-sm">
+        <thead className="border-b bg-[#f2f2ea] text-xs uppercase text-[#777]">
+          <tr>
+            <th className="p-4">Concepto</th>
+            <th>Categoría</th>
+            <th>Vencimiento</th>
+            <th className="text-right">Presupuesto / costo</th>
+            <th className="text-right">Pagado</th>
+            <th className="text-right">Pendiente / consumo</th>
+            <th className="text-center">Estado</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {provisions.map((item) => (
+            <tr key={item.id}>
+              <td className="p-4">
+                <p className="font-black">{item.name}</p>
+                {item.note && (
+                  <p className="mt-1 max-w-md text-xs text-[#777]">
+                    {item.note}
+                  </p>
+                )}
+              </td>
+              <td>{item.category}</td>
+              <td>{item.dueDate ? formatDate(item.dueDate) : "—"}</td>
+              <td className="text-right font-black">
+                {formatClp(item.expectedAmount)}
+              </td>
+              <td className="text-right">
+                {formatClp(item.paidAmount)}
+                {item.trackingMode === "accumulating_actual" &&
+                  item.unitLabel && (
+                    <span className="mt-1 block text-xs font-bold text-[#657067]">
+                      {item.trackedUnits} {item.unitLabel}
+                    </span>
                   )}
-                </td>
-                <td>{item.category}</td>
-                <td>{item.dueDate ? formatDate(item.dueDate) : "—"}</td>
-                <td className="text-right font-black">
-                  {formatClp(item.expectedAmount)}
-                </td>
-                <td className="text-right">
-                  {formatClp(item.paidAmount)}
-                  {item.trackingMode === "accumulating_actual" &&
-                    item.unitLabel && (
-                      <span className="mt-1 block text-xs font-bold text-[#657067]">
-                        {item.trackedUnits} {item.unitLabel}
-                      </span>
-                    )}
-                </td>
-                <td className="text-right font-black">
-                  {item.trackingMode === "accumulating_actual"
-                    ? "Sin deuda"
-                    : formatClp(item.outstandingAmount)}
-                </td>
-                <td className="text-center">
-                  <ProvisionStatus
-                    status={item.status}
-                    accumulating={item.trackingMode === "accumulating_actual"}
-                  />
-                </td>
-                <td className="p-3 text-right">
-                  {item.status !== "cancelled" &&
-                    (item.trackingMode === "accumulating_actual" ||
-                      item.status !== "reconciled") && (
+              </td>
+              <td className="text-right font-black">
+                {item.trackingMode === "accumulating_actual"
+                  ? "Sin deuda"
+                  : formatClp(item.outstandingAmount)}
+              </td>
+              <td className="text-center">
+                <ProvisionStatus
+                  status={item.status}
+                  accumulating={item.trackingMode === "accumulating_actual"}
+                />
+              </td>
+              <td className="p-3 text-right">
+                {item.status !== "cancelled" &&
+                  item.status !== "reconciled" && (
+                    <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => onPay(item)}
@@ -1028,19 +1126,28 @@ function ProvisionsView({
                           ? "Registrar compra"
                           : "Registrar abono o pago"}
                       </button>
-                    )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!visible.length && (
-          <p className="p-10 text-center text-sm text-[#777]">
-            No hay provisiones para este mes.
-          </p>
-        )}
-      </div>
-    </section>
+                      {item.trackingMode === "accumulating_actual" && (
+                        <button
+                          type="button"
+                          onClick={() => onClose(item)}
+                          className="rounded-lg bg-[#235b45] px-3 py-2 font-black text-white"
+                        >
+                          Cerrar mes
+                        </button>
+                      )}
+                    </div>
+                  )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!provisions.length && (
+        <p className="p-10 text-center text-sm text-[#777]">
+          {empty || "No hay provisiones en esta sección."}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -1123,9 +1230,22 @@ function ProvisionStatus({
     <span
       className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-bold ${status === "reconciled" ? "bg-[#e7f2e4] text-[#235b45]" : status === "partial" ? "bg-[#fff3cc] text-[#795f0d]" : "bg-[#eeeeea] text-[#70736c]"}`}
     >
-      {accumulating ? "Acumulando consumo" : labels[status]}
+      {accumulating && status !== "reconciled"
+        ? "Acumulando consumo"
+        : status === "reconciled" && accumulating
+          ? "Mes cerrado"
+          : labels[status]}
     </span>
   );
+}
+
+function formatEconomicMonth(value: string) {
+  const label = new Intl.DateTimeFormat("es-CL", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  }).format(new Date(`${value}-15T12:00:00Z`));
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function ProvisionDialog({ onClose }: { onClose: () => void }) {

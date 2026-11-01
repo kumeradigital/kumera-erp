@@ -495,15 +495,17 @@ export async function getOperationsData() {
       const calculatedStatus =
         row.status === "cancelled"
           ? "cancelled"
-          : trackingMode === "accumulating_actual"
-            ? paidAmount > 0
-              ? "partial"
-              : "estimated"
-            : paidAmount >= expectedAmount
-              ? "reconciled"
-              : paidAmount > 0
+          : row.status === "reconciled"
+            ? "reconciled"
+            : trackingMode === "accumulating_actual"
+              ? paidAmount > 0
                 ? "partial"
-                : "estimated";
+                : "estimated"
+              : paidAmount >= expectedAmount
+                ? "reconciled"
+                : paidAmount > 0
+                  ? "partial"
+                  : "estimated";
       return {
         id: row.id,
         name: row.name,
@@ -524,7 +526,9 @@ export async function getOperationsData() {
         trackedUnits,
         economicAmount:
           trackingMode === "accumulating_actual"
-            ? Math.max(expectedAmount, paidAmount)
+            ? calculatedStatus === "reconciled"
+              ? paidAmount
+              : Math.max(expectedAmount, paidAmount)
             : expectedAmount,
         dueDate: row.due_date || undefined,
         affectsProfitability: row.affects_profitability,

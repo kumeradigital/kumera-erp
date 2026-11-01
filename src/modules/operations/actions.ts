@@ -193,6 +193,42 @@ export async function saveProvisionAction(form: FormData) {
   revalidatePath("/operacion");
 }
 
+export async function closeAccumulatingProvisionAction(provisionId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesión no válida");
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
+
+  const { data: provision, error: readError } = await supabase
+    .from("expense_provisions")
+    .select("id,tracking_mode,status")
+    .eq("id", provisionId)
+    .eq("business_id", membership.business_id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!provision) throw new Error("Provisión no válida");
+  if (provision.tracking_mode !== "accumulating_actual")
+    throw new Error("Sólo se pueden cerrar consumos acumulativos");
+  if (provision.status === "cancelled")
+    throw new Error("La provisión está cancelada");
+
+  const { error } = await supabase
+    .from("expense_provisions")
+    .update({ status: "reconciled", updated_at: new Date().toISOString() })
+    .eq("id", provision.id)
+    .eq("business_id", membership.business_id);
+  if (error) throw error;
+  revalidatePath("/operacion");
+}
+
 export async function saveOperationAction(form: FormData) {
   const supabase = await createClient();
   const {
