@@ -151,6 +151,51 @@ export async function saveObligationAction(form: FormData) {
   revalidatePath("/operacion");
 }
 
+export async function updateObligationAmountAction(form: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesión no válida");
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
+
+  const obligationId = String(form.get("obligationId") || "");
+  const amount = Math.round(Number(form.get("amount")));
+  if (!obligationId) throw new Error("Compromiso no válido");
+  if (!Number.isInteger(amount) || amount < 1)
+    throw new Error("Monto inválido");
+
+  const { data: obligation, error: readError } = await supabase
+    .from("financial_obligations")
+    .select("id,note")
+    .eq("id", obligationId)
+    .eq("business_id", membership.business_id)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!obligation) throw new Error("Compromiso no válido");
+
+  const auditNote =
+    "Monto ingresado manualmente desde la propuesta del SII; revisar el detalle del F29 antes de registrar el pago.";
+  const note = obligation.note?.includes(auditNote)
+    ? obligation.note
+    : [obligation.note, auditNote].filter(Boolean).join(" ");
+  const { error } = await supabase
+    .from("financial_obligations")
+    .update({ amount, note, updated_at: new Date().toISOString() })
+    .eq("id", obligation.id)
+    .eq("business_id", membership.business_id)
+    .eq("status", "pending");
+  if (error) throw error;
+  revalidatePath("/operacion");
+}
+
 export async function saveProvisionAction(form: FormData) {
   const supabase = await createClient();
   const {

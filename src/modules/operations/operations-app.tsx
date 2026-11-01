@@ -26,6 +26,7 @@ import {
   saveOperationAction,
   saveProvisionAction,
   submitOperationAction,
+  updateObligationAmountAction,
 } from "./actions";
 import {
   DEFAULT_OPERATION_CATEGORY,
@@ -106,6 +107,8 @@ export function OperationsApp({
   const [reconcilingBalances, setReconcilingBalances] = useState(false);
   const [editing, setEditing] = useState<Operation | null>(null);
   const [payingObligation, setPayingObligation] =
+    useState<FinancialObligation | null>(null);
+  const [settingObligationAmount, setSettingObligationAmount] =
     useState<FinancialObligation | null>(null);
   const [payingProvision, setPayingProvision] =
     useState<ExpenseProvision | null>(null);
@@ -305,6 +308,7 @@ export function OperationsApp({
               obligations={obligations}
               onAdd={() => setAddingObligation(true)}
               onPay={setPayingObligation}
+              onSetAmount={setSettingObligationAmount}
             />
           </>
         )}
@@ -719,6 +723,12 @@ export function OperationsApp({
           ingredients={ingredients}
           provisions={provisions}
           onClose={() => setPayingObligation(null)}
+        />
+      )}
+      {settingObligationAmount && (
+        <ObligationAmountDialog
+          obligation={settingObligationAmount}
+          onClose={() => setSettingObligationAmount(null)}
         />
       )}
       {payingProvision && (
@@ -1154,10 +1164,12 @@ function CashCommitmentsView({
   obligations,
   onAdd,
   onPay,
+  onSetAmount,
 }: {
   obligations: FinancialObligation[];
   onAdd: () => void;
   onPay: (obligation: FinancialObligation) => void;
+  onSetAmount: (obligation: FinancialObligation) => void;
 }) {
   const currentMonth = todayInChile().slice(0, 7);
   const current = obligations.filter(
@@ -1198,6 +1210,7 @@ function CashCommitmentsView({
           obligations={current}
           empty="No hay otros compromisos exigibles este mes."
           onPay={onPay}
+          onSetAmount={onSetAmount}
           current
         />
         <ObligationGroup
@@ -1206,6 +1219,7 @@ function CashCommitmentsView({
           obligations={future}
           empty="No hay otros compromisos futuros registrados."
           onPay={onPay}
+          onSetAmount={onSetAmount}
         />
       </div>
     </section>
@@ -1457,6 +1471,7 @@ function ObligationGroup({
   obligations,
   empty,
   onPay,
+  onSetAmount,
   current = false,
 }: {
   title: string;
@@ -1464,6 +1479,7 @@ function ObligationGroup({
   obligations: FinancialObligation[];
   empty: string;
   onPay: (obligation: FinancialObligation) => void;
+  onSetAmount: (obligation: FinancialObligation) => void;
   current?: boolean;
 }) {
   return (
@@ -1508,13 +1524,37 @@ function ObligationGroup({
             {item.note && (
               <p className="mt-3 text-xs text-[#777]">{item.note}</p>
             )}
-            <button
-              type="button"
-              onClick={() => onPay(item)}
-              className="mt-4 w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
-            >
-              Registrar pago
-            </button>
+            <div className="mt-4 grid gap-2">
+              {isTaxObligation(item) && (
+                <button
+                  type="button"
+                  onClick={() => onSetAmount(item)}
+                  className="w-full rounded-xl bg-[#235b45] px-3 py-2 text-sm font-black text-white"
+                >
+                  {item.amount == null
+                    ? "Ingresar propuesta del SII"
+                    : "Revisar o corregir monto SII"}
+                </button>
+              )}
+              {item.amount != null && (
+                <button
+                  type="button"
+                  onClick={() => onPay(item)}
+                  className="w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
+                >
+                  Registrar pago
+                </button>
+              )}
+              {item.amount == null && !isTaxObligation(item) && (
+                <button
+                  type="button"
+                  onClick={() => onPay(item)}
+                  className="w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
+                >
+                  Registrar pago
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {!obligations.length && (
@@ -1523,6 +1563,71 @@ function ObligationGroup({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function isTaxObligation(obligation: FinancialObligation) {
+  return /iva|impuesto|f29|formulario 29/i.test(obligation.name);
+}
+
+function ObligationAmountDialog({
+  obligation,
+  onClose,
+}: {
+  obligation: FinancialObligation;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Propuesta del SII
+            </p>
+            <h2 className="mt-1 text-2xl font-black">{obligation.name}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-[#6f746c]">
+          Guarda aquí el monto que muestra la propuesta. Esto reserva liquidez,
+          pero no registra ningún pago ni salida bancaria. Puedes corregirlo
+          después de revisar el detalle completo del F29.
+        </p>
+        <form
+          action={async (form) => {
+            await updateObligationAmountAction(form);
+            onClose();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <input type="hidden" name="obligationId" value={obligation.id} />
+          <label className="block text-xs font-bold">
+            Monto propuesto por el SII
+            <input
+              name="amount"
+              type="number"
+              min="1"
+              required
+              inputMode="numeric"
+              defaultValue={obligation.amount ?? ""}
+              className="input mt-2 text-lg font-black"
+              placeholder="Ej. 616629"
+              autoFocus
+            />
+          </label>
+          <div className="rounded-xl bg-[#fff3d5] p-3 text-xs leading-5 text-[#725b1b]">
+            Aún no estás declarando ni pagando. Cuando confirmes el F29, usa
+            “Registrar pago” en este mismo compromiso.
+          </div>
+          <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
+            Guardar propuesta para revisión
+          </button>
+        </form>
+      </section>
     </div>
   );
 }
