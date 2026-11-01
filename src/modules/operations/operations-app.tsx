@@ -1071,6 +1071,12 @@ function ProvisionTable({
   onClose: (provision: ExpenseProvision) => void | Promise<void>;
   empty?: string;
 }) {
+  const sortedProvisions = [...provisions].sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return a.name.localeCompare(b.name, "es");
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
   return (
     <>
       <table className="w-full min-w-[980px] text-left text-sm">
@@ -1087,68 +1093,92 @@ function ProvisionTable({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {provisions.map((item) => (
-            <tr key={item.id}>
-              <td className="p-4">
-                <p className="font-black">{item.name}</p>
-                {item.note && (
-                  <p className="mt-1 max-w-md text-xs text-[#777]">
-                    {item.note}
-                  </p>
-                )}
-              </td>
-              <td>{item.category}</td>
-              <td>{item.dueDate ? formatDate(item.dueDate) : "—"}</td>
-              <td className="text-right font-black">
-                {formatClp(item.expectedAmount)}
-              </td>
-              <td className="text-right">
-                {formatClp(item.paidAmount)}
-                {item.trackingMode === "accumulating_actual" &&
-                  item.unitLabel && (
-                    <span className="mt-1 block text-xs font-bold text-[#657067]">
-                      {item.trackedUnits} {item.unitLabel}
+          {sortedProvisions.map((item) => {
+            const urgency = provisionUrgency(item);
+            return (
+              <tr
+                key={item.id}
+                className={
+                  urgency === "overdue"
+                    ? "bg-[#fff0ed]"
+                    : urgency === "soon"
+                      ? "bg-[#fff8df]"
+                      : undefined
+                }
+              >
+                <td className="p-4">
+                  <p className="font-black">{item.name}</p>
+                  {item.note && (
+                    <p className="mt-1 max-w-md text-xs text-[#777]">
+                      {item.note}
+                    </p>
+                  )}
+                </td>
+                <td>{item.category}</td>
+                <td>
+                  {item.dueDate ? formatDate(item.dueDate) : "—"}
+                  {urgency === "overdue" && (
+                    <span className="mt-1 block text-xs font-black text-[#a53c2d]">
+                      Vencido
                     </span>
                   )}
-              </td>
-              <td className="text-right font-black">
-                {item.trackingMode === "accumulating_actual"
-                  ? "Sin deuda"
-                  : formatClp(item.outstandingAmount)}
-              </td>
-              <td className="text-center">
-                <ProvisionStatus
-                  status={item.status}
-                  accumulating={item.trackingMode === "accumulating_actual"}
-                />
-              </td>
-              <td className="p-3 text-right">
-                {item.status !== "cancelled" &&
-                  item.status !== "reconciled" && (
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onPay(item)}
-                        className="rounded-lg border border-[#235b45] px-3 py-2 font-black text-[#235b45]"
-                      >
-                        {item.trackingMode === "accumulating_actual"
-                          ? "Registrar compra"
-                          : "Registrar abono o pago"}
-                      </button>
-                      {item.trackingMode === "accumulating_actual" && (
+                  {urgency === "soon" && (
+                    <span className="mt-1 block text-xs font-black text-[#8a650d]">
+                      Próximo a vencer
+                    </span>
+                  )}
+                </td>
+                <td className="text-right font-black">
+                  {formatClp(item.expectedAmount)}
+                </td>
+                <td className="text-right">
+                  {formatClp(item.paidAmount)}
+                  {item.trackingMode === "accumulating_actual" &&
+                    item.unitLabel && (
+                      <span className="mt-1 block text-xs font-bold text-[#657067]">
+                        {item.trackedUnits} {item.unitLabel}
+                      </span>
+                    )}
+                </td>
+                <td className="text-right font-black">
+                  {item.trackingMode === "accumulating_actual"
+                    ? "Sin deuda"
+                    : formatClp(item.outstandingAmount)}
+                </td>
+                <td className="text-center">
+                  <ProvisionStatus
+                    status={item.status}
+                    accumulating={item.trackingMode === "accumulating_actual"}
+                  />
+                </td>
+                <td className="p-3 text-right">
+                  {item.status !== "cancelled" &&
+                    item.status !== "reconciled" && (
+                      <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => onClose(item)}
-                          className="rounded-lg bg-[#235b45] px-3 py-2 font-black text-white"
+                          onClick={() => onPay(item)}
+                          className="rounded-lg border border-[#235b45] px-3 py-2 font-black text-[#235b45]"
                         >
-                          Cerrar mes
+                          {item.trackingMode === "accumulating_actual"
+                            ? "Registrar compra"
+                            : "Registrar abono o pago"}
                         </button>
-                      )}
-                    </div>
-                  )}
-              </td>
-            </tr>
-          ))}
+                        {item.trackingMode === "accumulating_actual" && (
+                          <button
+                            type="button"
+                            onClick={() => onClose(item)}
+                            className="rounded-lg bg-[#235b45] px-3 py-2 font-black text-white"
+                          >
+                            Cerrar mes
+                          </button>
+                        )}
+                      </div>
+                    )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {!provisions.length && (
@@ -1158,6 +1188,22 @@ function ProvisionTable({
       )}
     </>
   );
+}
+
+function provisionUrgency(provision: ExpenseProvision) {
+  if (
+    !provision.dueDate ||
+    provision.status === "reconciled" ||
+    provision.status === "cancelled" ||
+    provision.trackingMode === "accumulating_actual"
+  )
+    return "normal" as const;
+  const today = Date.parse(`${todayInChile()}T12:00:00Z`);
+  const due = Date.parse(`${provision.dueDate}T12:00:00Z`);
+  const days = Math.round((due - today) / 86_400_000);
+  if (days < 0) return "overdue" as const;
+  if (days <= 5) return "soon" as const;
+  return "normal" as const;
 }
 
 function CashCommitmentsView({
