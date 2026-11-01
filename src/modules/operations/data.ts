@@ -541,7 +541,7 @@ export async function getOperationsData() {
       const provisionIdentity = `${row.category} ${row.name}`.toLocaleLowerCase(
         "es",
       );
-      const normalizedDueDate = /remuner/.test(provisionIdentity)
+      const normalizedDueDate = /remuner|sueldo/.test(provisionIdentity)
         ? nextMonthPaymentDate(row.economic_month, 5)
         : /cotiza|previsional|imposiciones/.test(provisionIdentity)
           ? nextMonthPaymentDate(row.economic_month, 10)
