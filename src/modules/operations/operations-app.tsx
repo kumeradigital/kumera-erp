@@ -550,18 +550,6 @@ export function OperationsApp({
               cambiar hasta cerrar el mes; el día 1 siguiente se transforma en
               compromiso con vencimiento el día 20.
             </div>
-            <CashCyclePanel cycle={summary.cashCycle} />
-            <div className="mt-4 rounded-2xl bg-[#f4f2e9] p-5 text-sm text-[#65685f]">
-              <strong className="text-[#252822]">
-                Esto controla dinero real, no calcula rentabilidad.
-              </strong>{" "}
-              La viabilidad se calcula en la pestaña “Viabilidad y proyección”
-              con recetas, comisiones y gastos planificados. El IVA de
-              septiembre debe registrarse como compromiso: reducirá la liquidez
-              de octubre, pero no falseará la rentabilidad operacional de
-              octubre. Un compromiso pendiente no baja el saldo bancario hasta
-              que se paga.
-            </div>
             {ledger?.status !== "closed" && (
               <p className="mt-4 rounded-xl bg-[#fff4d4] p-4 text-sm text-[#795f0d]">
                 Cierra primero la Puesta en marcha para fijar oficialmente la
@@ -2181,42 +2169,6 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
         </form>
       </div>
     </div>
-  );
-}
-
-function CashCyclePanel({ cycle }: { cycle: CashCycleSummary }) {
-  return (
-    <section className="mt-4 rounded-2xl border border-[#cbd8c8] bg-[#f3f8f1] p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
-            Ciclo de liquidez · día 5 al día 4
-          </p>
-          <h2 className="mt-1 text-xl font-black">
-            {formatDate(cycle.start)} → {formatDate(cycle.end)}
-          </h2>
-        </div>
-        <p className="max-w-md text-xs leading-5 text-[#667067]">
-          Esta vista sigue cuándo entra y sale el dinero. La rentabilidad
-          continúa calculándose por mes calendario.
-        </p>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric l="Ventas cobradas" v={cycle.sales} />
-        <Metric l="Otros ingresos" v={cycle.otherIncome} />
-        <Metric l="Pagos realizados" v={cycle.paidOutflows} />
-        <Metric l="Retiros personales" v={cycle.ownerWithdrawals} />
-        <Metric l="Pagos aún pendientes" v={cycle.pendingPayments} warning />
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4">
-        <span className="text-sm font-bold text-[#596159]">
-          Disponible proyectado después de compromisos e IVA reservado
-        </span>
-        <strong className="money text-2xl">
-          {formatClp(cycle.projectedAvailable)}
-        </strong>
-      </div>
-    </section>
   );
 }
 
