@@ -943,8 +943,20 @@ function ProvisionsView({
   const current = provisions.filter(
     (item) => item.economicMonth.slice(0, 7) === currentMonth,
   );
+  const openPensionPaymentsDueNow = provisions.filter(
+    (item) =>
+      isPensionProvision(item) &&
+      item.economicMonth.slice(0, 7) < currentMonth &&
+      item.status !== "reconciled" &&
+      item.status !== "cancelled",
+  );
+  const pensionProvisionInFormation = current.filter(isPensionProvision);
+  const currentWithoutPension = current.filter(
+    (item) => !isPensionProvision(item),
+  );
   const outstandingFromPriorMonths = provisions.filter(
     (item) =>
+      !isPensionProvision(item) &&
       item.economicMonth.slice(0, 7) < currentMonth &&
       item.status !== "reconciled" &&
       item.status !== "cancelled",
@@ -989,6 +1001,16 @@ function ProvisionsView({
         <Metric l="Pagado y conciliado" v={paid} />
         <Metric l="Saldo pendiente de pago" v={outstanding} warning />
       </div>
+      {openPensionPaymentsDueNow.length > 0 && (
+        <ProvisionSection
+          title={`Cotizaciones por pagar en ${formatEconomicMonth(currentMonth)}`}
+          subtitle="Corresponden al personal del mes anterior y ahora sí son una salida de caja. La fecha objetivo es el día 10; mantenlas reservadas y registra aquí el pago real de Previred."
+          provisions={openPensionPaymentsDueNow}
+          onPay={onPay}
+          onClose={onClose}
+          warning
+        />
+      )}
       {outstandingFromPriorMonths.length > 0 && (
         <ProvisionSection
           title="Pendientes de meses anteriores"
@@ -1002,11 +1024,21 @@ function ProvisionsView({
       <ProvisionSection
         title={`Costos de ${formatEconomicMonth(currentMonth)}`}
         subtitle="Provisiones económicas del mes actual; se pagan ahora o en el mes siguiente según su vencimiento."
-        provisions={current}
+        provisions={currentWithoutPension}
         onPay={onPay}
         onClose={onClose}
         empty="Todavía no hay provisiones para el mes actual."
       />
+      {pensionProvisionInFormation.length > 0 && (
+        <ProvisionSection
+          title={`Cotizaciones de ${formatEconomicMonth(currentMonth)} en formación`}
+          subtitle="Este costo pertenece al mes actual, pero se pagará el día 10 del mes siguiente. Por ahora sirve como monto estimado para reservar; el pago se habilita cuando pase a la sección de vencimientos del próximo mes."
+          provisions={pensionProvisionInFormation}
+          onPay={onPay}
+          onClose={onClose}
+          paymentsEnabled={false}
+        />
+      )}
       {concludedFromPriorMonths.length > 0 && (
         <details className="card mt-5 overflow-hidden">
           <summary className="cursor-pointer px-5 py-4 font-black text-[#4f574f]">
@@ -1031,6 +1063,7 @@ function ProvisionSection({
   onClose,
   empty,
   warning = false,
+  paymentsEnabled = true,
 }: {
   title: string;
   subtitle: string;
@@ -1039,6 +1072,7 @@ function ProvisionSection({
   onClose: (provision: ExpenseProvision) => void | Promise<void>;
   empty?: string;
   warning?: boolean;
+  paymentsEnabled?: boolean;
 }) {
   return (
     <div className="mt-5">
@@ -1054,6 +1088,7 @@ function ProvisionSection({
           onPay={onPay}
           onClose={onClose}
           empty={empty}
+          paymentsEnabled={paymentsEnabled}
         />
       </div>
     </div>
@@ -1065,11 +1100,13 @@ function ProvisionTable({
   onPay,
   onClose,
   empty,
+  paymentsEnabled = true,
 }: {
   provisions: ExpenseProvision[];
   onPay: (provision: ExpenseProvision) => void;
   onClose: (provision: ExpenseProvision) => void | Promise<void>;
   empty?: string;
+  paymentsEnabled?: boolean;
 }) {
   const sortedProvisions = [...provisions].sort((a, b) => {
     if (!a.dueDate && !b.dueDate) return a.name.localeCompare(b.name, "es");
@@ -1152,7 +1189,8 @@ function ProvisionTable({
                   />
                 </td>
                 <td className="p-3 text-right">
-                  {item.status !== "cancelled" &&
+                  {paymentsEnabled &&
+                    item.status !== "cancelled" &&
                     item.status !== "reconciled" && (
                       <div className="flex justify-end gap-2">
                         <button
@@ -1175,6 +1213,13 @@ function ProvisionTable({
                         )}
                       </div>
                     )}
+                  {!paymentsEnabled &&
+                    item.status !== "cancelled" &&
+                    item.status !== "reconciled" && (
+                      <span className="inline-block rounded-full bg-[#edf3e8] px-3 py-2 text-xs font-black text-[#45614d]">
+                        Reservar para el próximo mes
+                      </span>
+                    )}
                 </td>
               </tr>
             );
@@ -1187,6 +1232,12 @@ function ProvisionTable({
         </p>
       )}
     </>
+  );
+}
+
+function isPensionProvision(provision: ExpenseProvision) {
+  return /cotizaciones|previsional|imposiciones/i.test(
+    `${provision.category} ${provision.name}`,
   );
 }
 
