@@ -69,6 +69,26 @@ function normalizedCategory(value: string) {
 function parseDecimalInput(value: string) {
   return Number(value.trim().replace(",", ".")) || 0;
 }
+
+function isStaleServerActionError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /failed to find server action/i.test(message) ||
+    /server action ["“]?.+?["”]? was not found/i.test(message)
+  );
+}
+
+function handlePosActionError(error: unknown, fallback: string) {
+  if (isStaleServerActionError(error)) {
+    alert(
+      "La caja quedó abierta durante una actualización. Se recargará ahora y conservará los productos del carro.",
+    );
+    window.location.reload();
+    return true;
+  }
+  alert(error instanceof Error ? error.message : fallback);
+  return false;
+}
 export function PosClient({
   products,
   deliveryProducts,
@@ -291,11 +311,7 @@ export function PosClient({
       setAvailabilityQuantities((current) => ({ ...current, ...saved }));
       setSavedAvailabilityQuantities((current) => ({ ...current, ...saved }));
     } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron guardar las cantidades",
-      );
+      handlePosActionError(error, "No se pudieron guardar las cantidades");
     } finally {
       setSavingAvailability(false);
     }
@@ -407,7 +423,7 @@ export function PosClient({
       applyRecordedSale(result.sale, soldLines, total);
       setBusy(false);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "No se pudo registrar");
+      handlePosActionError(error, "No se pudo registrar");
       setBusy(false);
     }
   }
@@ -1159,10 +1175,9 @@ function SpecialSaleDialog({
                 total,
               );
             } catch (error) {
-              alert(
-                error instanceof Error
-                  ? error.message
-                  : "No se pudo registrar la venta especial",
+              handlePosActionError(
+                error,
+                "No se pudo registrar la venta especial",
               );
               setBusy(false);
             }
@@ -1350,11 +1365,7 @@ function PedidosYaDialog({
               if (!result.ok) throw new Error(result.error);
               onRecorded(result.order);
             } catch (error) {
-              alert(
-                error instanceof Error
-                  ? error.message
-                  : "No se pudo registrar el pedido",
-              );
+              handlePosActionError(error, "No se pudo registrar el pedido");
               setBusy(false);
             }
           }}
@@ -1731,11 +1742,7 @@ function ProductionDialog({
                 componentName: component?.name || "Producto",
               });
             } catch (error) {
-              alert(
-                error instanceof Error
-                  ? error.message
-                  : "No se pudo guardar la producción",
-              );
+              handlePosActionError(error, "No se pudo guardar la producción");
               setBusy(false);
             }
           }}
@@ -1938,11 +1945,7 @@ function CashWithdrawalDialog({
             );
             onRecorded(withdrawal);
           } catch (error) {
-            alert(
-              error instanceof Error
-                ? error.message
-                : "No se pudo registrar el retiro",
-            );
+            handlePosActionError(error, "No se pudo registrar el retiro");
             setBusy(false);
           }
         }}
@@ -2136,10 +2139,9 @@ function AvailabilityDialog({
                 setAdjusting(null);
                 setBusy(false);
               } catch (error) {
-                alert(
-                  error instanceof Error
-                    ? error.message
-                    : "No se pudo ajustar la disponibilidad",
+                handlePosActionError(
+                  error,
+                  "No se pudo ajustar la disponibilidad",
                 );
                 setBusy(false);
               }
@@ -2564,6 +2566,13 @@ function CloseSessionDialog({
               );
               location.reload();
             } catch (error) {
+              if (isStaleServerActionError(error)) {
+                handlePosActionError(
+                  error,
+                  "No se pudo confirmar el cierre de caja.",
+                );
+                return;
+              }
               setCloseError(
                 error instanceof Error
                   ? error.message
@@ -2973,11 +2982,7 @@ function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
                         );
                         location.reload();
                       } catch (error) {
-                        alert(
-                          error instanceof Error
-                            ? error.message
-                            : "No se pudo regularizar",
-                        );
+                        handlePosActionError(error, "No se pudo regularizar");
                         setBusy(false);
                       }
                     }}
@@ -3035,11 +3040,7 @@ function OpenSession({ latestSession }: { latestSession: CashSession | null }) {
               );
               location.reload();
             } catch (error) {
-              alert(
-                error instanceof Error
-                  ? error.message
-                  : "No se pudo abrir la caja",
-              );
+              handlePosActionError(error, "No se pudo abrir la caja");
               setBusy(false);
             }
           }}
