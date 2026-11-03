@@ -89,3 +89,33 @@ button {
 .rise {
   animation: rise 0.35s ease both;
 }
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 12mm;
+  }
+  html,
+  body {
+    background: white !important;
+  }
+  body > div,
+  main {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  header:has(nav),
+  .no-print {
+    display: none !important;
+  }
+  .payroll-print {
+    display: block !important;
+    width: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}

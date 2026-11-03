@@ -4,6 +4,7 @@ import {
   date,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -37,6 +38,87 @@ export const businesses = pgTable("businesses", {
   currency: text("currency").notNull().default("CLP"),
   timezone: text("timezone").notNull().default("America/Santiago"),
   active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const employees = pgTable("employees", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id),
+  fullName: text("full_name").notNull(),
+  rut: text("rut").notNull(),
+  jobTitle: text("job_title").notNull(),
+  afpName: text("afp_name").notNull(),
+  afpRate: numeric("afp_rate", { precision: 6, scale: 4 }).notNull(),
+  healthSystem: text("health_system").notNull().default("FONASA"),
+  healthRate: numeric("health_rate", { precision: 6, scale: 4 })
+    .notNull()
+    .default("0.07"),
+  baseSalary: bigint("base_salary", { mode: "number" }).notNull(),
+  mealAllowance: bigint("meal_allowance", { mode: "number" })
+    .notNull()
+    .default(0),
+  transportAllowance: bigint("transport_allowance", { mode: "number" })
+    .notNull()
+    .default(0),
+  contractStart: date("contract_start").notNull(),
+  contractEnd: date("contract_end"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const payrollSlips = pgTable("payroll_slips", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id),
+  employeeId: uuid("employee_id")
+    .notNull()
+    .references(() => employees.id),
+  period: date("period").notNull(),
+  workedDays: integer("worked_days").notNull().default(30),
+  contractualDays: integer("contractual_days").notNull().default(30),
+  baseEarned: bigint("base_earned", { mode: "number" }).notNull(),
+  gratification: bigint("gratification", { mode: "number" }).notNull(),
+  otherTaxableEarnings: bigint("other_taxable_earnings", { mode: "number" })
+    .notNull()
+    .default(0),
+  mealAllowance: bigint("meal_allowance", { mode: "number" })
+    .notNull()
+    .default(0),
+  transportAllowance: bigint("transport_allowance", { mode: "number" })
+    .notNull()
+    .default(0),
+  otherNonTaxableEarnings: bigint("other_non_taxable_earnings", {
+    mode: "number",
+  })
+    .notNull()
+    .default(0),
+  afpDeduction: bigint("afp_deduction", { mode: "number" }).notNull(),
+  healthDeduction: bigint("health_deduction", { mode: "number" }).notNull(),
+  unemploymentDeduction: bigint("unemployment_deduction", { mode: "number" })
+    .notNull()
+    .default(0),
+  incomeTax: bigint("income_tax", { mode: "number" }).notNull().default(0),
+  advances: bigint("advances", { mode: "number" }).notNull().default(0),
+  otherDeductions: bigint("other_deductions", { mode: "number" })
+    .notNull()
+    .default(0),
+  netPay: bigint("net_pay", { mode: "number" }).notNull(),
+  paymentStatus: text("payment_status").notNull().default("draft"),
+  paidOn: date("paid_on"),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

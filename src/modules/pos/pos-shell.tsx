@@ -9,6 +9,7 @@ import {
   Menu,
   ShoppingCart,
   ReceiptText,
+  UsersRound,
   Warehouse,
 } from "lucide-react";
 import { signOutAction } from "@/modules/auth/actions";
@@ -28,7 +29,8 @@ export function PosShell({
     | "operations"
     | "inventory"
     | "home"
-    | "business";
+    | "business"
+    | "payroll";
 }) {
   if (kiosk) {
     return (
@@ -120,6 +122,12 @@ export function PosShell({
             active={active === "business"}
             icon={<Building2 size={16} />}
           />
+          <Nav
+            href="/remuneraciones"
+            label="Remuneraciones"
+            active={active === "payroll"}
+            icon={<UsersRound size={16} />}
+          />
         </nav>
         <details className="group relative ml-auto md:hidden">
           <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl bg-[#235b45] px-3 text-sm font-black text-white [&::-webkit-details-marker]:hidden">
@@ -183,6 +191,12 @@ export function PosShell({
               label="Empresa"
               active={active === "business"}
               icon={<Building2 size={19} />}
+            />
+            <MobileNavLink
+              href="/remuneraciones"
+              label="Remuneraciones"
+              active={active === "payroll"}
+              icon={<UsersRound size={19} />}
             />
           </nav>
         </details>
