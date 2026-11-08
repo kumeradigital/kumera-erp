@@ -1206,17 +1206,25 @@ export function ProjectionsView({
   fixedCosts,
   businessPulse,
   globalBusinessPulse,
+  monthlyBusinessPulses,
   estimatedVatPayable,
   vatRate,
 }: {
   fixedCosts: number;
   businessPulse: BusinessPulse;
   globalBusinessPulse: BusinessPulse;
+  monthlyBusinessPulses: { month: string; pulse: BusinessPulse }[];
   estimatedVatPayable: number;
   vatRate: number;
 }) {
-  const [period, setPeriod] = useState<"month" | "global">("month");
-  const activePulse = period === "month" ? businessPulse : globalBusinessPulse;
+  const [period, setPeriod] = useState(monthlyBusinessPulses[0].month);
+  const selectedMonth = monthlyBusinessPulses.find(
+    (item) => item.month === period,
+  );
+  const activePulse =
+    period === "global"
+      ? globalBusinessPulse
+      : selectedMonth?.pulse || businessPulse;
   const monthlySales = activePulse.projectedMonthlySales;
   const margin = activePulse.observedContributionPercentage;
   const contribution = activePulse.projectedMonthlyContribution;
@@ -1231,17 +1239,18 @@ export function ProjectionsView({
     effectiveMargin > 0 ? fixedCosts / (effectiveMargin / 100) : 0;
   const coverage = activePulse.recipeCostCoveragePercentage;
   const dailySalesDifference = globalBusinessPulse.averageDailySales
-    ? ((businessPulse.averageDailySales -
-        globalBusinessPulse.averageDailySales) /
+    ? ((activePulse.averageDailySales - globalBusinessPulse.averageDailySales) /
         globalBusinessPulse.averageDailySales) *
       100
     : 0;
-  const currentMonthLabel = new Intl.DateTimeFormat("es-CL", {
-    month: "long",
-    year: "numeric",
-    timeZone: "America/Santiago",
-  }).format(new Date());
-  const currentMonthName = currentMonthLabel.split(" de ")[0];
+  const monthLabel = (month: string) =>
+    new Intl.DateTimeFormat("es-CL", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(`${month}-15T12:00:00Z`));
+  const periodLabel =
+    period === "global" ? "Global desde octubre" : monthLabel(period);
 
   return (
     <section className="mt-5">
@@ -1251,27 +1260,36 @@ export function ProjectionsView({
       />
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#deddd4] bg-[#fffef9] p-3">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPeriod("month")}
-            className={`rounded-xl px-4 py-2.5 text-xs font-black capitalize ${period === "month" ? "bg-[#235b45] text-white" : "bg-[#f0f0e9] text-[#596058]"}`}
+        <div>
+          <label
+            htmlFor="viability-period"
+            className="mb-1 block text-[10px] font-black uppercase tracking-wider text-[#777]"
           >
-            {currentMonthLabel}
-          </button>
-          <button
-            type="button"
-            onClick={() => setPeriod("global")}
-            className={`rounded-xl px-4 py-2.5 text-xs font-black ${period === "global" ? "bg-[#235b45] text-white" : "bg-[#f0f0e9] text-[#596058]"}`}
+            Periodo analizado
+          </label>
+          <select
+            id="viability-period"
+            value={period}
+            onChange={(event) => setPeriod(event.target.value)}
+            className="rounded-xl border border-[#d8d8cf] bg-white px-4 py-2.5 text-xs font-black capitalize text-[#394039]"
           >
-            Global desde octubre
-          </button>
+            {monthlyBusinessPulses.map((item) => (
+              <option key={item.month} value={item.month}>
+                {monthLabel(item.month)} · {item.pulse.observedDays} jornadas
+              </option>
+            ))}
+            <option value="global">
+              Global desde octubre · {globalBusinessPulse.observedDays} jornadas
+            </option>
+          </select>
         </div>
-        <p className="text-xs text-[#6f756e]">
-          <span className="capitalize">{currentMonthName}</span> vs. global:{" "}
-          {dailySalesDifference >= 0 ? "+" : ""}
-          {dailySalesDifference.toFixed(1)}% en venta diaria
-        </p>
+        {period !== "global" && (
+          <p className="text-xs text-[#6f756e]">
+            <span className="capitalize">{periodLabel}</span> vs. global:{" "}
+            {dailySalesDifference >= 0 ? "+" : ""}
+            {dailySalesDifference.toFixed(1)}% en venta diaria
+          </p>
+        )}
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">

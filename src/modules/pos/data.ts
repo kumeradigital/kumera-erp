@@ -283,26 +283,64 @@ export async function getSalesPace(): Promise<SalesPace | null> {
   };
 }
 
-export type BusinessPulseScope = "global" | "current_month";
+export type BusinessPulseScope = "global" | "current_month" | { month: string };
+
+function nextMonthStart(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const next = new Date(Date.UTC(year, monthNumber, 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+export async function getBusinessPulseMonths(): Promise<string[]> {
+  const { businessId, supabase } = await businessContext();
+  const { data, error } = await supabase
+    .from("cash_sessions")
+    .select("opened_at")
+    .eq("business_id", businessId)
+    .eq("status", "closed")
+    .gte("opened_at", santiagoMidnightUtc(profitabilityBaselineDate))
+    .order("opened_at", { ascending: false })
+    .limit(400);
+  if (error) throw error;
+  const currentMonth = chileDateFormatter.format(new Date()).slice(0, 7);
+  return [
+    ...new Set([
+      currentMonth,
+      ...(data || []).map((session) =>
+        chileDateFormatter.format(new Date(session.opened_at)).slice(0, 7),
+      ),
+    ]),
+  ].sort((a, b) => b.localeCompare(a));
+}
 
 export async function getBusinessPulse(
   scope: BusinessPulseScope = "global",
 ): Promise<BusinessPulse> {
   const { businessId, supabase } = await businessContext();
   const currentMonthStart = `${chileDateFormatter.format(new Date()).slice(0, 7)}-01`;
+  const selectedMonth = typeof scope === "object" ? scope.month : undefined;
   const observedFrom =
-    scope === "current_month" ? currentMonthStart : profitabilityBaselineDate;
+    scope === "current_month"
+      ? currentMonthStart
+      : selectedMonth
+        ? `${selectedMonth}-01`
+        : profitabilityBaselineDate;
+  let sessionsQuery = supabase
+    .from("cash_sessions")
+    .select(
+      "id,opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
+    )
+    .eq("business_id", businessId)
+    .eq("status", "closed")
+    .gte("opened_at", santiagoMidnightUtc(observedFrom));
+  if (selectedMonth) {
+    sessionsQuery = sessionsQuery.lt(
+      "opened_at",
+      santiagoMidnightUtc(nextMonthStart(selectedMonth)),
+    );
+  }
   const [sessionsResult, settingsResult, costing] = await Promise.all([
-    supabase
-      .from("cash_sessions")
-      .select(
-        "id,opened_at,cash_session_reconciliations(actual_cash_sales,actual_debit_sales,actual_credit_sales,actual_transfer_sales)",
-      )
-      .eq("business_id", businessId)
-      .eq("status", "closed")
-      .gte("opened_at", santiagoMidnightUtc(observedFrom))
-      .order("opened_at", { ascending: false })
-      .limit(60),
+    sessionsQuery.order("opened_at", { ascending: false }).limit(60),
     supabase
       .from("cost_settings")
       .select("operating_days_month")
