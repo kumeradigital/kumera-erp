@@ -57,6 +57,7 @@ export function OperationsApp({
   monthlyFixedCosts,
   costSettings,
   businessPulse,
+  globalBusinessPulse,
   monthlyHistory,
 }: {
   operations: Operation[];
@@ -69,6 +70,7 @@ export function OperationsApp({
   monthlyFixedCosts: number;
   costSettings: CostSettings;
   businessPulse: BusinessPulse;
+  globalBusinessPulse: BusinessPulse;
   monthlyHistory: MonthlyFinancialSummary[];
   summary: {
     openingBalance: number;
@@ -308,6 +310,7 @@ export function OperationsApp({
           <ProjectionsView
             fixedCosts={effectiveMonthlyCosts}
             businessPulse={businessPulse}
+            globalBusinessPulse={globalBusinessPulse}
             estimatedVatPayable={summary.estimatedVatPayable}
             vatRate={costSettings.vatRate}
           />

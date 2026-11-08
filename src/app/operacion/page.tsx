@@ -4,11 +4,14 @@ import { OperationsApp } from "@/modules/operations/operations-app";
 import { getCostingData } from "@/modules/costs/data";
 import { getBusinessPulse } from "@/modules/pos/data";
 export default async function Page() {
-  const [data, costing, businessPulse] = await Promise.all([
-    getOperationsData(),
-    getCostingData(),
-    getBusinessPulse(),
-  ]);
+  const [data, costing, businessPulse, globalBusinessPulse] = await Promise.all(
+    [
+      getOperationsData(),
+      getCostingData(),
+      getBusinessPulse("current_month"),
+      getBusinessPulse("global"),
+    ],
+  );
   return (
     <PosShell active="operations">
       <OperationsApp
@@ -17,6 +20,7 @@ export default async function Page() {
         monthlyFixedCosts={costing.monthlyFixedCosts}
         costSettings={costing.settings}
         businessPulse={businessPulse}
+        globalBusinessPulse={globalBusinessPulse}
       />
     </PosShell>
   );

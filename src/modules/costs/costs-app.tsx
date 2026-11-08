@@ -1205,34 +1205,74 @@ export function FixedCostsView({
 export function ProjectionsView({
   fixedCosts,
   businessPulse,
+  globalBusinessPulse,
   estimatedVatPayable,
   vatRate,
 }: {
   fixedCosts: number;
   businessPulse: BusinessPulse;
+  globalBusinessPulse: BusinessPulse;
   estimatedVatPayable: number;
   vatRate: number;
 }) {
-  const monthlySales = businessPulse.projectedMonthlySales;
-  const margin = businessPulse.observedContributionPercentage;
-  const contribution = businessPulse.projectedMonthlyContribution;
-  const wasteReserve = businessPulse.projectedMonthlyWasteReserve;
+  const [period, setPeriod] = useState<"month" | "global">("month");
+  const activePulse = period === "month" ? businessPulse : globalBusinessPulse;
+  const monthlySales = activePulse.projectedMonthlySales;
+  const margin = activePulse.observedContributionPercentage;
+  const contribution = activePulse.projectedMonthlyContribution;
+  const wasteReserve = activePulse.projectedMonthlyWasteReserve;
   const projectedNetSales = monthlySales / (1 + vatRate / 100);
   const weightedNetMargin = projectedNetSales
     ? (contribution / projectedNetSales) * 100
     : 0;
   const operatingResult = contribution - wasteReserve - fixedCosts;
-  const effectiveMargin = margin - businessPulse.operationalWastePercentage;
+  const effectiveMargin = margin - activePulse.operationalWastePercentage;
   const breakEvenSales =
     effectiveMargin > 0 ? fixedCosts / (effectiveMargin / 100) : 0;
-  const coverage = businessPulse.recipeCostCoveragePercentage;
+  const coverage = activePulse.recipeCostCoveragePercentage;
+  const dailySalesDifference = globalBusinessPulse.averageDailySales
+    ? ((businessPulse.averageDailySales -
+        globalBusinessPulse.averageDailySales) /
+        globalBusinessPulse.averageDailySales) *
+      100
+    : 0;
+  const currentMonthLabel = new Intl.DateTimeFormat("es-CL", {
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  }).format(new Date());
+  const currentMonthName = currentMonthLabel.split(" de ")[0];
 
   return (
     <section className="mt-5">
       <SectionHeader
         title="Viabilidad con datos reales"
-        subtitle="La proyección se actualiza sola desde ventas conciliadas, recetas, comisiones, merma y gastos del mes."
+        subtitle="El mes en curso muestra rápido los cambios de temporada. El histórico global se conserva como referencia."
       />
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#deddd4] bg-[#fffef9] p-3">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPeriod("month")}
+            className={`rounded-xl px-4 py-2.5 text-xs font-black capitalize ${period === "month" ? "bg-[#235b45] text-white" : "bg-[#f0f0e9] text-[#596058]"}`}
+          >
+            {currentMonthLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPeriod("global")}
+            className={`rounded-xl px-4 py-2.5 text-xs font-black ${period === "global" ? "bg-[#235b45] text-white" : "bg-[#f0f0e9] text-[#596058]"}`}
+          >
+            Global desde octubre
+          </button>
+        </div>
+        <p className="text-xs text-[#6f756e]">
+          <span className="capitalize">{currentMonthName}</span> vs. global:{" "}
+          {dailySalesDifference >= 0 ? "+" : ""}
+          {dailySalesDifference.toFixed(1)}% en venta diaria
+        </p>
+      </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
         <div className="card p-5">
@@ -1245,9 +1285,9 @@ export function ProjectionsView({
                 Datos reales del negocio
               </h3>
               <p className="mt-1 max-w-2xl text-xs leading-5 text-[#777]">
-                {businessPulse.observedDays} jornadas cerradas y conciliadas ·
-                promedio diario de {formatClp(businessPulse.averageDailySales)}{" "}
-                · {businessPulse.operatingDaysMonth} días abiertos al mes.
+                {activePulse.observedDays} jornadas cerradas y conciliadas ·
+                promedio diario de {formatClp(activePulse.averageDailySales)} ·{" "}
+                {activePulse.operatingDaysMonth} días abiertos al mes.
               </p>
             </div>
             <span className="rounded-full bg-[#e8f0e6] px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#235b45]">
@@ -1258,18 +1298,18 @@ export function ProjectionsView({
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ProjectionFact
               label="Jornadas observadas"
-              value={`${businessPulse.observedDays}`}
+              value={`${activePulse.observedDays}`}
               detail="cerradas y conciliadas"
             />
             <ProjectionFact
               label="Venta diaria promedio"
-              value={formatClp(businessPulse.averageDailySales)}
+              value={formatClp(activePulse.averageDailySales)}
               detail="promedio real por jornada"
             />
             <ProjectionFact
               label="Venta mensual proyectada"
               value={formatClp(monthlySales)}
-              detail={`${businessPulse.operatingDaysMonth} días abiertos`}
+              detail={`${activePulse.operatingDaysMonth} días abiertos`}
             />
             <ProjectionFact
               label="Margen real ponderado"
@@ -1319,7 +1359,7 @@ export function ProjectionsView({
               value={contribution}
             />
             <ProjectionRow
-              label={`Reserva merma no registrada (${businessPulse.operationalWastePercentage}%)`}
+              label={`Reserva merma no registrada (${activePulse.operationalWastePercentage}%)`}
               value={-wasteReserve}
             />
             <ProjectionRow label="Costos fijos" value={-fixedCosts} />
@@ -1359,7 +1399,7 @@ export function ProjectionsView({
           </p>
         </div>
         <div className="divide-y divide-[#ecebe3]">
-          {businessPulse.categoryMix.map((item) => (
+          {activePulse.categoryMix.map((item) => (
             <div
               key={item.category}
               className="grid gap-3 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)_130px] sm:items-center"

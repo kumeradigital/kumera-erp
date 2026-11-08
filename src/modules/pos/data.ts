@@ -283,8 +283,15 @@ export async function getSalesPace(): Promise<SalesPace | null> {
   };
 }
 
-export async function getBusinessPulse(): Promise<BusinessPulse> {
+export type BusinessPulseScope = "global" | "current_month";
+
+export async function getBusinessPulse(
+  scope: BusinessPulseScope = "global",
+): Promise<BusinessPulse> {
   const { businessId, supabase } = await businessContext();
+  const currentMonthStart = `${chileDateFormatter.format(new Date()).slice(0, 7)}-01`;
+  const observedFrom =
+    scope === "current_month" ? currentMonthStart : profitabilityBaselineDate;
   const [sessionsResult, settingsResult, costing] = await Promise.all([
     supabase
       .from("cash_sessions")
@@ -293,7 +300,7 @@ export async function getBusinessPulse(): Promise<BusinessPulse> {
       )
       .eq("business_id", businessId)
       .eq("status", "closed")
-      .gte("opened_at", santiagoMidnightUtc(profitabilityBaselineDate))
+      .gte("opened_at", santiagoMidnightUtc(observedFrom))
       .order("opened_at", { ascending: false })
       .limit(60),
     supabase
