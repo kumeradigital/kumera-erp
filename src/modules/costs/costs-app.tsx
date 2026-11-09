@@ -1326,6 +1326,15 @@ export function FixedCostsView({
     ["Cotizaciones y cargas laborales", "Personal"],
     ["Sueldo asignado al dueño operador", "Personal"],
   ] as const;
+  const [section, setSection] = useState<
+    "summary" | "fixed" | "personnel" | "mixed"
+  >(costs.length ? "summary" : "fixed");
+  const visibleCosts = costs.filter((cost) => {
+    if (section === "summary") return true;
+    if (section === "personnel") return cost.category === "Personal";
+    if (section === "mixed") return cost.category === "Servicios mixtos";
+    return !["Personal", "Servicios mixtos"].includes(cost.category);
+  });
   return (
     <section className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1353,67 +1362,82 @@ export function FixedCostsView({
           </button>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        <div className="rounded-2xl border border-[#cbdcc8] bg-[#edf5ea] p-4">
-          <p className="flex items-center gap-2 text-sm font-black text-[#235b45]">
-            <CheckCircle2 size={17} /> Sí corresponde aquí
-          </p>
-          <p className="mt-2 text-xs leading-5 text-[#5e6b62]">
-            Arriendo, sueldos mensuales, contabilidad, software, internet,
-            permisos y seguros.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[#ead7a9] bg-[#fff8e5] p-4">
-          <p className="flex items-center gap-2 text-sm font-black text-[#765d14]">
-            <AlertTriangle size={17} /> No corresponde aquí
-          </p>
-          <p className="mt-2 text-xs leading-5 text-[#766b4d]">
-            Ingredientes, envases, merma y comisiones por venta. Esos costos
-            cambian con cada producto y se registran en Insumos y Costeo.
-          </p>
-          <Link
-            href="/costos?tab=ingredients"
-            className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#765d14]"
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        {(
+          [
+            ["summary", "Resumen"],
+            ["fixed", "Costos fijos"],
+            ["personnel", "Personal"],
+            ["mixed", "Servicios mixtos"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setSection(id)}
+            className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-black ${section === id ? "bg-[#235b45] text-white" : "border border-[#d9d9cf] bg-[#fffef9] text-[#62675f]"}`}
           >
-            Ir a Insumos y compras <ArrowRight size={13} />
-          </Link>
-        </div>
-        <div className="rounded-2xl border border-[#d9d8cf] bg-[#fffef9] p-4">
-          <p className="text-sm font-black">¿Y el IVA?</p>
-          <p className="mt-2 text-xs leading-5 text-[#6d726b]">
-            No lo agregues como costo mensual. Kumera separa el IVA al registrar
-            compras y ventas. Si tu IVA no es recuperable, usa como monto el
-            costo que efectivamente soporta tu negocio.
-          </p>
-        </div>
+            {label}
+          </button>
+        ))}
       </div>
       <details className="mt-3 rounded-2xl border border-[#deddd4] bg-[#fffef9] p-4">
         <summary className="cursor-pointer text-sm font-black text-[#235b45]">
-          No sé dónde clasificar un gasto
+          Cómo clasificar costos y tratar el IVA
         </summary>
-        <div className="mt-3 grid gap-3 text-xs leading-5 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="rounded-2xl border border-[#cbdcc8] bg-[#edf5ea] p-4">
+            <p className="flex items-center gap-2 text-sm font-black text-[#235b45]">
+              <CheckCircle2 size={17} /> Sí corresponde aquí
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#5e6b62]">
+              Arriendo, personal mensual, contabilidad, software, internet,
+              permisos, seguros, luz, agua y gas.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#ead7a9] bg-[#fff8e5] p-4">
+            <p className="flex items-center gap-2 text-sm font-black text-[#765d14]">
+              <AlertTriangle size={17} /> No corresponde aquí
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#766b4d]">
+              Ingredientes, envases, merma y comisiones por venta se registran
+              en Insumos y Costeo.
+            </p>
+            <Link
+              href="/costos?tab=ingredients"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#765d14]"
+            >
+              Ir a Insumos y compras <ArrowRight size={13} />
+            </Link>
+          </div>
+          <div className="rounded-2xl border border-[#d9d8cf] bg-white p-4">
+            <p className="text-sm font-black">¿Y el IVA?</p>
+            <p className="mt-2 text-xs leading-5 text-[#6d726b]">
+              No lo agregues como costo mensual. Si no es recuperable, usa el
+              monto que efectivamente soporta tu negocio.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 text-xs leading-5 md:grid-cols-3">
           <p>
             <b>¿Lo pagas aunque no vendas?</b>
-            <span className="block text-[#6d726b]">
-              Regístralo aquí como costo mensual.
-            </span>
+            <span className="block text-[#6d726b]">Es costo fijo.</span>
           </p>
           <p>
-            <b>¿Aumenta por cada unidad vendida?</b>
+            <b>¿Aumenta por unidad vendida?</b>
             <span className="block text-[#6d726b]">
-              Regístralo como insumo, componente, envase o comisión.
+              Regístralo como insumo, envase o comisión.
             </span>
           </p>
           <p>
             <b>¿Es luz, agua o gas?</b>
             <span className="block text-[#6d726b]">
-              Regístralo como servicio mixto usando su promedio mensual y no lo
-              repitas dentro de la receta.
+              Es servicio mixto: usa su promedio mensual.
             </span>
           </p>
         </div>
       </details>
-      <div className="mt-4">
+      <div className={section === "fixed" ? "mt-4" : "hidden"}>
         <p className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
           Costos fijos frecuentes
         </p>
@@ -1430,7 +1454,9 @@ export function FixedCostsView({
           ))}
         </div>
       </div>
-      <div className="mt-4 rounded-2xl border border-[#d8cfeb] bg-[#f5f1fb] p-4">
+      <div
+        className={`${section === "personnel" ? "mt-4" : "hidden"} rounded-2xl border border-[#d8cfeb] bg-[#f5f1fb] p-4`}
+      >
         <p className="text-sm font-black text-[#574270]">Personal mensual</p>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-[#6f6380]">
           Para una estimación simple registra por separado los sueldos líquidos
@@ -1464,7 +1490,9 @@ export function FixedCostsView({
           producto.
         </p>
       </div>
-      <div className="mt-4 rounded-2xl border border-[#cdd9e5] bg-[#eef5fa] p-4">
+      <div
+        className={`${section === "mixed" ? "mt-4" : "hidden"} rounded-2xl border border-[#cdd9e5] bg-[#eef5fa] p-4`}
+      >
         <p className="text-sm font-black text-[#294f68]">
           Servicios mixtos: luz, agua y gas
         </p>
@@ -1490,7 +1518,7 @@ export function FixedCostsView({
       <div className="card mt-4 flex items-center justify-between p-5">
         <div>
           <p className="text-xs font-bold uppercase text-[#777]">
-            Total mensual equivalente
+            Total mensual de toda la estructura
           </p>
           <p className="mt-1 text-xs text-[#777]">
             {settings.operatingDaysMonth} días operativos
@@ -1499,7 +1527,7 @@ export function FixedCostsView({
         <b className="money text-3xl">{formatClp(Math.round(monthly))}</b>
       </div>
       <div className="mt-3 space-y-2">
-        {costs.map((cost) => (
+        {visibleCosts.map((cost) => (
           <div
             key={cost.id}
             className={`card flex items-center justify-between gap-3 p-4 ${!cost.active ? "opacity-50" : ""}`}
@@ -1531,8 +1559,8 @@ export function FixedCostsView({
             </div>
           </div>
         ))}
-        {!costs.length && (
-          <Empty text="Registra arriendo, sueldos, servicios y otros costos fijos." />
+        {!visibleCosts.length && (
+          <Empty text="Todavía no hay costos registrados en esta sección." />
         )}
       </div>
       {creating && (
