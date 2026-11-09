@@ -1312,7 +1312,6 @@ export function FixedCostsView({
   const [configuring, setConfiguring] = useState(false);
   const fixedSuggestions = [
     ["Arriendo", "Local"],
-    ["Sueldos mensuales", "Personal"],
     ["Contabilidad", "Servicios"],
     ["Internet y telefonía", "Servicios"],
     ["Software y suscripciones", "Servicios"],
@@ -1321,6 +1320,11 @@ export function FixedCostsView({
     ["Electricidad promedio", "Servicios mixtos"],
     ["Agua promedio", "Servicios mixtos"],
     ["Gas promedio", "Servicios mixtos"],
+  ] as const;
+  const personnelSuggestions = [
+    ["Sueldos líquidos mensuales", "Personal"],
+    ["Cotizaciones y cargas laborales", "Personal"],
+    ["Sueldo asignado al dueño operador", "Personal"],
   ] as const;
   return (
     <section className="mt-5">
@@ -1425,6 +1429,40 @@ export function FixedCostsView({
             </button>
           ))}
         </div>
+      </div>
+      <div className="mt-4 rounded-2xl border border-[#d8cfeb] bg-[#f5f1fb] p-4">
+        <p className="text-sm font-black text-[#574270]">Personal mensual</p>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-[#6f6380]">
+          Para una estimación simple registra por separado los sueldos líquidos
+          pagados y las cotizaciones o cargas laborales que pagas. Si usas esta
+          forma, no vuelvas a ingresar el sueldo bruto completo.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {personnelSuggestions.map(([name, category]) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setCreating({ name, category })}
+              className="rounded-full border border-[#c9bade] bg-white px-3 py-2 text-xs font-bold text-[#574270] hover:bg-[#eee6f8]"
+            >
+              + {name}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 rounded-xl bg-white/80 p-3 text-xs leading-5 text-[#674b40]">
+          <b>Si trabajas en la operación, tu tiempo también tiene un costo.</b>{" "}
+          Agrega un sueldo mensual razonable para el dueño o socio operador. Si
+          lo omites porque retiras dinero sin registrarlo, Kumera mostrará una
+          rentabilidad mayor a la real. Puedes omitirlo sólo si tus retiros se
+          realizan después de calcular la utilidad y no corresponden al pago de
+          tu trabajo operativo.
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[#6f6380]">
+          Ausencias o días no trabajados pueden cambiar el pago real de un mes,
+          pero para planificar usa el costo mensual normal. Pagos por hora,
+          turno, unidad o lote se registrarán como mano de obra variable del
+          producto.
+        </p>
       </div>
       <div className="mt-4 rounded-2xl border border-[#cdd9e5] bg-[#eef5fa] p-4">
         <p className="text-sm font-black text-[#294f68]">
