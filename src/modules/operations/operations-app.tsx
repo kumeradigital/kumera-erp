@@ -1447,7 +1447,9 @@ function ProvisionTable({
                         >
                           {item.trackingMode === "accumulating_actual"
                             ? "Registrar compra"
-                            : "Registrar abono o pago"}
+                            : item.trackingMode === "actual_bill"
+                              ? "Registrar cuenta pagada"
+                              : "Registrar abono o pago"}
                         </button>
                         {item.trackingMode === "accumulating_actual" && (
                           <button

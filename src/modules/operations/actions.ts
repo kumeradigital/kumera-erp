@@ -312,6 +312,7 @@ export async function saveOperationAction(form: FormData) {
   if (!membership) throw new Error("Sin negocio");
   const economicMonth = String(form.get("economicMonth") || "");
   const provisionId = String(form.get("provisionId") || "") || null;
+  let provisionTrackingMode: string | null = null;
   const provisionUnitsValue = Number(form.get("provisionUnits"));
   const provisionUnits =
     provisionId &&
@@ -329,11 +330,14 @@ export async function saveOperationAction(form: FormData) {
   if (provisionId) {
     const { data: provision } = await supabase
       .from("expense_provisions")
-      .select("id")
+      .select("id,name,tracking_mode")
       .eq("id", provisionId)
       .eq("business_id", membership.business_id)
       .maybeSingle();
     if (!provision) throw new Error("Provisión no válida");
+    provisionTrackingMode = /electric|luz/i.test(provision.name)
+      ? "actual_bill"
+      : provision.tracking_mode;
   }
   if (obligationId) {
     const { data: obligation } = await supabase
@@ -409,6 +413,22 @@ export async function saveOperationAction(form: FormData) {
     })
     .eq("id", transactionId);
   if (statusError) throw statusError;
+  if (
+    provisionId &&
+    provisionTrackingMode === "actual_bill" &&
+    financialStatus === "verified"
+  ) {
+    const { error: provisionError } = await supabase
+      .from("expense_provisions")
+      .update({
+        expected_amount: gross,
+        status: "reconciled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", provisionId)
+      .eq("business_id", membership.business_id);
+    if (provisionError) throw provisionError;
+  }
   if (obligationId && financialStatus === "verified") {
     const { data: paidObligation, error: obligationError } = await supabase
       .from("financial_obligations")

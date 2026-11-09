@@ -516,8 +516,14 @@ export async function getOperationsData() {
         .filter((payment) => payment.financial_status === "verified")
         .reduce((total, payment) => total + Number(payment.gross_amount), 0);
       const expectedAmount = Number(row.expected_amount);
-      const trackingMode = row.tracking_mode as
-        "fixed_target" | "accumulating_actual";
+      const provisionIdentity = `${row.category} ${row.name}`.toLocaleLowerCase(
+        "es",
+      );
+      const trackingMode = (
+        /electric|luz/.test(provisionIdentity)
+          ? "actual_bill"
+          : row.tracking_mode
+      ) as "fixed_target" | "accumulating_actual" | "actual_bill";
       const trackedUnits = (row.operational_transactions || [])
         .filter((payment) => payment.financial_status === "verified")
         .reduce(
@@ -538,9 +544,6 @@ export async function getOperationsData() {
                 : paidAmount > 0
                   ? "partial"
                   : "estimated";
-      const provisionIdentity = `${row.category} ${row.name}`.toLocaleLowerCase(
-        "es",
-      );
       const normalizedDueDate = /remuner|sueldo/.test(provisionIdentity)
         ? nextMonthPaymentDate(row.economic_month, 5)
         : /cotiza|previsional|imposiciones/.test(provisionIdentity)

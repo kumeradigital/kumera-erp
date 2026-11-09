@@ -42,7 +42,7 @@ export type ExpenseProvision = {
   expectedAmount: number;
   paidAmount: number;
   outstandingAmount: number;
-  trackingMode: "fixed_target" | "accumulating_actual";
+  trackingMode: "fixed_target" | "accumulating_actual" | "actual_bill";
   unitLabel?: string;
   trackedUnits: number;
   economicAmount: number;
