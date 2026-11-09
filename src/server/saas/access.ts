@@ -145,8 +145,48 @@ export async function requireModule(module: ModuleKey) {
   return context;
 }
 
-export async function requireSuperadmin() {
+export async function requireAnyModule(modules: ModuleKey[]) {
   const context = await requireWorkspace();
-  if (!context.isSuperadmin) redirect("/");
+  if (!modules.some((module) => context.modules.includes(module)))
+    redirect("/?modulo=no-disponible");
+  if (
+    saasEnabled() &&
+    context.onboardingStatus !== "complete" &&
+    context.onboardingStatus !== "minimum_complete"
+  )
+    redirect("/configuracion-inicial");
   return context;
+}
+
+export async function requireSuperadmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_superadmin,display_name,email")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile?.is_superadmin) redirect("/");
+  return {
+    userId: user.id,
+    displayName: profile.display_name || "Administrador",
+    email: profile.email,
+  };
+}
+
+export async function isCurrentUserSuperadmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_superadmin")
+    .eq("id", user.id)
+    .maybeSingle();
+  return Boolean(data?.is_superadmin);
 }

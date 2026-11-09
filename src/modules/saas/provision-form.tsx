@@ -35,6 +35,40 @@ export function ProvisionForm() {
           <option value="operations">Kumera Operación</option>
         </select>
       </label>
+      <fieldset className="rounded-2xl border border-[#deded4] p-4 md:col-span-2">
+        <legend className="px-2 text-xs font-black uppercase tracking-wide text-[#657067]">
+          Módulos habilitados
+        </legend>
+        <p className="mb-3 text-xs text-[#777]">
+          El núcleo siempre está incluido. Para el primer beta deja únicamente
+          Costeo.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["costing", "Costeo"],
+            ["inventory", "Inventario"],
+            ["finance", "Finanzas"],
+            ["pos", "Caja"],
+            ["sales", "Ventas"],
+            ["production", "Producción"],
+            ["payroll", "Personas"],
+          ].map(([value, label]) => (
+            <label
+              key={value}
+              className="flex items-center gap-2 rounded-xl bg-[#f5f5ee] p-3 text-sm font-bold"
+            >
+              <input
+                type="checkbox"
+                name="modules"
+                value={value}
+                defaultChecked={value === "costing"}
+                className="size-4"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       {state.message && (
         <p
           className={`rounded-xl p-3 text-sm md:col-span-2 ${state.ok ? "bg-[#eef7ec] text-[#235b45]" : "bg-[#f8e6df] text-[#a13f20]"}`}

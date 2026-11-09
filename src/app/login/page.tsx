@@ -14,9 +14,7 @@ export default function Login() {
         password,
       });
       if (error) throw error;
-      location.href = window.matchMedia("(max-width: 767px)").matches
-        ? "/caja"
-        : "/";
+      location.href = "/";
     } catch (err) {
       setMessage(
         err instanceof Error ? err.message : "No pudimos iniciar sesión",

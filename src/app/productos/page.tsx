@@ -1,9 +1,9 @@
 import { getArchivedProducts, getProducts } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { ProductsClient } from "@/modules/pos/products-client";
-import { requireModule } from "@/server/saas/access";
+import { requireAnyModule } from "@/server/saas/access";
 export default async function ProductsPage() {
-  await requireModule("pos");
+  await requireAnyModule(["costing", "pos"]);
   const [products, archivedProducts] = await Promise.all([
     getProducts(true),
     getArchivedProducts(),

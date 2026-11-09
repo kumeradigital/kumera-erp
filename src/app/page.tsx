@@ -17,11 +17,19 @@ import { getTodaySalesTotal, getBusinessPulse } from "@/modules/pos/data";
 import { getOperationsData } from "@/modules/operations/data";
 import { createClient } from "@/server/supabase/server";
 import { formatClp } from "@/shared/money";
-import { requireWorkspace, saasEnabled } from "@/server/saas/access";
+import {
+  getWorkspaceContext,
+  isCurrentUserSuperadmin,
+  saasEnabled,
+} from "@/server/saas/access";
 import { redirect } from "next/navigation";
 
 export default async function Home() {
-  const workspace = await requireWorkspace();
+  const workspace = await getWorkspaceContext();
+  if (!workspace) {
+    if (await isCurrentUserSuperadmin()) redirect("/admin/clientes");
+    redirect("/login");
+  }
   if (
     saasEnabled() &&
     !["minimum_complete", "complete"].includes(workspace.onboardingStatus)
@@ -236,9 +244,9 @@ function CostingHome({ businessName }: { businessName: string }) {
             icon={<Calculator />}
           />
           <QuickLink
-            href="/costos?tab=products"
+            href="/productos"
             title="3. Productos"
-            detail="Define margen y precio sugerido"
+            detail="Crea el catálogo y luego define margen y precio"
             icon={<PackageSearch />}
           />
         </section>
