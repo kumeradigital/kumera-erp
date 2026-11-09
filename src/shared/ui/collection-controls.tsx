@@ -39,7 +39,7 @@ export function CollectionToolbar({
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
-        <label className="relative block max-w-md flex-1">
+        <label className="relative block w-full sm:w-80 sm:flex-none">
           <Search
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#858a82]"
@@ -48,7 +48,9 @@ export function CollectionToolbar({
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={placeholder}
-            className="input h-11 min-h-0 pl-9"
+            className="input h-11 min-h-0"
+            style={{ paddingLeft: "2.5rem" }}
+            aria-label={placeholder.replace(/\.{3}$/, "")}
           />
         </label>
         {children}
