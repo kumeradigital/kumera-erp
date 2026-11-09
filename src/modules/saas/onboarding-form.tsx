@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
   completeOnboardingAction,
   type OnboardingState,
@@ -22,12 +22,44 @@ export function OnboardingForm({
   defaults: { name: string; legalName: string; rut: string };
 }) {
   const [step, setStep] = useState(0);
+  const [clientMessage, setClientMessage] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(
     completeOnboardingAction,
     initial,
   );
+
+  function continueToNextStep() {
+    const panel = formRef.current?.querySelector<HTMLElement>(
+      `[data-onboarding-step="${step}"]`,
+    );
+    const fields = Array.from(
+      panel?.querySelectorAll<HTMLInputElement>("input") || [],
+    );
+    const invalidField = fields.find((field) => !field.checkValidity());
+    if (invalidField) {
+      invalidField.reportValidity();
+      return;
+    }
+    if (
+      step === 3 &&
+      !fields.some(
+        (field) => field.name === "businessModel" && field.checked,
+      )
+    ) {
+      setClientMessage("Selecciona al menos una forma de operar.");
+      return;
+    }
+    setClientMessage("");
+    setStep(step + 1);
+  }
+
   return (
-    <form action={action} className="card mx-auto max-w-2xl p-6 md:p-8">
+    <form
+      ref={formRef}
+      action={action}
+      className="card mx-auto max-w-2xl p-6 md:p-8"
+    >
       <div className="flex gap-2">
         {steps.map((label, index) => (
           <span
@@ -40,7 +72,10 @@ export function OnboardingForm({
       <p className="mt-5 text-xs font-black uppercase tracking-[.14em] text-[#657067]">
         Paso {step + 1} de {steps.length} · {steps[step]}
       </p>
-      <div className={step === 0 ? "block" : "hidden"}>
+      <div
+        data-onboarding-step="0"
+        className={step === 0 ? "block" : "hidden"}
+      >
         <Panel
           title="Protege tu acceso"
           detail="Reemplaza la clave temporal que recibiste."
@@ -54,7 +89,10 @@ export function OnboardingForm({
           />
         </Panel>
       </div>
-      <div className={step === 1 ? "block" : "hidden"}>
+      <div
+        data-onboarding-step="1"
+        className={step === 1 ? "block" : "hidden"}
+      >
         <Panel
           title="Identifica tu empresa"
           detail="Estos datos aparecerán en el ERP."
@@ -75,7 +113,10 @@ export function OnboardingForm({
           <Field name="activity" label="Giro o actividad" />
         </Panel>
       </div>
-      <div className={step === 2 ? "block" : "hidden"}>
+      <div
+        data-onboarding-step="2"
+        className={step === 2 ? "block" : "hidden"}
+      >
         <Panel
           title="Tu local principal"
           detail="Podrás añadir más locales en una etapa posterior."
@@ -91,7 +132,10 @@ export function OnboardingForm({
           <Field name="city" label="Ciudad" defaultValue="Santiago" required />
         </Panel>
       </div>
-      <div className={step === 3 ? "block" : "hidden"}>
+      <div
+        data-onboarding-step="3"
+        className={step === 3 ? "block" : "hidden"}
+      >
         <Panel
           title="¿Cómo opera tu negocio?"
           detail="Puedes elegir ambas opciones."
@@ -108,7 +152,10 @@ export function OnboardingForm({
           />
         </Panel>
       </div>
-      <div className={step === 4 ? "block" : "hidden"}>
+      <div
+        data-onboarding-step="4"
+        className={step === 4 ? "block" : "hidden"}
+      >
         <Panel
           title="Ventas y pagos"
           detail="Esto prepara los cálculos de comisión."
@@ -125,10 +172,13 @@ export function OnboardingForm({
           <Check name="paymentMethods" value="transfer" label="Transferencia" />
         </Panel>
       </div>
-      <div className={step === 5 ? "block" : "hidden"}>
+      <div
+        data-onboarding-step="5"
+        className={step === 5 ? "block" : "hidden"}
+      >
         <Panel
           title="Ya tenemos lo esencial"
-          detail="Entrarás a Costeo para crear tu primer producto con la guía correspondiente a reventa o elaboración."
+          detail="Entrarás al ERP para crear tu primer producto con la guía correspondiente a reventa o elaboración."
         >
           <div className="rounded-2xl bg-[#eef7ec] p-4 text-sm leading-6 text-[#235b45]">
             Tu configuración queda guardada y podrás completarla
@@ -136,9 +186,9 @@ export function OnboardingForm({
           </div>
         </Panel>
       </div>
-      {state.message && (
+      {(clientMessage || state.message) && (
         <p className="mt-4 rounded-xl bg-[#f8e6df] p-3 text-sm text-[#a13f20]">
-          {state.message}
+          {clientMessage || state.message}
         </p>
       )}
       <div className="mt-7 flex justify-between gap-3">
@@ -153,7 +203,7 @@ export function OnboardingForm({
         {step < steps.length - 1 ? (
           <button
             type="button"
-            onClick={() => setStep(step + 1)}
+            onClick={continueToNextStep}
             className="rounded-xl bg-[#235b45] px-5 py-3 font-black text-white"
           >
             Continuar
@@ -163,7 +213,7 @@ export function OnboardingForm({
             disabled={pending}
             className="rounded-xl bg-[#235b45] px-5 py-3 font-black text-white disabled:opacity-50"
           >
-            {pending ? "Guardando…" : "Entrar a Kumera Costos"}
+            {pending ? "Guardando…" : "Entrar a Kumera ERP"}
           </button>
         )}
       </div>
