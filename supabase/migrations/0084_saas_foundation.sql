@@ -260,51 +260,37 @@ alter table public.business_memberships enable row level security;
 alter table public.membership_location_access enable row level security;
 alter table public.business_onboarding enable row level security;
 
-drop policy if exists "authenticated reads modules" on public.saas_modules;
 create policy "authenticated reads modules" on public.saas_modules for select to authenticated using (true);
-drop policy if exists "authenticated reads plans" on public.saas_plans;
 create policy "authenticated reads plans" on public.saas_plans for select to authenticated using (true);
-drop policy if exists "authenticated reads plan modules" on public.saas_plan_modules;
 create policy "authenticated reads plan modules" on public.saas_plan_modules for select to authenticated using (true);
 
-drop policy if exists "member reads subscription" on public.business_subscriptions;
 create policy "member reads subscription" on public.business_subscriptions for select to authenticated
   using (private.is_business_member(business_id));
-drop policy if exists "superadmin manages subscriptions" on public.business_subscriptions;
 create policy "superadmin manages subscriptions" on public.business_subscriptions for all to authenticated
   using (private.is_superadmin()) with check (private.is_superadmin());
 
-drop policy if exists "member reads module overrides" on public.business_module_overrides;
 create policy "member reads module overrides" on public.business_module_overrides for select to authenticated
   using (private.is_business_member(business_id));
-drop policy if exists "superadmin manages module overrides" on public.business_module_overrides;
 create policy "superadmin manages module overrides" on public.business_module_overrides for all to authenticated
   using (private.is_superadmin()) with check (private.is_superadmin());
 
-drop policy if exists "member accesses locations" on public.business_locations;
 create policy "member accesses locations" on public.business_locations for select to authenticated
   using (private.is_business_member(business_id));
-drop policy if exists "admins manage locations" on public.business_locations;
 create policy "admins manage locations" on public.business_locations for all to authenticated
   using (private.has_business_role(business_id,array['owner','admin']))
   with check (private.has_business_role(business_id,array['owner','admin']));
 
-drop policy if exists "member reads memberships" on public.business_memberships;
 create policy "member reads memberships" on public.business_memberships for select to authenticated
   using (private.is_business_member(business_id));
-drop policy if exists "admins manage memberships" on public.business_memberships;
 create policy "admins manage memberships" on public.business_memberships for all to authenticated
   using (private.has_business_role(business_id,array['owner','admin']) or private.is_superadmin())
   with check (private.has_business_role(business_id,array['owner','admin']) or private.is_superadmin());
 
-drop policy if exists "membership location access" on public.membership_location_access;
 create policy "membership location access" on public.membership_location_access for select to authenticated
   using (exists(select 1 from public.business_memberships bm where bm.id=membership_id and private.is_business_member(bm.business_id)));
 
-drop policy if exists "member reads onboarding" on public.business_onboarding;
 create policy "member reads onboarding" on public.business_onboarding for select to authenticated
   using (private.is_business_member(business_id));
-drop policy if exists "admins manage onboarding" on public.business_onboarding;
 create policy "admins manage onboarding" on public.business_onboarding for all to authenticated
   using (private.has_business_role(business_id,array['owner','admin']))
   with check (private.has_business_role(business_id,array['owner','admin']));
@@ -334,7 +320,6 @@ begin
   ) as rules(table_name,module_key)
   loop
     if to_regclass('public.' || item.table_name) is not null then
-      execute format('drop policy if exists %I on public.%I', 'module entitlement ' || item.module_key, item.table_name);
       execute format(
         'create policy %I on public.%I as restrictive for all to authenticated using (private.has_module(business_id,%L)) with check (private.has_module(business_id,%L))',
         'module entitlement ' || item.module_key, item.table_name, item.module_key, item.module_key
@@ -343,15 +328,12 @@ begin
   end loop;
 end $$;
 
-drop policy if exists "product module entitlement" on public.products;
 create policy "product module entitlement" on public.products as restrictive for all to authenticated
   using (private.has_module(business_id,'costing') or private.has_module(business_id,'pos'))
   with check (private.has_module(business_id,'costing') or private.has_module(business_id,'pos'));
-drop policy if exists "category module entitlement" on public.product_categories;
 create policy "category module entitlement" on public.product_categories as restrictive for all to authenticated
   using (private.has_module(business_id,'costing') or private.has_module(business_id,'pos'))
   with check (private.has_module(business_id,'costing') or private.has_module(business_id,'pos'));
-drop policy if exists "sales module entitlement" on public.sales;
 create policy "sales module entitlement" on public.sales as restrictive for all to authenticated
   using (private.has_module(business_id,'sales') or private.has_module(business_id,'pos'))
   with check (private.has_module(business_id,'sales') or private.has_module(business_id,'pos'));
