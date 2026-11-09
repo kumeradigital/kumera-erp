@@ -192,6 +192,29 @@ export function OperationsApp({
     summary.availableLiquidity + projectedRemainingContribution;
   const commitmentsDueThisMonth =
     summary.pendingObligations + summary.pendingProvisions;
+  const loanPaymentsThisMonth = obligations
+    .filter(
+      (item) =>
+        item.kind === "loan_payment" &&
+        item.dueDate.slice(0, 7) <= currentMonth,
+    )
+    .reduce((total, item) => total + (item.amount || 0), 0);
+  const projectedFreeCash =
+    businessPulse.projectedMonthlyOperatingResult -
+    loanPaymentsThisMonth -
+    summary.monthlyOwnerWithdrawals;
+  const cashContributionRate =
+    (businessPulse.observedContributionPercentage -
+      businessPulse.operationalWastePercentage) /
+    100;
+  const dailyCashBreakEven =
+    cashContributionRate > 0 && businessPulse.operatingDaysMonth > 0
+      ? Math.round(
+          (businessPulse.monthlyFixedCosts + loanPaymentsThisMonth) /
+            cashContributionRate /
+            businessPulse.operatingDaysMonth,
+        )
+      : 0;
   const otherPaidExpenses =
     summary.monthlyFixedPayments +
     summary.monthlyVariableExpenses +
@@ -463,6 +486,16 @@ export function OperationsApp({
                   Ver compromisos y vencimientos
                 </button>
               </div>
+
+              <CashGenerationCard
+                averageDailySales={businessPulse.averageDailySales}
+                operatingResult={businessPulse.projectedMonthlyOperatingResult}
+                loanPayments={loanPaymentsThisMonth}
+                ownerWithdrawals={summary.monthlyOwnerWithdrawals}
+                projectedFreeCash={projectedFreeCash}
+                dailyBreakEven={dailyCashBreakEven}
+                hasLoanCommitment={loanPaymentsThisMonth > 0}
+              />
 
               <section className="card p-5 xl:col-span-8">
                 <h2 className="font-black">En qué se usó el dinero este mes</h2>
@@ -789,6 +822,136 @@ export function OperationsApp({
         />
       )}
     </main>
+  );
+}
+
+function CashGenerationCard({
+  averageDailySales,
+  operatingResult,
+  loanPayments,
+  ownerWithdrawals,
+  projectedFreeCash,
+  dailyBreakEven,
+  hasLoanCommitment,
+}: {
+  averageDailySales: number;
+  operatingResult: number;
+  loanPayments: number;
+  ownerWithdrawals: number;
+  projectedFreeCash: number;
+  dailyBreakEven: number;
+  hasLoanCommitment: boolean;
+}) {
+  const safetyAmount = averageDailySales - dailyBreakEven;
+  const safetyPercentage = averageDailySales
+    ? (safetyAmount / averageDailySales) * 100
+    : 0;
+  const status =
+    projectedFreeCash <= 0
+      ? "critical"
+      : safetyPercentage < 15
+        ? "tight"
+        : "healthy";
+  const statusCopy = {
+    healthy: {
+      eyebrow: "Sí, la operación puede generar caja",
+      title: `Podría dejar ${formatClp(projectedFreeCash)} al mes`,
+      explanation:
+        "Si las ventas mantienen este ritmo y no haces nuevos retiros ni inversiones, este dinero podría permanecer en la empresa después de operar y pagar las cuotas registradas.",
+      style: "border-[#b9d5b5] bg-[#edf6e9] text-[#235b45]",
+    },
+    tight: {
+      eyebrow: "Genera caja, pero con poco margen",
+      title: `Podría dejar ${formatClp(projectedFreeCash)} al mes`,
+      explanation:
+        "La operación alcanza a sostenerse, pero una baja moderada en ventas puede consumir la caja disponible. Conviene mantener congelados los retiros y las inversiones.",
+      style: "border-[#ead59a] bg-[#fff8df] text-[#765b0b]",
+    },
+    critical: {
+      eyebrow: "La operación está consumiendo caja",
+      title: `Faltarían ${formatClp(Math.abs(projectedFreeCash))} al mes`,
+      explanation:
+        "Con el ritmo actual, las ventas no alcanzan para cubrir la operación, las cuotas registradas y los retiros del mes.",
+      style: "border-[#e4b6a6] bg-[#fff0ea] text-[#963d23]",
+    },
+  }[status];
+  return (
+    <section
+      className={`rounded-2xl border p-6 xl:col-span-12 ${statusCopy.style}`}
+    >
+      <p className="text-xs font-black uppercase tracking-[.14em]">
+        ¿El negocio está generando liquidez por sí solo?
+      </p>
+      <div className="mt-3 grid gap-5 xl:grid-cols-[1.25fr_2fr]">
+        <div>
+          <p className="text-sm font-black">{statusCopy.eyebrow}</p>
+          <p className="money mt-2 text-3xl font-black">{statusCopy.title}</p>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-[#59635b]">
+            {statusCopy.explanation}
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <CashCapacityMetric
+            label="Venta diaria actual"
+            value={averageDailySales}
+            detail="Promedio de jornadas conciliadas"
+          />
+          <CashCapacityMetric
+            label="Mínimo diario para generar caja"
+            value={dailyBreakEven}
+            detail="Incluye operación y cuotas registradas"
+          />
+          <CashCapacityMetric
+            label="Resultado de la operación"
+            value={operatingResult}
+            detail="Antes de deuda, retiros e inversiones"
+          />
+          <CashCapacityMetric
+            label="Caja libre estimada"
+            value={projectedFreeCash}
+            detail="Después de cuotas y retiros registrados"
+          />
+        </div>
+      </div>
+      <div className="mt-4 rounded-xl bg-white/70 p-4 text-xs leading-5 text-[#59635b]">
+        <b>Cómo leerlo:</b> hoy vendes {formatClp(averageDailySales)} diarios y
+        necesitas aproximadamente {formatClp(dailyBreakEven)} para operar y
+        cubrir las cuotas registradas. Tu margen de seguridad es de{" "}
+        {formatClp(Math.max(0, safetyAmount))} diarios.
+        {!hasLoanCommitment && (
+          <span className="mt-2 block font-black text-[#9a3f22]">
+            Atención: no hay ninguna cuota de crédito registrada este mes. La
+            caja libre y el mínimo diario todavía no incluyen esa deuda.
+          </span>
+        )}
+        {loanPayments > 0 && (
+          <span className="mt-2 block">
+            Cuotas consideradas: {formatClp(loanPayments)}. Retiros personales
+            ya realizados este mes: {formatClp(ownerWithdrawals)}.
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CashCapacityMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-black/5 bg-white/80 p-4 text-[#252a25]">
+      <p className="text-[10px] font-black uppercase tracking-[.1em] text-[#72776f]">
+        {label}
+      </p>
+      <p className="money mt-2 text-xl font-black">{formatClp(value)}</p>
+      <p className="mt-1 text-[11px] leading-4 text-[#777]">{detail}</p>
+    </div>
   );
 }
 
