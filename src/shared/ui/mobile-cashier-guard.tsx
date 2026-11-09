@@ -32,7 +32,7 @@ export function MobileCashierGuard({
   return (
     <>
       <div className="hidden md:contents">{children}</div>
-      <main className="grid min-h-dvh place-items-center bg-[#f7f6ee] p-6 md:hidden">
+      <main className="no-print grid min-h-dvh place-items-center bg-[#f7f6ee] p-6 md:hidden">
         <div className="text-center">
           <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[#d8f070] text-xl font-black text-[#235b45]">
             K

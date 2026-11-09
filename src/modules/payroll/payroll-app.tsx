@@ -210,15 +210,62 @@ export function PayrollApp({ data }: { data: PayrollPageData }) {
           </div>
         </section>
 
-        <Payslip
-          data={data}
-          employee={employee}
-          input={input}
-          calculation={calculation}
-          notes={saved?.notes}
-        />
+        <div className="grid gap-6">
+          <PreviredGuide calculation={calculation} />
+          <Payslip
+            data={data}
+            employee={employee}
+            input={input}
+            calculation={calculation}
+            notes={saved?.notes}
+          />
+        </div>
       </div>
     </main>
+  );
+}
+
+function PreviredGuide({
+  calculation,
+}: {
+  calculation: PayrollCalculation;
+}) {
+  return (
+    <section className="no-print card border border-[#bfd2bc] bg-[#f4f8f1] p-5">
+      <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+        Ayuda interna para Previred
+      </p>
+      <h2 className="mt-2 text-lg font-black">Valores que debes ingresar</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl bg-white p-4">
+          <Detail
+            label="Renta imponible Previred"
+            value={money.format(calculation.taxableEarnings)}
+          />
+        </div>
+        <div className="rounded-xl bg-white p-4">
+          <Detail
+            label="Haberes no imponibles"
+            value={money.format(calculation.nonTaxableEarnings)}
+          />
+        </div>
+        <div className="rounded-xl bg-white p-4">
+          <Detail
+            label="Total haberes"
+            value={money.format(calculation.totalEarnings)}
+          />
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-bold leading-6 text-[#59635b]">
+        Copia la renta imponible en “Renta Imponible” y en “Renta Imponible
+        Seguro de Cesantía”. Colación y movilización están incluidas en el total
+        de haberes, pero no forman parte de la renta imponible.
+      </p>
+      <p className="mt-2 text-xs text-[#747970]">
+        Esta ayuda es sólo para administración y no se incluye al imprimir la
+        liquidación del trabajador.
+      </p>
+    </section>
   );
 }
 
@@ -270,30 +317,6 @@ function Payslip({
             label="Salud"
             value={`${employee.healthSystem} ${(employee.healthRate * 100).toFixed(0)}%`}
           />
-          <div className="rounded-lg border border-[#bfd2bc] bg-white p-3 sm:col-span-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-[#235b45]">
-              Datos para ingresar en Previred
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <Detail
-                label="Haberes imponibles / Renta Previred"
-                value={money.format(calculation.taxableEarnings)}
-              />
-              <Detail
-                label="Haberes no imponibles"
-                value={money.format(calculation.nonTaxableEarnings)}
-              />
-              <Detail
-                label="Total haberes"
-                value={money.format(calculation.totalEarnings)}
-              />
-            </div>
-            <p className="mt-3 text-[11px] font-bold leading-4 text-[#59635b]">
-              Copia “Haberes imponibles / Renta Previred” en Renta Imponible y
-              en Renta Imponible Seguro de Cesantía. Colación y movilización no
-              se incluyen en esos campos.
-            </p>
-          </div>
         </div>
 
         <div className="mt-6 grid gap-6 md:grid-cols-2">
