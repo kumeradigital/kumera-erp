@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   Beaker,
   BookOpenCheck,
+  Building2,
   CheckCircle2,
   CircleDollarSign,
   FlaskConical,
   Layers3,
+  PackageCheck,
   Plus,
   Settings,
   Eye,
@@ -51,25 +54,42 @@ import type {
 } from "./types";
 import type { BusinessPulse } from "@/modules/pos/types";
 
-export type CostTab = "ingredients" | "recipes" | "products";
+export type CostTab =
+  "overview" | "business" | "ingredients" | "recipes" | "products";
 
 export function CostsApp({
   ingredients,
   recipes,
   recipeCosts,
   analyses,
-  initialTab = "ingredients",
+  fixedCosts,
+  monthlyFixedCosts,
+  settings,
+  initialTab = "overview",
 }: {
   ingredients: Ingredient[];
   recipes: Recipe[];
   recipeCosts: Record<string, RecipeCost>;
   analyses: ProductCostAnalysis[];
+  fixedCosts: FixedCost[];
+  monthlyFixedCosts: number;
+  settings: CostSettings;
   initialTab?: CostTab;
 }) {
   const [tab, setTab] = useState<CostTab>(initialTab);
   const tabs: { id: CostTab; label: string; icon: React.ReactNode }[] = [
-    { id: "ingredients", label: "Materias primas", icon: <Beaker size={16} /> },
-    { id: "recipes", label: "Recetas", icon: <FlaskConical size={16} /> },
+    { id: "overview", label: "Ruta de costeo", icon: <Target size={16} /> },
+    {
+      id: "business",
+      label: "Costos del negocio",
+      icon: <Building2 size={16} />,
+    },
+    {
+      id: "ingredients",
+      label: "Insumos y compras",
+      icon: <Beaker size={16} />,
+    },
+    { id: "recipes", label: "Preparaciones", icon: <FlaskConical size={16} /> },
     {
       id: "products",
       label: "Costos de productos",
@@ -84,11 +104,11 @@ export function CostsApp({
             Motor económico
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight">
-            Recetas y costos de productos
+            Costos, márgenes y precios
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-[#747970]">
-            Los costos se calculan desde precios, ingredientes y recetas. No se
-            ingresa manualmente el costo de un producto.
+            Ordena los gastos de tu negocio y calcula cuánto aporta cada
+            producto para cubrirlos y generar utilidad.
           </p>
         </div>
         <Link
@@ -116,6 +136,22 @@ export function CostsApp({
           </button>
         ))}
       </div>
+      {tab === "overview" && (
+        <CostingRoadmap
+          fixedCosts={fixedCosts}
+          ingredients={ingredients}
+          recipes={recipes}
+          analyses={analyses}
+          onOpen={setTab}
+        />
+      )}
+      {tab === "business" && (
+        <FixedCostsView
+          costs={fixedCosts}
+          monthly={monthlyFixedCosts}
+          settings={settings}
+        />
+      )}
       {tab === "ingredients" && <IngredientsView ingredients={ingredients} />}
       {tab === "recipes" && (
         <RecipesView
@@ -128,6 +164,121 @@ export function CostsApp({
         <ProductsCostView analyses={analyses} recipes={recipes} />
       )}
     </main>
+  );
+}
+
+function CostingRoadmap({
+  fixedCosts,
+  ingredients,
+  recipes,
+  analyses,
+  onOpen,
+}: {
+  fixedCosts: FixedCost[];
+  ingredients: Ingredient[];
+  recipes: Recipe[];
+  analyses: ProductCostAnalysis[];
+  onOpen: (tab: CostTab) => void;
+}) {
+  const completeProducts = analyses.filter((item) => item.complete).length;
+  const steps: {
+    number: number;
+    title: string;
+    detail: string;
+    status: string;
+    tab: CostTab;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      number: 1,
+      title: "Registra los costos del negocio",
+      detail:
+        "Arriendo, remuneraciones, servicios, software y otros gastos mensuales. Sirven para calcular cuánto debes vender para no perder dinero.",
+      status: fixedCosts.length
+        ? `${fixedCosts.length} costos registrados`
+        : "Pendiente",
+      tab: "business",
+      icon: <Building2 size={22} />,
+    },
+    {
+      number: 2,
+      title: "Registra todo lo que compras",
+      detail:
+        "Incluye harina, envases y también componentes listos como croissants, jamón o queso. Indica formato, precio y rendimiento aprovechable.",
+      status: ingredients.length
+        ? `${ingredients.length} insumos registrados`
+        : "Pendiente",
+      tab: "ingredients",
+      icon: <Beaker size={22} />,
+    },
+    {
+      number: 3,
+      title: "Crea preparaciones o productos armados",
+      detail:
+        "Combina insumos comprados y preparaciones propias. Un croissant comprado con jamón y queso se arma aquí; un pan hecho desde cero también.",
+      status: recipes.length
+        ? `${recipes.length} preparaciones creadas`
+        : "Según tu negocio",
+      tab: "recipes",
+      icon: <FlaskConical size={22} />,
+    },
+    {
+      number: 4,
+      title: "Compara costo, margen y precio",
+      detail:
+        "Separa reventa directa de productos elaborados o armados y revisa costo variable, contribución y precio sugerido.",
+      status: completeProducts
+        ? `${completeProducts} productos costeados`
+        : "Pendiente",
+      tab: "products",
+      icon: <PackageCheck size={22} />,
+    },
+  ];
+  return (
+    <section className="mt-6">
+      <div className="overflow-hidden rounded-[28px] bg-[#1f6048] p-6 text-white md:p-8">
+        <p className="text-xs font-black uppercase tracking-[.16em] text-[#d8f070]">
+          Tu ruta recomendada
+        </p>
+        <h2 className="mt-3 max-w-3xl text-3xl font-black md:text-4xl">
+          Primero entiende tu negocio. Después costea cada producto.
+        </h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
+          El margen de contribución de un producto indica cuánto deja para pagar
+          los costos fijos. La utilidad real aparece cuando la contribución de
+          todas tus ventas supera esos gastos.
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {steps.map((item) => (
+          <button
+            key={item.number}
+            type="button"
+            onClick={() => onOpen(item.tab)}
+            className="card group p-5 text-left transition hover:-translate-y-0.5 hover:border-[#9cb89f]"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#e8f0e6] text-[#235b45]">
+                {item.icon}
+              </div>
+              <span className="rounded-full bg-[#f1f1e8] px-3 py-1 text-[10px] font-black uppercase text-[#687168]">
+                {item.status}
+              </span>
+            </div>
+            <p className="mt-4 text-xs font-black uppercase tracking-[.14em] text-[#7a8078]">
+              Paso {item.number}
+            </p>
+            <h3 className="mt-1 text-lg font-black">{item.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-[#747970]">
+              {item.detail}
+            </p>
+            <span className="mt-4 flex items-center gap-2 text-xs font-black text-[#235b45]">
+              Abrir <ArrowRight size={15} />
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -818,6 +969,13 @@ function RecipesView({
   );
 }
 
+function productTypeLabel(type: ProductCostAnalysis["productType"]) {
+  if (type === "resale") return "Comprado para revender";
+  if (type === "mixed") return "Armado con componentes comprados";
+  if (type === "manufactured") return "Elaborado en el negocio";
+  return "Tipo por definir";
+}
+
 function ProductsCostView({
   analyses,
   recipes,
@@ -828,6 +986,7 @@ function ProductsCostView({
   const [editing, setEditing] = useState<ProductCostAnalysis | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [productKind, setProductKind] = useState("all");
   const [category, setCategory] = useState("Todas");
   const [view, setView] = useCollectionView("product-costs");
   const categories = [
@@ -851,6 +1010,10 @@ function ProductsCostView({
   const visible = analyses.filter(
     (product) =>
       (category === "Todas" || product.category === category) &&
+      (productKind === "all" ||
+        (productKind === "resale"
+          ? product.productType === "resale"
+          : product.productType !== "resale")) &&
       (status === "all" ||
         (status === "complete" ? product.complete : !product.complete)) &&
       product.name
@@ -861,8 +1024,32 @@ function ProductsCostView({
     <section className="mt-5">
       <SectionHeader
         title="Rentabilidad por producto"
-        subtitle="Costo, margen y precio sugerido desde la receta vinculada."
+        subtitle="Compara por separado lo que revendes y lo que elaboras o armas."
       />
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setProductKind("resale")}
+          className={`rounded-2xl border p-4 text-left ${productKind === "resale" ? "border-[#235b45] bg-[#eaf2e7]" : "border-[#deddd4] bg-[#fffef9]"}`}
+        >
+          <b>Comprados para revender</b>
+          <p className="mt-1 text-xs leading-5 text-[#70756d]">
+            Se venden sin preparación. El costo nace del formato comprado, sus
+            unidades vendibles, merma, IVA y comisiones.
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setProductKind("prepared")}
+          className={`rounded-2xl border p-4 text-left ${productKind === "prepared" ? "border-[#235b45] bg-[#eaf2e7]" : "border-[#deddd4] bg-[#fffef9]"}`}
+        >
+          <b>Elaborados o armados en el negocio</b>
+          <p className="mt-1 text-xs leading-5 text-[#70756d]">
+            Usan una receta y pueden combinar preparaciones propias con
+            componentes comprados listos para usar.
+          </p>
+        </button>
+      </div>
       <div className="mt-4 rounded-2xl border border-[#cfdcc9] bg-[#eaf2e7] p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -904,6 +1091,16 @@ function ProductsCostView({
         placeholder="Buscar producto..."
       >
         <select
+          value={productKind}
+          onChange={(event) => setProductKind(event.target.value)}
+          className="input h-11 min-h-0 sm:w-56"
+          aria-label="Tipo de producto"
+        >
+          <option value="all">Todos los tipos</option>
+          <option value="resale">Comprados para revender</option>
+          <option value="prepared">Elaborados o armados</option>
+        </select>
+        <select
           value={category}
           onChange={(event) => setCategory(event.target.value)}
           className="input h-11 min-h-0 sm:w-48"
@@ -937,7 +1134,7 @@ function ProductsCostView({
             <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
               <tr>
                 <th className="px-4 py-3">Producto</th>
-                <th className="px-4 py-3">Categoría</th>
+                <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Receta final</th>
                 <th className="px-4 py-3">Precio</th>
                 <th className="px-4 py-3">Costo variable</th>
@@ -952,7 +1149,7 @@ function ProductsCostView({
                 <tr key={product.id} className="hover:bg-[#fafaf4]">
                   <td className="px-4 py-3 font-black">{product.name}</td>
                   <td className="px-4 py-3 text-[#70756d]">
-                    {product.category}
+                    {productTypeLabel(product.productType)}
                   </td>
                   <td className="px-4 py-3 text-[#70756d]">
                     {product.recipeName || "Sin receta"}
@@ -998,8 +1195,10 @@ function ProductsCostView({
                 <div>
                   <h3 className="font-black">{product.name}</h3>
                   <p className="mt-1 text-xs text-[#777]">
-                    {product.category} · {product.recipeName || "Sin receta"} ·
-                    venta por {product.saleUnit === "kg" ? "kg" : "unidad"}
+                    {productTypeLabel(product.productType)} · {product.category}
+                    {" · "}
+                    {product.recipeName || "Sin receta"} · venta por{" "}
+                    {product.saleUnit === "kg" ? "kg" : "unidad"}
                   </p>
                 </div>
                 <Status
