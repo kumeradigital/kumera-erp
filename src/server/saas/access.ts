@@ -59,13 +59,16 @@ export const getWorkspaceContext = cache(
       };
     }
 
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("business_memberships")
       .select("id,business_id,role,must_change_password,businesses(name)")
       .eq("user_id", user.id)
       .eq("active", true)
       .limit(1)
       .maybeSingle();
+    if (membershipError) {
+      throw new Error(`No se pudo resolver la membresia: ${membershipError.message}`);
+    }
     if (!membership) return null;
 
     const [
@@ -76,7 +79,7 @@ export const getWorkspaceContext = cache(
     ] = await Promise.all([
       supabase
         .from("business_subscriptions")
-        .select("plan_key,status,saas_plan_modules(module_key)")
+        .select("plan_key,status")
         .eq("business_id", membership.business_id)
         .maybeSingle(),
       supabase
@@ -96,10 +99,40 @@ export const getWorkspaceContext = cache(
         .maybeSingle(),
     ]);
 
+    if (subscriptionResult.error) {
+      throw new Error(
+        `No se pudo resolver la suscripcion: ${subscriptionResult.error.message}`,
+      );
+    }
+    if (overridesResult.error) {
+      throw new Error(
+        `No se pudieron resolver los modulos adicionales: ${overridesResult.error.message}`,
+      );
+    }
+    if (locationResult.error) {
+      throw new Error(
+        `No se pudo resolver el local principal: ${locationResult.error.message}`,
+      );
+    }
+    if (onboardingResult.error) {
+      throw new Error(
+        `No se pudo resolver el onboarding: ${onboardingResult.error.message}`,
+      );
+    }
+
     const subscription = subscriptionResult.data;
-    const planRows = (subscription?.saas_plan_modules || []) as unknown as {
-      module_key: string;
-    }[];
+    const planModulesResult = subscription
+      ? await supabase
+          .from("saas_plan_modules")
+          .select("module_key")
+          .eq("plan_key", subscription.plan_key)
+      : { data: [], error: null };
+    if (planModulesResult.error) {
+      throw new Error(
+        `No se pudieron resolver los modulos del plan: ${planModulesResult.error.message}`,
+      );
+    }
+    const planRows = planModulesResult.data || [];
     const enabled = new Set(
       validModules(planRows.map((row) => row.module_key)),
     );
