@@ -13,7 +13,9 @@ import {
   Warehouse,
 } from "lucide-react";
 import { signOutAction } from "@/modules/auth/actions";
-export function PosShell({
+import { getWorkspaceContext } from "@/server/saas/access";
+import type { ModuleKey } from "@/server/saas/types";
+export async function PosShell({
   children,
   active,
   kiosk = false,
@@ -32,6 +34,9 @@ export function PosShell({
     | "business"
     | "payroll";
 }) {
+  const workspace = await getWorkspaceContext();
+  const enabled = (module: ModuleKey) =>
+    workspace?.modules.includes(module) ?? true;
   if (kiosk) {
     return (
       <div className="h-[100dvh] min-w-0 overflow-hidden bg-[#f7f6ee]">
@@ -44,7 +49,7 @@ export function PosShell({
     <div className="min-h-screen min-w-0 overflow-x-hidden bg-[#f7f6ee]">
       <header className="relative flex h-16 w-full min-w-0 items-center gap-2 border-b border-[#dfdfd5] bg-[#fffef9] px-3 md:px-7">
         <Link
-          href="/caja"
+          href="/"
           prefetch={false}
           className="flex shrink-0 items-center gap-2 md:hidden"
         >
@@ -74,60 +79,76 @@ export function PosShell({
             active={active === "home"}
             icon={<House size={16} />}
           />
-          <Nav
-            href="/operacion"
-            label="Finanzas"
-            active={active === "operations"}
-            icon={<ReceiptText size={16} />}
-          />
-          <Nav
-            href="/inventario"
-            label="Inventario"
-            active={active === "inventory"}
-            icon={<Warehouse size={16} />}
-          />
-          <Nav
-            href="/ventas"
-            label="Ventas"
-            active={active === "sales"}
-            icon={<LayoutDashboard size={16} />}
-          />
-          <Nav
-            href="/cierres"
-            label="Historial de cierres"
-            active={active === "closures"}
-            icon={<History size={16} />}
-          />
-          <Nav
-            href="/caja"
-            label="Caja"
-            active={active === "pos"}
-            icon={<ShoppingCart size={16} />}
-          />
-          <Nav
-            href="/productos"
-            label="Productos"
-            active={active === "products"}
-            icon={<Boxes size={16} />}
-          />
-          <Nav
-            href="/costos"
-            label="Costeo"
-            active={active === "costs"}
-            icon={<LineChart size={16} />}
-          />
+          {enabled("finance") && (
+            <Nav
+              href="/operacion"
+              label="Finanzas"
+              active={active === "operations"}
+              icon={<ReceiptText size={16} />}
+            />
+          )}
+          {enabled("inventory") && (
+            <Nav
+              href="/inventario"
+              label="Inventario"
+              active={active === "inventory"}
+              icon={<Warehouse size={16} />}
+            />
+          )}
+          {enabled("sales") && (
+            <Nav
+              href="/ventas"
+              label="Ventas"
+              active={active === "sales"}
+              icon={<LayoutDashboard size={16} />}
+            />
+          )}
+          {enabled("pos") && (
+            <Nav
+              href="/cierres"
+              label="Historial de cierres"
+              active={active === "closures"}
+              icon={<History size={16} />}
+            />
+          )}
+          {enabled("pos") && (
+            <Nav
+              href="/caja"
+              label="Caja"
+              active={active === "pos"}
+              icon={<ShoppingCart size={16} />}
+            />
+          )}
+          {enabled("pos") && (
+            <Nav
+              href="/productos"
+              label="Productos"
+              active={active === "products"}
+              icon={<Boxes size={16} />}
+            />
+          )}
+          {enabled("costing") && (
+            <Nav
+              href="/costos"
+              label="Costeo"
+              active={active === "costs"}
+              icon={<LineChart size={16} />}
+            />
+          )}
           <Nav
             href="/empresa"
             label="Empresa"
             active={active === "business"}
             icon={<Building2 size={16} />}
           />
-          <Nav
-            href="/remuneraciones"
-            label="Remuneraciones"
-            active={active === "payroll"}
-            icon={<UsersRound size={16} />}
-          />
+          {enabled("payroll") && (
+            <Nav
+              href="/remuneraciones"
+              label="Remuneraciones"
+              active={active === "payroll"}
+              icon={<UsersRound size={16} />}
+            />
+          )}
         </nav>
         <details className="group relative ml-auto md:hidden">
           <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-xl bg-[#235b45] px-3 text-sm font-black text-white [&::-webkit-details-marker]:hidden">
@@ -144,60 +165,76 @@ export function PosShell({
               active={active === "home"}
               icon={<House size={19} />}
             />
-            <MobileNavLink
-              href="/caja"
-              label="Caja"
-              active={active === "pos"}
-              icon={<ShoppingCart size={19} />}
-            />
-            <MobileNavLink
-              href="/operacion"
-              label="Finanzas"
-              active={active === "operations"}
-              icon={<ReceiptText size={19} />}
-            />
-            <MobileNavLink
-              href="/ventas"
-              label="Ventas"
-              active={active === "sales"}
-              icon={<LayoutDashboard size={19} />}
-            />
-            <MobileNavLink
-              href="/inventario"
-              label="Inventario"
-              active={active === "inventory"}
-              icon={<Warehouse size={19} />}
-            />
-            <MobileNavLink
-              href="/productos"
-              label="Productos"
-              active={active === "products"}
-              icon={<Boxes size={19} />}
-            />
-            <MobileNavLink
-              href="/costos"
-              label="Costeo"
-              active={active === "costs"}
-              icon={<LineChart size={19} />}
-            />
-            <MobileNavLink
-              href="/cierres"
-              label="Cierres"
-              active={active === "closures"}
-              icon={<History size={19} />}
-            />
+            {enabled("pos") && (
+              <MobileNavLink
+                href="/caja"
+                label="Caja"
+                active={active === "pos"}
+                icon={<ShoppingCart size={19} />}
+              />
+            )}
+            {enabled("finance") && (
+              <MobileNavLink
+                href="/operacion"
+                label="Finanzas"
+                active={active === "operations"}
+                icon={<ReceiptText size={19} />}
+              />
+            )}
+            {enabled("sales") && (
+              <MobileNavLink
+                href="/ventas"
+                label="Ventas"
+                active={active === "sales"}
+                icon={<LayoutDashboard size={19} />}
+              />
+            )}
+            {enabled("inventory") && (
+              <MobileNavLink
+                href="/inventario"
+                label="Inventario"
+                active={active === "inventory"}
+                icon={<Warehouse size={19} />}
+              />
+            )}
+            {enabled("pos") && (
+              <MobileNavLink
+                href="/productos"
+                label="Productos"
+                active={active === "products"}
+                icon={<Boxes size={19} />}
+              />
+            )}
+            {enabled("costing") && (
+              <MobileNavLink
+                href="/costos"
+                label="Costeo"
+                active={active === "costs"}
+                icon={<LineChart size={19} />}
+              />
+            )}
+            {enabled("pos") && (
+              <MobileNavLink
+                href="/cierres"
+                label="Cierres"
+                active={active === "closures"}
+                icon={<History size={19} />}
+              />
+            )}
             <MobileNavLink
               href="/empresa"
               label="Empresa"
               active={active === "business"}
               icon={<Building2 size={19} />}
             />
-            <MobileNavLink
-              href="/remuneraciones"
-              label="Remuneraciones"
-              active={active === "payroll"}
-              icon={<UsersRound size={19} />}
-            />
+            {enabled("payroll") && (
+              <MobileNavLink
+                href="/remuneraciones"
+                label="Remuneraciones"
+                active={active === "payroll"}
+                icon={<UsersRound size={19} />}
+              />
+            )}
           </nav>
         </details>
         <form action={signOutAction} className="ml-1 shrink-0 md:ml-0">

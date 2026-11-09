@@ -4,8 +4,10 @@ import {
   getInventoryProviders,
 } from "@/modules/inventory/data";
 import { PosShell } from "@/modules/pos/pos-shell";
+import { requireModule } from "@/server/saas/access";
 
 export default async function InventoryPage() {
+  await requireModule("inventory");
   const [items, providers] = await Promise.all([
     getInventoryItems(),
     getInventoryProviders(),

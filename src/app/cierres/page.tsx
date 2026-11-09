@@ -1,12 +1,14 @@
 import { getCashClosureHistory } from "@/modules/pos/data";
 import { CashClosureHistory } from "@/modules/pos/cash-closure-history";
 import { PosShell } from "@/modules/pos/pos-shell";
+import { requireModule } from "@/server/saas/access";
 
 export default async function CashClosuresPage({
   searchParams,
 }: {
   searchParams: Promise<{ limit?: string }>;
 }) {
+  await requireModule("pos");
   const requested = Number((await searchParams).limit || 30);
   const limit = Number.isInteger(requested)
     ? Math.min(200, Math.max(30, requested))

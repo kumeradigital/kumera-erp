@@ -86,6 +86,10 @@ export type CostProduct = {
   isSalesFamily: boolean;
   familyProductId?: string;
   archived?: boolean;
+  productType?: "resale" | "manufactured" | "mixed";
+  resalePurchaseGrossAmount?: number;
+  resaleUnitsPerPurchase?: number;
+  resaleTaxRate?: number;
 };
 
 export type ProductCostAnalysis = CostProduct & {

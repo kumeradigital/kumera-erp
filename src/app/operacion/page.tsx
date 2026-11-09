@@ -3,7 +3,9 @@ import { getOperationsData } from "@/modules/operations/data";
 import { OperationsApp } from "@/modules/operations/operations-app";
 import { getCostingData } from "@/modules/costs/data";
 import { getBusinessPulse, getBusinessPulseMonths } from "@/modules/pos/data";
+import { requireModule } from "@/server/saas/access";
 export default async function Page() {
+  await requireModule("finance");
   const dataPromise = getOperationsData();
   const costingPromise = getCostingData();
   const globalPulsePromise = getBusinessPulse("global");

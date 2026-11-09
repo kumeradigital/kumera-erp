@@ -2,8 +2,10 @@ import { getTodaySalesTotal } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { TodaySalesRefresh } from "@/modules/pos/today-sales-refresh";
 import { formatClp } from "@/shared/money";
+import { requireModule } from "@/server/saas/access";
 
 export default async function TodaySalesPage() {
+  await requireModule("sales");
   const sales = await getTodaySalesTotal();
 
   return (

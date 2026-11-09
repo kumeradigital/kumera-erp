@@ -316,6 +316,14 @@ export async function configureProductCostAction(form: FormData) {
   const ctx = await context();
   const productId = text(form, "productId");
   const recipeId = text(form, "recipeId") || null;
+  const productType = text(form, "productType") || "manufactured";
+  const resalePurchaseGrossAmount = Number(
+    form.get("resalePurchaseGrossAmount") || 0,
+  );
+  const resaleUnitsPerPurchase = Number(
+    form.get("resaleUnitsPerPurchase") || 0,
+  );
+  const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
   const wastePercentage = Number(form.get("wastePercentage") || 0);
   const targetMarginPercentage = Number(
     form.get("targetMarginPercentage") || 60,
@@ -324,6 +332,17 @@ export async function configureProductCostAction(form: FormData) {
     throw new Error("Merma inválida");
   if (targetMarginPercentage < 0 || targetMarginPercentage >= 95)
     throw new Error("Margen objetivo inválido");
+  if (!["resale", "manufactured", "mixed"].includes(productType))
+    throw new Error("Tipo de producto inválido");
+  if (
+    productType === "resale" &&
+    (!resalePurchaseGrossAmount || !resaleUnitsPerPurchase)
+  )
+    throw new Error(
+      "Indica el costo del formato comprado y cuántas unidades vendibles contiene",
+    );
+  if (resaleTaxRate < 0 || resaleTaxRate > 100)
+    throw new Error("IVA de compra inválido");
   if (recipeId) {
     const { data: recipe, error: recipeError } = await ctx.supabase
       .from("recipes")
@@ -341,6 +360,12 @@ export async function configureProductCostAction(form: FormData) {
       cost_recipe_id: recipeId,
       waste_percentage: wastePercentage,
       target_margin_percentage: targetMarginPercentage,
+      product_type: productType,
+      resale_purchase_gross_amount:
+        productType === "resale" ? Math.round(resalePurchaseGrossAmount) : null,
+      resale_units_per_purchase:
+        productType === "resale" ? resaleUnitsPerPurchase : null,
+      resale_tax_rate: productType === "resale" ? resaleTaxRate : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId)

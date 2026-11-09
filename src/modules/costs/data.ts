@@ -1,5 +1,6 @@
 import { createClient } from "@/server/supabase/server";
 import { cache } from "react";
+import { getWorkspaceContext } from "@/server/saas/access";
 import {
   analyzeProducts,
   calculateRecipeCosts,
@@ -29,15 +30,20 @@ const context = cache(async () => {
     .eq("active", true)
     .single();
   if (error) throw error;
-  return { supabase, businessId: membership.business_id };
+  const workspace = await getWorkspaceContext();
+  return {
+    supabase,
+    businessId: membership.business_id,
+    modules: workspace?.modules || [],
+  };
 });
 
 const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
-  const { supabase, businessId } = await context();
+  const { supabase, businessId, modules } = await context();
   let productQuery = supabase
     .from("products")
     .select(
-      "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,deleted_at,product_categories(name)",
+      "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,deleted_at,product_type,resale_purchase_gross_amount,resale_units_per_purchase,resale_tax_rate,product_categories(name)",
     )
     .eq("business_id", businessId)
     .order("name");
@@ -105,10 +111,12 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
       .from("sales_scenario_items")
       .select("scenario_id,product_id,quantity_per_day")
       .eq("business_id", businessId),
-    supabase
-      .from("cash_session_production_batches")
-      .select("family_product_id,component_product_id,quantity")
-      .eq("business_id", businessId),
+    modules.includes("production")
+      ? supabase
+          .from("cash_session_production_batches")
+          .select("family_product_id,component_product_id,quantity")
+          .eq("business_id", businessId)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   for (const result of [
@@ -199,6 +207,14 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
       isSalesFamily: row.is_sales_family,
       familyProductId: row.family_product_id || undefined,
       archived: Boolean(row.deleted_at),
+      productType: row.product_type || undefined,
+      resalePurchaseGrossAmount: row.resale_purchase_gross_amount
+        ? Number(row.resale_purchase_gross_amount)
+        : undefined,
+      resaleUnitsPerPurchase: row.resale_units_per_purchase
+        ? Number(row.resale_units_per_purchase)
+        : undefined,
+      resaleTaxRate: Number(row.resale_tax_rate ?? 19),
     };
   });
 

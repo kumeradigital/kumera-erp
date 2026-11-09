@@ -1,6 +1,7 @@
 import { getCostingData } from "@/modules/costs/data";
 import { CostsApp, type CostTab } from "@/modules/costs/costs-app";
 import { PosShell } from "@/modules/pos/pos-shell";
+import { requireModule } from "@/server/saas/access";
 
 const validTabs: CostTab[] = ["ingredients", "recipes", "products"];
 
@@ -9,6 +10,7 @@ export default async function CostsPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  await requireModule("costing");
   const requestedTab = (await searchParams).tab as CostTab;
   const initialTab = validTabs.includes(requestedTab)
     ? requestedTab

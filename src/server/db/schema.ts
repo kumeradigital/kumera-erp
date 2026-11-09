@@ -260,3 +260,77 @@ export const roleChangeLog = pgTable("role_change_log", {
     .notNull()
     .defaultNow(),
 });
+
+// SaaS foundation. Operational tables introduced by historical SQL migrations
+// remain intentionally untouched; these definitions cover the new additive model.
+export const saasModules = pgTable("saas_modules", {
+  key: text("key").primaryKey(),
+  name: text("name").notNull(),
+  position: integer("position").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+});
+
+export const saasPlans = pgTable("saas_plans", {
+  key: text("key").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  active: boolean("active").notNull().default(true),
+});
+
+export const businessSubscriptions = pgTable("business_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id),
+  planKey: text("plan_key")
+    .notNull()
+    .references(() => saasPlans.key),
+  status: text("status").notNull().default("provisioned"),
+  startsAt: timestamp("starts_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+});
+
+export const businessLocations = pgTable("business_locations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id),
+  name: text("name").notNull(),
+  address: text("address"),
+  commune: text("commune"),
+  city: text("city"),
+  timezone: text("timezone").notNull().default("America/Santiago"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  active: boolean("active").notNull().default(true),
+});
+
+export const businessMemberships = pgTable("business_memberships", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    .references(() => businesses.id),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => profiles.id),
+  role: text("role").notNull().default("viewer"),
+  active: boolean("active").notNull().default(true),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
+  invitedBy: uuid("invited_by").references(() => profiles.id),
+});
+
+export const businessOnboarding = pgTable("business_onboarding", {
+  businessId: uuid("business_id")
+    .primaryKey()
+    .references(() => businesses.id),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("not_started"),
+  currentStep: text("current_step").notNull().default("password"),
+  completedSteps: text("completed_steps").array().notNull().default([]),
+  businessModel: text("business_model").array().notNull().default([]),
+  salesChannels: text("sales_channels").array().notNull().default([]),
+  paymentMethods: text("payment_methods").array().notNull().default([]),
+  minimumCompletedAt: timestamp("minimum_completed_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});

@@ -11,6 +11,7 @@ import {
   Target,
 } from "lucide-react";
 import { PosShell } from "@/modules/pos/pos-shell";
+import { requireModule } from "@/server/saas/access";
 
 const sections = [
   ["metodo", "Método recomendado"],
@@ -23,7 +24,8 @@ const sections = [
   ["errores", "Errores que debes evitar"],
 ] as const;
 
-export default function CostingGuidePage() {
+export default async function CostingGuidePage() {
+  await requireModule("costing");
   return (
     <PosShell active="costs">
       <main className="mx-auto max-w-7xl p-4 pb-24 md:p-8">

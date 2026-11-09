@@ -2,8 +2,10 @@ import { OpeningApp } from "@/modules/opening/opening-app";
 import { getOpeningData } from "@/modules/opening/data";
 import { createClient } from "@/server/supabase/server";
 import { redirect } from "next/navigation";
+import { requireModule } from "@/server/saas/access";
 
 export default async function OpeningPage() {
+  await requireModule("finance");
   const supabase = await createClient();
   const {
     data: { user },

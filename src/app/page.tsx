@@ -17,8 +17,21 @@ import { getTodaySalesTotal, getBusinessPulse } from "@/modules/pos/data";
 import { getOperationsData } from "@/modules/operations/data";
 import { createClient } from "@/server/supabase/server";
 import { formatClp } from "@/shared/money";
+import { requireWorkspace, saasEnabled } from "@/server/saas/access";
+import { redirect } from "next/navigation";
 
 export default async function Home() {
+  const workspace = await requireWorkspace();
+  if (
+    saasEnabled() &&
+    !["minimum_complete", "complete"].includes(workspace.onboardingStatus)
+  )
+    redirect("/configuracion-inicial");
+  if (
+    !workspace.modules.includes("finance") ||
+    !workspace.modules.includes("sales")
+  )
+    return <CostingHome businessName={workspace.businessName} />;
   const supabase = await createClient();
   const {
     data: { user },
@@ -181,6 +194,53 @@ export default async function Home() {
               la ficha de empresa.
             </p>
           </div>
+        </section>
+      </main>
+    </PosShell>
+  );
+}
+
+function CostingHome({ businessName }: { businessName: string }) {
+  return (
+    <PosShell active="home">
+      <main className="mx-auto max-w-5xl p-5 md:p-8">
+        <section className="rounded-[30px] bg-[#1f6048] px-6 py-8 text-white md:px-9">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-[#d8f070]">
+            <Sparkles size={16} /> Kumera Costos
+          </div>
+          <h1 className="mt-4 text-3xl font-black md:text-5xl">
+            Bienvenido a {businessName}
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/75 md:text-base">
+            Comienza registrando lo que compras o elaboras. Kumera te ayudará a
+            convertir costos reales en precios de venta sostenibles.
+          </p>
+          <Link
+            href="/costos"
+            className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#d8f070] px-5 font-black text-[#194735]"
+          >
+            Abrir Costeo <ArrowRight size={18} />
+          </Link>
+        </section>
+        <section className="mt-5 grid gap-4 md:grid-cols-3">
+          <QuickLink
+            href="/costos?tab=ingredients"
+            title="1. Materias primas"
+            detail="Registra formatos y precios de compra"
+            icon={<ReceiptText />}
+          />
+          <QuickLink
+            href="/costos?tab=recipes"
+            title="2. Elaboraciones"
+            detail="Crea recetas y subrecetas"
+            icon={<Calculator />}
+          />
+          <QuickLink
+            href="/costos?tab=products"
+            title="3. Productos"
+            detail="Define margen y precio sugerido"
+            icon={<PackageSearch />}
+          />
         </section>
       </main>
     </PosShell>

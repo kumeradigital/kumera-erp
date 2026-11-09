@@ -3,8 +3,10 @@ import { Archive, ShieldCheck, UserRound } from "lucide-react";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { BusinessProfileForm } from "@/modules/business/business-profile-form";
 import { getBusinessProfile } from "@/modules/business/data";
+import { requireModule } from "@/server/saas/access";
 
 export default async function BusinessPage() {
+  await requireModule("core");
   const data = await getBusinessProfile();
   return (
     <PosShell active="business">

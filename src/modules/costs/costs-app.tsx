@@ -2402,6 +2402,59 @@ function ProductCostDialog({
     <Dialog title={`Costeo de ${product.name}`} onClose={onClose}>
       <AsyncForm action={configureProductCostAction}>
         <input type="hidden" name="productId" value={product.id} />
+        <Field label="Cómo obtienes este producto">
+          <select
+            name="productType"
+            defaultValue={
+              product.productType ||
+              (product.recipeId ? "manufactured" : "resale")
+            }
+            className="input"
+          >
+            <option value="resale">Lo compro para revender</option>
+            <option value="manufactured">Lo elaboro con una receta</option>
+            <option value="mixed">
+              Combina elaboración y componentes comprados
+            </option>
+          </select>
+        </Field>
+        <div className="rounded-xl border border-[#deded4] bg-[#faf9f4] p-3">
+          <p className="text-xs font-black uppercase tracking-wide text-[#657067]">
+            Si es reventa
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <Field label="Costo compra bruto">
+              <input
+                name="resalePurchaseGrossAmount"
+                type="number"
+                min="0"
+                defaultValue={product.resalePurchaseGrossAmount}
+                className="input"
+              />
+            </Field>
+            <Field label="Unidades vendibles">
+              <input
+                name="resaleUnitsPerPurchase"
+                type="number"
+                min="0"
+                step="0.001"
+                defaultValue={product.resaleUnitsPerPurchase}
+                className="input"
+              />
+            </Field>
+            <Field label="IVA compra %">
+              <input
+                name="resaleTaxRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                defaultValue={product.resaleTaxRate ?? 19}
+                className="input"
+              />
+            </Field>
+          </div>
+        </div>
         <Field label="Receta final del producto">
           <select
             name="recipeId"

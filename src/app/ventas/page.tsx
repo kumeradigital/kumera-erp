@@ -5,6 +5,7 @@ import {
 } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { SalesDashboard } from "@/modules/pos/sales-dashboard";
+import { requireModule } from "@/server/saas/access";
 
 type Query = {
   period?: string;
@@ -105,6 +106,7 @@ export default async function SalesPage({
 }: {
   searchParams: Promise<Query>;
 }) {
+  await requireModule("sales");
   const query = await searchParams;
   const period = resolvePeriod(query);
   const view = query.view === "planning" ? "planning" : "summary";

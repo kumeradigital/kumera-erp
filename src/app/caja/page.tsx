@@ -5,7 +5,9 @@ import {
 } from "@/modules/pos/data";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { PosClient } from "@/modules/pos/pos-client";
+import { requireModule } from "@/server/saas/access";
 export default async function PosPage() {
+  await requireModule("pos");
   const [catalog, latestSession] = await Promise.all([
     getPosCatalog(),
     getLatestCashSession(),
