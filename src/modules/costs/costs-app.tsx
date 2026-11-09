@@ -1304,16 +1304,30 @@ export function FixedCostsView({
   monthly: number;
   settings: CostSettings;
 }) {
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<{
+    name: string;
+    category: string;
+  } | null>(null);
   const [editing, setEditing] = useState<FixedCost | null>(null);
   const [configuring, setConfiguring] = useState(false);
+  const suggestions = [
+    ["Arriendo", "Local"],
+    ["Sueldos mensuales", "Personal"],
+    ["Contabilidad", "Servicios"],
+    ["Electricidad promedio", "Servicios"],
+    ["Agua promedio", "Servicios"],
+    ["Gas promedio", "Servicios"],
+    ["Internet y telefonía", "Servicios"],
+    ["Software y suscripciones", "Servicios"],
+  ] as const;
   return (
     <section className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black">Estructura mensual de gastos</h2>
+          <h2 className="text-xl font-black">Costos mensuales del negocio</h2>
           <p className="mt-1 text-sm text-[#777]">
-            Gastos recurrentes usados en la viabilidad y el punto de equilibrio.
+            Registra lo que debes pagar incluso si vendes poco o nada durante el
+            mes.
           </p>
         </div>
         <div className="flex gap-2">
@@ -1324,11 +1338,88 @@ export function FixedCostsView({
             <Settings size={15} /> Parámetros
           </button>
           <button
-            onClick={() => setCreating(true)}
+            onClick={() => setCreating({ name: "", category: "Otros" })}
             className="flex items-center gap-2 rounded-xl bg-[#235b45] px-4 py-3 text-xs font-bold text-white"
           >
-            <Plus size={15} /> Gasto planificado
+            <Plus size={15} /> Agregar costo
           </button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="rounded-2xl border border-[#cbdcc8] bg-[#edf5ea] p-4">
+          <p className="flex items-center gap-2 text-sm font-black text-[#235b45]">
+            <CheckCircle2 size={17} /> Sí corresponde aquí
+          </p>
+          <p className="mt-2 text-xs leading-5 text-[#5e6b62]">
+            Arriendo, sueldos mensuales, contabilidad, software, internet,
+            permisos y servicios estimados mensualmente.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#ead7a9] bg-[#fff8e5] p-4">
+          <p className="flex items-center gap-2 text-sm font-black text-[#765d14]">
+            <AlertTriangle size={17} /> No corresponde aquí
+          </p>
+          <p className="mt-2 text-xs leading-5 text-[#766b4d]">
+            Ingredientes, envases, merma y comisiones por venta. Esos costos
+            cambian con cada producto y se registran en Insumos y Costeo.
+          </p>
+          <Link
+            href="/costos?tab=ingredients"
+            className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#765d14]"
+          >
+            Ir a Insumos y compras <ArrowRight size={13} />
+          </Link>
+        </div>
+        <div className="rounded-2xl border border-[#d9d8cf] bg-[#fffef9] p-4">
+          <p className="text-sm font-black">¿Y el IVA?</p>
+          <p className="mt-2 text-xs leading-5 text-[#6d726b]">
+            No lo agregues como costo mensual. Kumera separa el IVA al registrar
+            compras y ventas. Si tu IVA no es recuperable, usa como monto el
+            costo que efectivamente soporta tu negocio.
+          </p>
+        </div>
+      </div>
+      <details className="mt-3 rounded-2xl border border-[#deddd4] bg-[#fffef9] p-4">
+        <summary className="cursor-pointer text-sm font-black text-[#235b45]">
+          No sé dónde clasificar un gasto
+        </summary>
+        <div className="mt-3 grid gap-3 text-xs leading-5 md:grid-cols-3">
+          <p>
+            <b>¿Lo pagas aunque no vendas?</b>
+            <span className="block text-[#6d726b]">
+              Regístralo aquí como costo mensual.
+            </span>
+          </p>
+          <p>
+            <b>¿Aumenta por cada unidad vendida?</b>
+            <span className="block text-[#6d726b]">
+              Regístralo como insumo, componente, envase o comisión.
+            </span>
+          </p>
+          <p>
+            <b>¿Tiene una parte fija y otra variable?</b>
+            <span className="block text-[#6d726b]">
+              Por ahora usa el promedio mensual aquí y no lo repitas dentro de
+              la receta.
+            </span>
+          </p>
+        </div>
+      </details>
+      <div className="mt-4">
+        <p className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
+          Agregar rápidamente
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {suggestions.map(([name, category]) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setCreating({ name, category })}
+              className="rounded-full border border-[#d9d9cf] bg-[#fffef9] px-3 py-2 text-xs font-bold hover:border-[#8daf96] hover:bg-[#edf5ea]"
+            >
+              + {name}
+            </button>
+          ))}
         </div>
       </div>
       <div className="card mt-4 flex items-center justify-between p-5">
@@ -1379,7 +1470,12 @@ export function FixedCostsView({
           <Empty text="Registra arriendo, sueldos, servicios y otros costos fijos." />
         )}
       </div>
-      {creating && <FixedCostDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <FixedCostDialog
+          template={creating}
+          onClose={() => setCreating(null)}
+        />
+      )}
       {editing && (
         <FixedCostDialog cost={editing} onClose={() => setEditing(null)} />
       )}
@@ -2701,14 +2797,16 @@ function ProductCostDialog({
 
 function FixedCostDialog({
   cost,
+  template,
   onClose,
 }: {
   cost?: FixedCost;
+  template?: { name: string; category: string };
   onClose: () => void;
 }) {
   return (
     <Dialog
-      title={cost ? "Editar costo fijo" : "Nuevo costo fijo"}
+      title={cost ? "Editar costo mensual" : "Nuevo costo mensual"}
       onClose={onClose}
     >
       <AsyncForm action={saveFixedCostAction}>
@@ -2717,13 +2815,13 @@ function FixedCostDialog({
           <input
             name="name"
             required
-            defaultValue={cost?.name}
+            defaultValue={cost?.name || template?.name}
             className="input"
             placeholder="Ej: Arriendo"
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Monto">
+          <Field label="Monto que realmente es costo para el negocio">
             <input
               name="amount"
               required
@@ -2750,7 +2848,7 @@ function FixedCostDialog({
           <Field label="Categoría">
             <select
               name="category"
-              defaultValue={cost?.category || "Otros"}
+              defaultValue={cost?.category || template?.category || "Otros"}
               className="input"
             >
               <option>Local</option>
@@ -2772,6 +2870,11 @@ function FixedCostDialog({
             />
           </Field>
         </div>
+        <p className="-mt-1 rounded-xl bg-[#f3f3eb] p-3 text-xs leading-5 text-[#666c64]">
+          Si recuperas el IVA de esta compra, ingresa el monto neto. Si el IVA
+          no es recuperable, ingresa el total que efectivamente soporta tu
+          negocio.
+        </p>
         <Field label="Hasta (opcional)">
           <input
             name="endsOn"
@@ -2794,7 +2897,7 @@ function FixedCostDialog({
             </span>
           </span>
         </label>
-        <Submit>{cost ? "Guardar cambios" : "Guardar costo fijo"}</Submit>
+        <Submit>{cost ? "Guardar cambios" : "Guardar costo mensual"}</Submit>
       </AsyncForm>
     </Dialog>
   );
@@ -2829,6 +2932,10 @@ function SettingsDialog({
             />
           </Field>
         </div>
+        <p className="rounded-xl bg-[#f3f3eb] p-3 text-xs leading-5 text-[#666c64]">
+          Esta tasa se usa para separar el precio neto del IVA en ventas y
+          compras afectas. El IVA no se agrega como costo fijo mensual.
+        </p>
         <p className="pt-2 text-xs font-black">
           Mezcla esperada de pagos (debe sumar 100%)
         </p>
