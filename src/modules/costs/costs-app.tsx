@@ -79,7 +79,7 @@ export function CostsApp({
   const tabs: { id: CostTab; label: string; icon: React.ReactNode }[] = [
     {
       id: "business",
-      label: "Costos del negocio",
+      label: "Costos fijos y mixtos",
       icon: <Building2 size={16} />,
     },
     {
@@ -180,9 +180,9 @@ export function CostingRoadmap({
   }[] = [
     {
       number: 1,
-      title: "Registra los costos del negocio",
+      title: "Define costos fijos y servicios mixtos",
       detail:
-        "Arriendo, remuneraciones, servicios, software y otros gastos mensuales. Sirven para calcular cuánto debes vender para no perder dinero.",
+        "Registra arriendo, remuneraciones y otros costos fijos. Agrega luz, agua y gas como servicios mixtos usando su promedio mensual.",
       status: fixedCosts.length
         ? `${fixedCosts.length} costos registrados`
         : "Pendiente",
@@ -1310,21 +1310,25 @@ export function FixedCostsView({
   } | null>(null);
   const [editing, setEditing] = useState<FixedCost | null>(null);
   const [configuring, setConfiguring] = useState(false);
-  const suggestions = [
+  const fixedSuggestions = [
     ["Arriendo", "Local"],
     ["Sueldos mensuales", "Personal"],
     ["Contabilidad", "Servicios"],
-    ["Electricidad promedio", "Servicios"],
-    ["Agua promedio", "Servicios"],
-    ["Gas promedio", "Servicios"],
     ["Internet y telefonía", "Servicios"],
     ["Software y suscripciones", "Servicios"],
+  ] as const;
+  const mixedSuggestions = [
+    ["Electricidad promedio", "Servicios mixtos"],
+    ["Agua promedio", "Servicios mixtos"],
+    ["Gas promedio", "Servicios mixtos"],
   ] as const;
   return (
     <section className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black">Costos mensuales del negocio</h2>
+          <h2 className="text-xl font-black">
+            Costos fijos y servicios mixtos
+          </h2>
           <p className="mt-1 text-sm text-[#777]">
             Registra lo que debes pagar incluso si vendes poco o nada durante el
             mes.
@@ -1352,7 +1356,7 @@ export function FixedCostsView({
           </p>
           <p className="mt-2 text-xs leading-5 text-[#5e6b62]">
             Arriendo, sueldos mensuales, contabilidad, software, internet,
-            permisos y servicios estimados mensualmente.
+            permisos y seguros.
           </p>
         </div>
         <div className="rounded-2xl border border-[#ead7a9] bg-[#fff8e5] p-4">
@@ -1397,25 +1401,48 @@ export function FixedCostsView({
             </span>
           </p>
           <p>
-            <b>¿Tiene una parte fija y otra variable?</b>
+            <b>¿Es luz, agua o gas?</b>
             <span className="block text-[#6d726b]">
-              Por ahora usa el promedio mensual aquí y no lo repitas dentro de
-              la receta.
+              Regístralo como servicio mixto usando su promedio mensual y no lo
+              repitas dentro de la receta.
             </span>
           </p>
         </div>
       </details>
       <div className="mt-4">
         <p className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
-          Agregar rápidamente
+          Costos fijos frecuentes
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {suggestions.map(([name, category]) => (
+          {fixedSuggestions.map(([name, category]) => (
             <button
               key={name}
               type="button"
               onClick={() => setCreating({ name, category })}
               className="rounded-full border border-[#d9d9cf] bg-[#fffef9] px-3 py-2 text-xs font-bold hover:border-[#8daf96] hover:bg-[#edf5ea]"
+            >
+              + {name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 rounded-2xl border border-[#cdd9e5] bg-[#eef5fa] p-4">
+        <p className="text-sm font-black text-[#294f68]">
+          Servicios mixtos: luz, agua y gas
+        </p>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-[#587083]">
+          Su consumo cambia con la actividad, pero normalmente abastece a todo
+          el negocio y no a un solo producto. Ingresa el promedio mensual de la
+          cuenta. Kumera lo considerará en la estructura del negocio, separado
+          de los costos fijos.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {mixedSuggestions.map(([name, category]) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setCreating({ name, category })}
+              className="rounded-full border border-[#b8cad8] bg-white px-3 py-2 text-xs font-bold text-[#294f68] hover:bg-[#e4f0f7]"
             >
               + {name}
             </button>
@@ -2854,6 +2881,7 @@ function FixedCostDialog({
               <option>Local</option>
               <option>Personal</option>
               <option>Servicios</option>
+              <option>Servicios mixtos</option>
               <option>Financiamiento</option>
               <option>Marketing</option>
               <option>Mantención</option>

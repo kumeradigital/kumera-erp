@@ -233,8 +233,8 @@ function CostingHome({ businessName }: { businessName: string }) {
         <section className="mt-5 grid gap-4 md:grid-cols-3">
           <QuickLink
             href="/costos?tab=business"
-            title="Costos del negocio"
-            detail="Arriendo, remuneraciones y gastos mensuales"
+            title="Costos fijos y servicios mixtos"
+            detail="Arriendo, personal, luz, agua, gas y otros gastos"
             icon={<ReceiptText />}
           />
           <QuickLink
