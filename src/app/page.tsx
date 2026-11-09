@@ -220,33 +220,33 @@ function CostingHome({ businessName }: { businessName: string }) {
             Bienvenido a {businessName}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/75 md:text-base">
-            Comienza registrando lo que compras o elaboras. Kumera te ayudará a
-            convertir costos reales en precios de venta sostenibles.
+            Tu espacio de trabajo está listo. Sigue la guía inicial para cargar
+            la información en el orden correcto y obtener resultados útiles.
           </p>
           <Link
-            href="/costos"
+            href="/comienza"
             className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#d8f070] px-5 font-black text-[#194735]"
           >
-            Abrir Costeo <ArrowRight size={18} />
+            Comenzar configuración <ArrowRight size={18} />
           </Link>
         </section>
         <section className="mt-5 grid gap-4 md:grid-cols-3">
           <QuickLink
-            href="/costos?tab=ingredients"
-            title="1. Materias primas"
-            detail="Registra formatos y precios de compra"
+            href="/costos?tab=business"
+            title="Costos del negocio"
+            detail="Arriendo, remuneraciones y gastos mensuales"
             icon={<ReceiptText />}
           />
           <QuickLink
-            href="/costos?tab=recipes"
-            title="2. Elaboraciones"
-            detail="Crea recetas y subrecetas"
+            href="/costos?tab=ingredients"
+            title="Insumos y preparaciones"
+            detail="Registra compras, rendimientos y recetas"
             icon={<Calculator />}
           />
           <QuickLink
-            href="/productos"
-            title="3. Productos"
-            detail="Crea el catálogo y luego define margen y precio"
+            href="/costos?tab=products"
+            title="Resultados por producto"
+            detail="Revisa costo, contribución y precio sugerido"
             icon={<PackageSearch />}
           />
         </section>

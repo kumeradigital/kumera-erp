@@ -49,8 +49,7 @@ export async function completeOnboardingAction(
   if (!parsed.success)
     return {
       ok: false,
-      message:
-        "Revisa los datos obligatorios antes de continuar.",
+      message: "Revisa los datos obligatorios antes de continuar.",
     };
 
   const supabase = await createClient();
@@ -70,7 +69,8 @@ export async function completeOnboardingAction(
   if (businessResult.error)
     return {
       ok: false,
-      message: "No pudimos guardar los datos de la empresa. Intenta nuevamente.",
+      message:
+        "No pudimos guardar los datos de la empresa. Intenta nuevamente.",
     };
 
   const locationResult = await supabase
@@ -95,12 +95,7 @@ export async function completeOnboardingAction(
     .update({
       status: "minimum_complete",
       current_step: "first_product",
-      completed_steps: [
-        "business",
-        "location",
-        "operations",
-        "channels",
-      ],
+      completed_steps: ["business", "location", "operations", "channels"],
       business_model: parsed.data.businessModel,
       sales_channels: parsed.data.salesChannels,
       payment_methods: parsed.data.paymentMethods,
@@ -122,7 +117,8 @@ export async function completeOnboardingAction(
   if (membershipResult.error)
     return {
       ok: false,
-      message: "La configuración se guardó, pero no pudimos finalizar el acceso.",
+      message:
+        "La configuración se guardó, pero no pudimos finalizar el acceso.",
     };
-  redirect("/costos?bienvenida=1");
+  redirect("/");
 }

@@ -4,6 +4,7 @@ import {
   Boxes,
   History,
   House,
+  ListChecks,
   LayoutDashboard,
   LineChart,
   Menu,
@@ -30,6 +31,7 @@ export async function PosShell({
     | "costs"
     | "operations"
     | "inventory"
+    | "getting-started"
     | "home"
     | "business"
     | "payroll";
@@ -37,6 +39,7 @@ export async function PosShell({
   const workspace = await getWorkspaceContext();
   const enabled = (module: ModuleKey) =>
     workspace?.modules.includes(module) ?? true;
+  const showGettingStarted = workspace?.showGettingStarted ?? false;
   if (kiosk) {
     return (
       <div className="h-[100dvh] min-w-0 overflow-hidden bg-[#f7f6ee]">
@@ -79,6 +82,14 @@ export async function PosShell({
             active={active === "home"}
             icon={<House size={16} />}
           />
+          {showGettingStarted && (
+            <Nav
+              href="/comienza"
+              label="Comienza"
+              active={active === "getting-started"}
+              icon={<ListChecks size={16} />}
+            />
+          )}
           {enabled("finance") && (
             <Nav
               href="/operacion"
@@ -165,6 +176,14 @@ export async function PosShell({
               active={active === "home"}
               icon={<House size={19} />}
             />
+            {showGettingStarted && (
+              <MobileNavLink
+                href="/comienza"
+                label="Comienza"
+                active={active === "getting-started"}
+                icon={<ListChecks size={19} />}
+              />
+            )}
             {enabled("pos") && (
               <MobileNavLink
                 href="/caja"

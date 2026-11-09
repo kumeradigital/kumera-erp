@@ -67,7 +67,9 @@ export const getWorkspaceContext = cache(
       .limit(1)
       .maybeSingle();
     if (membershipError) {
-      throw new Error(`No se pudo resolver la membresia: ${membershipError.message}`);
+      throw new Error(
+        `No se pudo resolver la membresia: ${membershipError.message}`,
+      );
     }
     if (!membership) return null;
 
@@ -94,7 +96,7 @@ export const getWorkspaceContext = cache(
         .maybeSingle(),
       supabase
         .from("business_onboarding")
-        .select("status")
+        .select("status,minimum_completed_at,completed_at")
         .eq("business_id", membership.business_id)
         .maybeSingle(),
     ]);
@@ -144,6 +146,14 @@ export const getWorkspaceContext = cache(
     const business = membership.businesses as unknown as {
       name?: string;
     } | null;
+    const onboardingCompletedAt =
+      onboardingResult.data?.minimum_completed_at ||
+      onboardingResult.data?.completed_at ||
+      undefined;
+    const learningWindowActive = onboardingCompletedAt
+      ? Date.now() <
+        new Date(onboardingCompletedAt).getTime() + 30 * 24 * 60 * 60 * 1000
+      : true;
     return {
       userId: user.id,
       businessId: membership.business_id,
@@ -153,6 +163,12 @@ export const getWorkspaceContext = cache(
       modules: [...enabled],
       subscriptionStatus: subscription?.status || "provisioned",
       onboardingStatus: onboardingResult.data?.status || "not_started",
+      onboardingCompletedAt,
+      showGettingStarted:
+        learningWindowActive &&
+        enabled.has("costing") &&
+        !enabled.has("sales") &&
+        !enabled.has("finance"),
       mustChangePassword: membership.must_change_password,
       isSuperadmin: Boolean(profile?.is_superadmin),
     };

@@ -54,8 +54,7 @@ import type {
 } from "./types";
 import type { BusinessPulse } from "@/modules/pos/types";
 
-export type CostTab =
-  "overview" | "business" | "ingredients" | "recipes" | "products";
+export type CostTab = "business" | "ingredients" | "recipes" | "products";
 
 export function CostsApp({
   ingredients,
@@ -65,7 +64,7 @@ export function CostsApp({
   fixedCosts,
   monthlyFixedCosts,
   settings,
-  initialTab = "overview",
+  initialTab = "ingredients",
 }: {
   ingredients: Ingredient[];
   recipes: Recipe[];
@@ -78,7 +77,6 @@ export function CostsApp({
 }) {
   const [tab, setTab] = useState<CostTab>(initialTab);
   const tabs: { id: CostTab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Ruta de costeo", icon: <Target size={16} /> },
     {
       id: "business",
       label: "Costos del negocio",
@@ -136,15 +134,6 @@ export function CostsApp({
           </button>
         ))}
       </div>
-      {tab === "overview" && (
-        <CostingRoadmap
-          fixedCosts={fixedCosts}
-          ingredients={ingredients}
-          recipes={recipes}
-          analyses={analyses}
-          onOpen={setTab}
-        />
-      )}
       {tab === "business" && (
         <FixedCostsView
           costs={fixedCosts}
@@ -167,7 +156,7 @@ export function CostsApp({
   );
 }
 
-function CostingRoadmap({
+export function CostingRoadmap({
   fixedCosts,
   ingredients,
   recipes,
@@ -178,7 +167,7 @@ function CostingRoadmap({
   ingredients: Ingredient[];
   recipes: Recipe[];
   analyses: ProductCostAnalysis[];
-  onOpen: (tab: CostTab) => void;
+  onOpen?: (tab: CostTab) => void;
 }) {
   const completeProducts = analyses.filter((item) => item.complete).length;
   const steps: {
@@ -254,7 +243,10 @@ function CostingRoadmap({
           <button
             key={item.number}
             type="button"
-            onClick={() => onOpen(item.tab)}
+            onClick={() => {
+              if (onOpen) onOpen(item.tab);
+              else window.location.assign(`/costos?tab=${item.tab}`);
+            }}
             className="card group p-5 text-left transition hover:-translate-y-0.5 hover:border-[#9cb89f]"
           >
             <div className="flex items-start justify-between gap-4">

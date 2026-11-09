@@ -23,6 +23,8 @@ export type WorkspaceContext = {
     "legacy" | "provisioned" | "trial" | "active" | "suspended" | "cancelled";
   onboardingStatus:
     "not_started" | "in_progress" | "minimum_complete" | "complete";
+  onboardingCompletedAt?: string;
+  showGettingStarted?: boolean;
   mustChangePassword: boolean;
   isSuperadmin: boolean;
 };
