@@ -12,6 +12,7 @@ import {
 } from "./types";
 
 export function saasEnabled() {
+  // Opt-in switch: production keeps the legacy workspace until explicitly enabled.
   return process.env.KUMERA_SAAS_ENABLED === "true";
 }
 
