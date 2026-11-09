@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // This privileged client is instantiated only inside authenticated server actions.
   const serviceRole =
     process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_SERVICE_ROLE_KEY;
