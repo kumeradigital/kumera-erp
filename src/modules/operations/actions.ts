@@ -127,10 +127,11 @@ export async function saveObligationAction(form: FormData) {
   if (
     kind === "loan_payment" &&
     amount !== null &&
+    principalAmount + interestAmount + chargesAmount !== 0 &&
     principalAmount + interestAmount + chargesAmount !== amount
   )
     throw new Error(
-      "Capital, intereses y cargos deben sumar el total de la cuota",
+      "Si ingresas el desglose, capital, intereses y cargos deben sumar el total de la cuota",
     );
   const { error } = await supabase.from("financial_obligations").insert({
     business_id: membership.business_id,
@@ -441,16 +442,20 @@ export async function saveOperationAction(form: FormData) {
       const formCharges = Math.round(
         Number(form.get("chargesAmount")) || Number(obligation.charges_amount),
       );
-      if (formPrincipal + formInterest + formCharges !== gross)
+      const breakdownTotal = formPrincipal + formInterest + formCharges;
+      if (breakdownTotal !== 0 && breakdownTotal !== gross)
         throw new Error(
-          "El desglose de capital, intereses y cargos debe sumar la cuota pagada",
+          "Si ingresas el desglose, capital, intereses y cargos deben sumar la cuota pagada",
         );
       loanBreakdown = {
         principal: formPrincipal,
         interest: formInterest,
         charges: formCharges,
       };
-      profitabilityAmount = loanBreakdown.interest + loanBreakdown.charges;
+      profitabilityAmount =
+        breakdownTotal === 0
+          ? 0
+          : loanBreakdown.interest + loanBreakdown.charges;
     }
   }
   const { data: transactionId, error } = await supabase.rpc(

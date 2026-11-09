@@ -2063,18 +2063,30 @@ function ObligationGroup({
             </div>
             {item.kind === "loan_payment" && item.amount != null && (
               <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-[#f2f2ea] p-3 text-xs">
-                <span>
-                  Capital{" "}
-                  <b className="block">{formatClp(item.principalAmount)}</b>
-                </span>
-                <span>
-                  Intereses{" "}
-                  <b className="block">{formatClp(item.interestAmount)}</b>
-                </span>
-                <span>
-                  Cargos{" "}
-                  <b className="block">{formatClp(item.chargesAmount)}</b>
-                </span>
+                {item.principalAmount +
+                  item.interestAmount +
+                  item.chargesAmount ===
+                0 ? (
+                  <span className="col-span-3 font-bold text-[#6f746c]">
+                    Desglose contable pendiente · puedes registrar el pago de
+                    todas formas
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      Capital{" "}
+                      <b className="block">{formatClp(item.principalAmount)}</b>
+                    </span>
+                    <span>
+                      Intereses{" "}
+                      <b className="block">{formatClp(item.interestAmount)}</b>
+                    </span>
+                    <span>
+                      Cargos{" "}
+                      <b className="block">{formatClp(item.chargesAmount)}</b>
+                    </span>
+                  </>
+                )}
               </div>
             )}
             {item.note && (
@@ -2426,10 +2438,10 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           {kind === "loan_payment" && (
-            <fieldset className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
-              <legend className="px-2 text-xs font-black uppercase tracking-[.12em] text-[#235b45]">
-                Desglose obligatorio de la cuota
-              </legend>
+            <details className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-[.12em] text-[#235b45]">
+                Agregar desglose contable (opcional)
+              </summary>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <label className="text-xs font-bold">
                   Capital
@@ -2437,7 +2449,7 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
                     name="principalAmount"
                     type="number"
                     min="0"
-                    required
+                    defaultValue="0"
                     className="input mt-2"
                   />
                 </label>
@@ -2447,7 +2459,7 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
                     name="interestAmount"
                     type="number"
                     min="0"
-                    required
+                    defaultValue="0"
                     className="input mt-2"
                   />
                 </label>
@@ -2457,16 +2469,16 @@ function ObligationDialog({ onClose }: { onClose: () => void }) {
                     name="chargesAmount"
                     type="number"
                     min="0"
-                    required
+                    defaultValue="0"
                     className="input mt-2"
                   />
                 </label>
               </div>
               <p className="mt-3 text-xs leading-5 text-[#62675f]">
-                Los tres valores deben sumar la cuota. Capital afecta solamente
-                la caja; intereses y cargos afectan la rentabilidad.
+                Puedes dejarlo para después. Si lo completas, los tres valores
+                deben sumar la cuota.
               </p>
-            </fieldset>
+            </details>
           )}
           <label className="flex items-start gap-3 rounded-xl bg-[#f2f2ea] p-3 text-sm">
             <input
@@ -2799,6 +2811,150 @@ function ReservedRow({ label, value }: { label: string; value: number }) {
 function formatDate(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("es-CL");
 }
+
+function LoanPaymentDialog({
+  obligation,
+  onClose,
+}: {
+  obligation: FinancialObligation;
+  onClose: () => void;
+}) {
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Salida de caja
+            </p>
+            <h2 className="mt-1 text-2xl font-black">Registrar cuota</h2>
+            <p className="mt-1 text-sm text-[#747970]">{obligation.name}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <form
+          action={async (form) => {
+            setSaving(true);
+            setFormError(null);
+            const result = await submitOperationAction(form);
+            if (!result.ok) {
+              setFormError(result.error);
+              setSaving(false);
+              return;
+            }
+            onClose();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <input type="hidden" name="obligationId" value={obligation.id} />
+          <input type="hidden" name="type" value="fixed_cost" />
+          <input
+            type="hidden"
+            name="economicMonth"
+            value={todayInChile().slice(0, 7)}
+          />
+          <input type="hidden" name="description" value={obligation.name} />
+          <input type="hidden" name="taxMode" value="exempt" />
+          <input type="hidden" name="financialStatus" value="verified" />
+          <input type="hidden" name="category" value="Gastos administrativos" />
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">
+              Fecha del pago
+              <input
+                name="date"
+                type="date"
+                required
+                defaultValue={todayInChile()}
+                className="input mt-2"
+              />
+            </label>
+            <label className="text-xs font-bold">
+              Monto pagado
+              <input
+                name="amount"
+                type="number"
+                min="1"
+                required
+                defaultValue={obligation.amount || undefined}
+                className="input mt-2"
+              />
+            </label>
+          </div>
+          <label className="block text-xs font-bold">
+            Medio de pago
+            <select
+              name="paymentMethod"
+              defaultValue="transfer"
+              className="input mt-2"
+            >
+              <option value="transfer">Transferencia / banco</option>
+              <option value="debit">Débito</option>
+              <option value="cash">Efectivo</option>
+              <option value="credit">Crédito</option>
+            </select>
+          </label>
+          <details className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
+            <summary className="cursor-pointer text-xs font-black uppercase tracking-[.12em] text-[#235b45]">
+              Desglose contable (opcional)
+            </summary>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <label className="text-xs font-bold">
+                Capital
+                <input
+                  name="principalAmount"
+                  type="number"
+                  min="0"
+                  defaultValue={obligation.principalAmount || 0}
+                  className="input mt-2"
+                />
+              </label>
+              <label className="text-xs font-bold">
+                Intereses
+                <input
+                  name="interestAmount"
+                  type="number"
+                  min="0"
+                  defaultValue={obligation.interestAmount || 0}
+                  className="input mt-2"
+                />
+              </label>
+              <label className="text-xs font-bold">
+                Cargos
+                <input
+                  name="chargesAmount"
+                  type="number"
+                  min="0"
+                  defaultValue={obligation.chargesAmount || 0}
+                  className="input mt-2"
+                />
+              </label>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[#62675f]">
+              Déjalo en cero si no tienes la tabla del crédito. El pago se
+              registrará igualmente y descontará la caja completa.
+            </p>
+          </details>
+          {formError && (
+            <p className="rounded-xl bg-[#fff0ed] p-3 text-sm font-bold text-[#9a3f22]">
+              {formError}
+            </p>
+          )}
+          <button
+            disabled={saving}
+            className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Confirmar pago de cuota"}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function OperationDialog({
   ingredients,
   onClose,
@@ -2841,6 +2997,8 @@ function OperationDialog({
     ? categoriesForType
     : [...categoriesForType, category];
   const editing = !!operation;
+  if (obligation?.kind === "loan_payment")
+    return <LoanPaymentDialog obligation={obligation} onClose={onClose} />;
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
       <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
@@ -3003,52 +3161,6 @@ function OperationDialog({
                 Esta compra se sumará al consumo del mes; no reducirá una deuda.
               </span>
             </label>
-          )}
-          {obligation?.kind === "loan_payment" && (
-            <fieldset className="rounded-2xl border border-[#d8dfd5] bg-[#f7faf5] p-4">
-              <legend className="px-2 text-xs font-black uppercase tracking-[.12em] text-[#235b45]">
-                Desglose de esta cuota
-              </legend>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <label className="text-xs font-bold">
-                  Capital
-                  <input
-                    name="principalAmount"
-                    type="number"
-                    min="0"
-                    required
-                    defaultValue={obligation.principalAmount || undefined}
-                    className="input mt-2"
-                  />
-                </label>
-                <label className="text-xs font-bold">
-                  Intereses
-                  <input
-                    name="interestAmount"
-                    type="number"
-                    min="0"
-                    required
-                    defaultValue={obligation.interestAmount || 0}
-                    className="input mt-2"
-                  />
-                </label>
-                <label className="text-xs font-bold">
-                  Cargos
-                  <input
-                    name="chargesAmount"
-                    type="number"
-                    min="0"
-                    required
-                    defaultValue={obligation.chargesAmount || 0}
-                    className="input mt-2"
-                  />
-                </label>
-              </div>
-              <p className="mt-3 text-xs text-[#62675f]">
-                Deben sumar el monto pagado. Solamente intereses y cargos se
-                reconocerán como gasto.
-              </p>
-            </fieldset>
           )}
           <label className="block text-xs font-bold">
             Estado financiero
