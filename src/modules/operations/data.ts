@@ -512,6 +512,8 @@ export async function getOperationsData() {
 
   const provisions: ExpenseProvision[] = (provisionsResult.data || []).map(
     (row) => {
+      const rawNote = row.note || "";
+      const estimateMarker = rawNote.match(/\[ERP_ESTIMATE:(\d+)\]/);
       const paidAmount = (row.operational_transactions || [])
         .filter((payment) => payment.financial_status === "verified")
         .reduce((total, payment) => total + Number(payment.gross_amount), 0);
@@ -559,6 +561,9 @@ export async function getOperationsData() {
         ),
         economicMonth: row.economic_month,
         expectedAmount,
+        erpEstimatedAmount: estimateMarker
+          ? Number(estimateMarker[1])
+          : undefined,
         paidAmount,
         outstandingAmount:
           trackingMode === "accumulating_actual"
@@ -576,7 +581,9 @@ export async function getOperationsData() {
         dueDate: normalizedDueDate,
         affectsProfitability: row.affects_profitability,
         status: calculatedStatus,
-        note: row.note || undefined,
+        note:
+          rawNote.replace(/\s*\[ERP_ESTIMATE:\d+\]\s*/g, " ").trim() ||
+          undefined,
       };
     },
   );

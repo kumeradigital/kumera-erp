@@ -27,6 +27,7 @@ import {
   saveProvisionAction,
   submitOperationAction,
   updateObligationAmountAction,
+  updateProvisionAmountAction,
 } from "./actions";
 import {
   DEFAULT_OPERATION_CATEGORY,
@@ -120,6 +121,8 @@ export function OperationsApp({
     useState<FinancialObligation | null>(null);
   const [settingObligationAmount, setSettingObligationAmount] =
     useState<FinancialObligation | null>(null);
+  const [settingProvisionAmount, setSettingProvisionAmount] =
+    useState<ExpenseProvision | null>(null);
   const [payingProvision, setPayingProvision] =
     useState<ExpenseProvision | null>(null);
   const [search, setSearch] = useState("");
@@ -342,6 +345,7 @@ export function OperationsApp({
               onPay={setPayingObligation}
               onPayProvision={setPayingProvision}
               onSetAmount={setSettingObligationAmount}
+              onSetProvisionAmount={setSettingProvisionAmount}
             />
           </>
         )}
@@ -754,6 +758,12 @@ export function OperationsApp({
         <ObligationAmountDialog
           obligation={settingObligationAmount}
           onClose={() => setSettingObligationAmount(null)}
+        />
+      )}
+      {settingProvisionAmount && (
+        <ProvisionAmountDialog
+          provision={settingProvisionAmount}
+          onClose={() => setSettingProvisionAmount(null)}
         />
       )}
       {payingProvision && (
@@ -1506,6 +1516,7 @@ function CashCommitmentsView({
   onPay,
   onPayProvision,
   onSetAmount,
+  onSetProvisionAmount,
 }: {
   obligations: FinancialObligation[];
   provisions: ExpenseProvision[];
@@ -1513,6 +1524,7 @@ function CashCommitmentsView({
   onPay: (obligation: FinancialObligation) => void;
   onPayProvision: (provision: ExpenseProvision) => void;
   onSetAmount: (obligation: FinancialObligation) => void;
+  onSetProvisionAmount: (provision: ExpenseProvision) => void;
 }) {
   const currentMonth = todayInChile().slice(0, 7);
   const current = obligations.filter(
@@ -1568,6 +1580,7 @@ function CashCommitmentsView({
           onPay={onPay}
           onPayProvision={onPayProvision}
           onSetAmount={onSetAmount}
+          onSetProvisionAmount={onSetProvisionAmount}
           current
         />
         <ObligationGroup
@@ -1579,6 +1592,7 @@ function CashCommitmentsView({
           onPay={onPay}
           onPayProvision={onPayProvision}
           onSetAmount={onSetAmount}
+          onSetProvisionAmount={onSetProvisionAmount}
         />
       </div>
     </section>
@@ -1834,6 +1848,7 @@ function ObligationGroup({
   onPay,
   onPayProvision,
   onSetAmount,
+  onSetProvisionAmount,
   current = false,
 }: {
   title: string;
@@ -1844,6 +1859,7 @@ function ObligationGroup({
   onPay: (obligation: FinancialObligation) => void;
   onPayProvision: (provision: ExpenseProvision) => void;
   onSetAmount: (obligation: FinancialObligation) => void;
+  onSetProvisionAmount: (provision: ExpenseProvision) => void;
   current?: boolean;
 }) {
   return (
@@ -1948,6 +1964,19 @@ function ObligationGroup({
                 <p className="money font-black">
                   {formatClp(item.outstandingAmount)}
                 </p>
+                {item.erpEstimatedAmount != null && (
+                  <>
+                    <span className="mt-1 block text-xs font-bold text-[#6f746c]">
+                      ERP estimó {formatClp(item.erpEstimatedAmount)}
+                    </span>
+                    <span className="mt-1 block text-xs font-bold text-[#9a5b21]">
+                      Diferencia{" "}
+                      {formatSigned(
+                        item.expectedAmount - item.erpEstimatedAmount,
+                      )}
+                    </span>
+                  </>
+                )}
                 <span className="mt-1 inline-block rounded-full bg-[#eeeeea] px-2 py-1 text-xs font-bold text-[#70736c]">
                   {current ? "Por pagar" : "En formación"}
                 </span>
@@ -1957,13 +1986,22 @@ function ObligationGroup({
               <p className="mt-3 text-xs text-[#777]">{item.note}</p>
             )}
             {current && (
-              <button
-                type="button"
-                onClick={() => onPayProvision(item)}
-                className="mt-4 w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
-              >
-                Registrar pago
-              </button>
+              <div className="mt-4 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSetProvisionAmount(item)}
+                  className="w-full rounded-xl bg-[#235b45] px-3 py-2 text-sm font-black text-white"
+                >
+                  Revisar o corregir monto Previred
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPayProvision(item)}
+                  className="w-full rounded-xl border border-[#235b45] px-3 py-2 text-sm font-black text-[#235b45] hover:bg-[#edf3ea]"
+                >
+                  Registrar pago
+                </button>
+              </div>
             )}
           </div>
         ))}
@@ -1979,6 +2017,90 @@ function ObligationGroup({
 
 function isTaxObligation(obligation: FinancialObligation) {
   return /iva|impuesto|f29|formulario 29/i.test(obligation.name);
+}
+
+function ProvisionAmountDialog({
+  provision,
+  onClose,
+}: {
+  provision: ExpenseProvision;
+  onClose: () => void;
+}) {
+  const erpEstimate = provision.erpEstimatedAmount ?? provision.expectedAmount;
+  const [amount, setAmount] = useState(String(provision.expectedAmount));
+  const parsedAmount = Number(amount);
+  const difference = Number.isFinite(parsedAmount)
+    ? Math.round(parsedAmount) - erpEstimate
+    : null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/50 md:place-items-center">
+      <section className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-[#fffef9] p-6 md:max-w-lg md:rounded-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-[#235b45]">
+              Planilla Previred
+            </p>
+            <h2 className="mt-1 text-2xl font-black">{provision.name}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            <X />
+          </button>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-[#6f746c]">
+          Ingresa el total definitivo que muestra Previred. Esto corrige la
+          reserva de liquidez y el costo previsional, pero no registra ningún
+          pago ni salida bancaria.
+        </p>
+        <div className="mt-4 rounded-xl border border-[#cdd9ca] bg-[#f1f7ee] p-4">
+          <p className="text-xs font-black uppercase tracking-[.12em] text-[#56705e]">
+            Estimación original del ERP
+          </p>
+          <p className="money mt-1 text-2xl font-black text-[#235b45]">
+            {formatClp(erpEstimate)}
+          </p>
+        </div>
+        <form
+          action={async (form) => {
+            await updateProvisionAmountAction(form);
+            onClose();
+          }}
+          className="mt-5 space-y-4"
+        >
+          <input type="hidden" name="provisionId" value={provision.id} />
+          <label className="block text-xs font-bold">
+            Total confirmado en Previred
+            <input
+              name="amount"
+              type="number"
+              min="1"
+              required
+              inputMode="numeric"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              className="input mt-2 text-lg font-black"
+              placeholder="Ej. 386261"
+              autoFocus
+            />
+          </label>
+          {difference != null && amount !== "" && (
+            <div
+              className={`rounded-xl p-3 text-sm font-bold ${difference === 0 ? "bg-[#edf6e9] text-[#235b45]" : "bg-[#fff3d5] text-[#725b1b]"}`}
+            >
+              Diferencia frente al ERP: {formatSigned(difference)}
+            </div>
+          )}
+          <div className="rounded-xl bg-[#fff3d5] p-3 text-xs leading-5 text-[#725b1b]">
+            Guardar el monto no significa pagarlo. Si hiciste una declaración y
+            no pago, la provisión seguirá pendiente hasta registrar la salida
+            bancaria real.
+          </div>
+          <button className="h-12 w-full rounded-xl bg-[#235b45] font-black text-white">
+            Guardar monto confirmado
+          </button>
+        </form>
+      </section>
+    </div>
+  );
 }
 
 function ObligationAmountDialog({

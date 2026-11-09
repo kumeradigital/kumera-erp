@@ -196,6 +196,82 @@ export async function updateObligationAmountAction(form: FormData) {
   revalidatePath("/operacion");
 }
 
+export async function updateProvisionAmountAction(form: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesión no válida");
+  const { data: membership } = await supabase
+    .from("business_admins")
+    .select("business_id")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .single();
+  if (!membership) throw new Error("Sin negocio");
+
+  const provisionId = String(form.get("provisionId") || "");
+  const amount = Math.round(Number(form.get("amount")));
+  if (!provisionId) throw new Error("Provisión no válida");
+  if (!Number.isInteger(amount) || amount < 1)
+    throw new Error("Monto inválido");
+
+  const { data: provision, error: readError } = await supabase
+    .from("expense_provisions")
+    .select(
+      "id,name,category,expected_amount,note,operational_transactions(gross_amount,financial_status)",
+    )
+    .eq("id", provisionId)
+    .eq("business_id", membership.business_id)
+    .neq("status", "cancelled")
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!provision) throw new Error("Provisión no válida");
+  if (
+    !/cotizaciones|previsional|imposiciones/i.test(
+      `${provision.category} ${provision.name}`,
+    )
+  )
+    throw new Error("Esta provisión no corresponde a Previred");
+
+  const paidAmount = (provision.operational_transactions || [])
+    .filter((payment) => payment.financial_status === "verified")
+    .reduce((total, payment) => total + Number(payment.gross_amount), 0);
+  if (amount < paidAmount)
+    throw new Error("El monto confirmado no puede ser menor que lo ya pagado");
+
+  const originalNote = provision.note || "";
+  const existingMarker = originalNote.match(/\[ERP_ESTIMATE:(\d+)\]/);
+  const erpEstimate = existingMarker
+    ? Number(existingMarker[1])
+    : Number(provision.expected_amount);
+  const cleanNote = originalNote
+    .replace(/\s*\[ERP_ESTIMATE:\d+\]\s*/g, " ")
+    .replace(
+      /\s*Monto confirmado manualmente desde Previred; revisar la planilla antes de registrar el pago\./g,
+      "",
+    )
+    .trim();
+  const note = [
+    cleanNote,
+    "Monto confirmado manualmente desde Previred; revisar la planilla antes de registrar el pago.",
+    `[ERP_ESTIMATE:${erpEstimate}]`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const { error } = await supabase
+    .from("expense_provisions")
+    .update({
+      expected_amount: amount,
+      note,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", provision.id)
+    .eq("business_id", membership.business_id);
+  if (error) throw error;
+  revalidatePath("/operacion");
+}
+
 export async function saveProvisionAction(form: FormData) {
   const supabase = await createClient();
   const {

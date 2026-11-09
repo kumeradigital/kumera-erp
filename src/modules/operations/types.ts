@@ -40,6 +40,7 @@ export type ExpenseProvision = {
   category: string;
   economicMonth: string;
   expectedAmount: number;
+  erpEstimatedAmount?: number;
   paidAmount: number;
   outstandingAmount: number;
   trackingMode: "fixed_target" | "accumulating_actual" | "actual_bill";
