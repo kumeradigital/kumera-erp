@@ -270,6 +270,30 @@ function Payslip({
             label="Salud"
             value={`${employee.healthSystem} ${(employee.healthRate * 100).toFixed(0)}%`}
           />
+          <div className="rounded-lg border border-[#bfd2bc] bg-white p-3 sm:col-span-2">
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#235b45]">
+              Datos para ingresar en Previred
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <Detail
+                label="Haberes imponibles / Renta Previred"
+                value={money.format(calculation.taxableEarnings)}
+              />
+              <Detail
+                label="Haberes no imponibles"
+                value={money.format(calculation.nonTaxableEarnings)}
+              />
+              <Detail
+                label="Total haberes"
+                value={money.format(calculation.totalEarnings)}
+              />
+            </div>
+            <p className="mt-3 text-[11px] font-bold leading-4 text-[#59635b]">
+              Copia “Haberes imponibles / Renta Previred” en Renta Imponible y
+              en Renta Imponible Seguro de Cesantía. Colación y movilización no
+              se incluyen en esos campos.
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -283,7 +307,7 @@ function Payslip({
               ["Movilización", calculation.transportAllowance],
               ["Otros no imponibles", input.otherNonTaxableEarnings],
             ]}
-            totalLabel="Total haberes"
+            totalLabel="Total haberes (imponibles + no imponibles)"
             total={calculation.totalEarnings}
           />
           <Breakdown
