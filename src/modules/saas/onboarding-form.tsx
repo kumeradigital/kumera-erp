@@ -8,7 +8,6 @@ import {
 
 const initial: OnboardingState = { ok: false, message: "" };
 const steps = [
-  "Seguridad",
   "Tu empresa",
   "Local",
   "Cómo operas",
@@ -42,7 +41,7 @@ export function OnboardingForm({
       return;
     }
     if (
-      step === 3 &&
+      step === 2 &&
       !fields.some(
         (field) => field.name === "businessModel" && field.checked,
       )
@@ -77,23 +76,6 @@ export function OnboardingForm({
         className={step === 0 ? "block" : "hidden"}
       >
         <Panel
-          title="Protege tu acceso"
-          detail="Reemplaza la clave temporal que recibiste."
-        >
-          <Field
-            name="password"
-            label="Nueva contraseña"
-            type="password"
-            required
-            minLength={10}
-          />
-        </Panel>
-      </div>
-      <div
-        data-onboarding-step="1"
-        className={step === 1 ? "block" : "hidden"}
-      >
-        <Panel
           title="Identifica tu empresa"
           detail="Estos datos aparecerán en el ERP."
         >
@@ -114,8 +96,8 @@ export function OnboardingForm({
         </Panel>
       </div>
       <div
-        data-onboarding-step="2"
-        className={step === 2 ? "block" : "hidden"}
+        data-onboarding-step="1"
+        className={step === 1 ? "block" : "hidden"}
       >
         <Panel
           title="Tu local principal"
@@ -133,8 +115,8 @@ export function OnboardingForm({
         </Panel>
       </div>
       <div
-        data-onboarding-step="3"
-        className={step === 3 ? "block" : "hidden"}
+        data-onboarding-step="2"
+        className={step === 2 ? "block" : "hidden"}
       >
         <Panel
           title="¿Cómo opera tu negocio?"
@@ -153,8 +135,8 @@ export function OnboardingForm({
         </Panel>
       </div>
       <div
-        data-onboarding-step="4"
-        className={step === 4 ? "block" : "hidden"}
+        data-onboarding-step="3"
+        className={step === 3 ? "block" : "hidden"}
       >
         <Panel
           title="Ventas y pagos"
@@ -173,8 +155,8 @@ export function OnboardingForm({
         </Panel>
       </div>
       <div
-        data-onboarding-step="5"
-        className={step === 5 ? "block" : "hidden"}
+        data-onboarding-step="4"
+        className={step === 4 ? "block" : "hidden"}
       >
         <Panel
           title="Ya tenemos lo esencial"

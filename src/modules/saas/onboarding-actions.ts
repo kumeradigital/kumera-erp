@@ -8,7 +8,6 @@ import { createClient } from "@/server/supabase/server";
 export type OnboardingState = { ok: boolean; message: string };
 
 const schema = z.object({
-  password: z.string().min(10).max(100),
   name: z.string().trim().min(2).max(120),
   legalName: z.string().trim().min(2).max(160),
   rut: z.string().trim().min(7).max(20),
@@ -35,7 +34,6 @@ export async function completeOnboardingAction(
       message: "No tienes permisos para configurar esta empresa.",
     };
   const parsed = schema.safeParse({
-    password: form.get("password"),
     name: form.get("name"),
     legalName: form.get("legalName"),
     rut: form.get("rut"),
@@ -52,16 +50,10 @@ export async function completeOnboardingAction(
     return {
       ok: false,
       message:
-        "Completa los datos obligatorios y usa una clave de al menos 10 caracteres.",
+        "Revisa los datos obligatorios antes de continuar.",
     };
 
   const supabase = await createClient();
-  const passwordResult = await supabase.auth.updateUser({
-    password: parsed.data.password,
-  });
-  if (passwordResult.error)
-    return { ok: false, message: passwordResult.error.message };
-
   const businessResult = await supabase
     .from("businesses")
     .update({
@@ -76,7 +68,10 @@ export async function completeOnboardingAction(
     })
     .eq("id", context.businessId);
   if (businessResult.error)
-    return { ok: false, message: businessResult.error.message };
+    return {
+      ok: false,
+      message: "No pudimos guardar los datos de la empresa. Intenta nuevamente.",
+    };
 
   const locationResult = await supabase
     .from("business_locations")
@@ -90,7 +85,10 @@ export async function completeOnboardingAction(
     .eq("business_id", context.businessId)
     .eq("is_primary", true);
   if (locationResult.error)
-    return { ok: false, message: locationResult.error.message };
+    return {
+      ok: false,
+      message: "No pudimos guardar los datos del local. Intenta nuevamente.",
+    };
 
   const { error } = await supabase
     .from("business_onboarding")
@@ -98,7 +96,6 @@ export async function completeOnboardingAction(
       status: "minimum_complete",
       current_step: "first_product",
       completed_steps: [
-        "password",
         "business",
         "location",
         "operations",
@@ -112,11 +109,20 @@ export async function completeOnboardingAction(
       updated_at: new Date().toISOString(),
     })
     .eq("business_id", context.businessId);
-  if (error) return { ok: false, message: error.message };
-  await supabase
+  if (error)
+    return {
+      ok: false,
+      message: "No pudimos finalizar la configuración. Intenta nuevamente.",
+    };
+  const membershipResult = await supabase
     .from("business_memberships")
     .update({ must_change_password: false })
     .eq("business_id", context.businessId)
     .eq("user_id", context.userId);
+  if (membershipResult.error)
+    return {
+      ok: false,
+      message: "La configuración se guardó, pero no pudimos finalizar el acceso.",
+    };
   redirect("/costos?bienvenida=1");
 }
