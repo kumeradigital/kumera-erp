@@ -1335,6 +1335,14 @@ export function FixedCostsView({
     if (section === "mixed") return cost.category === "Servicios mixtos";
     return !["Personal", "Servicios mixtos"].includes(cost.category);
   });
+  const helpTitle =
+    section === "mixed"
+      ? "Cómo registrar luz, agua y gas"
+      : section === "personnel"
+        ? "Cómo registrar el costo del personal"
+        : section === "fixed"
+          ? "Qué corresponde a un costo fijo"
+          : "Cómo clasificar costos y tratar el IVA";
   return (
     <section className="mt-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1383,59 +1391,101 @@ export function FixedCostsView({
       </div>
       <details className="mt-3 rounded-2xl border border-[#deddd4] bg-[#fffef9] p-4">
         <summary className="cursor-pointer text-sm font-black text-[#235b45]">
-          Cómo clasificar costos y tratar el IVA
+          {helpTitle}
         </summary>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-[#cbdcc8] bg-[#edf5ea] p-4">
-            <p className="flex items-center gap-2 text-sm font-black text-[#235b45]">
-              <CheckCircle2 size={17} /> Sí corresponde aquí
+        {section === "summary" && (
+          <>
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              <div className="rounded-2xl border border-[#cbdcc8] bg-[#edf5ea] p-4">
+                <p className="flex items-center gap-2 text-sm font-black text-[#235b45]">
+                  <CheckCircle2 size={17} /> Sí corresponde aquí
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[#5e6b62]">
+                  Arriendo, personal mensual, contabilidad, software, internet,
+                  permisos, seguros, luz, agua y gas.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#ead7a9] bg-[#fff8e5] p-4">
+                <p className="flex items-center gap-2 text-sm font-black text-[#765d14]">
+                  <AlertTriangle size={17} /> No corresponde aquí
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[#766b4d]">
+                  Ingredientes, envases, merma y comisiones por venta se
+                  registran en Insumos y Costeo.
+                </p>
+                <Link
+                  href="/costos?tab=ingredients"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#765d14]"
+                >
+                  Ir a Insumos y compras <ArrowRight size={13} />
+                </Link>
+              </div>
+              <div className="rounded-2xl border border-[#d9d8cf] bg-white p-4">
+                <p className="text-sm font-black">¿Y el IVA?</p>
+                <p className="mt-2 text-xs leading-5 text-[#6d726b]">
+                  No lo agregues como costo mensual. Si no es recuperable, usa
+                  el monto que efectivamente soporta tu negocio.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 text-xs leading-5 md:grid-cols-3">
+              <p>
+                <b>¿Lo pagas aunque no vendas?</b>
+                <span className="block text-[#6d726b]">Es costo fijo.</span>
+              </p>
+              <p>
+                <b>¿Aumenta por unidad vendida?</b>
+                <span className="block text-[#6d726b]">
+                  Regístralo como insumo, envase o comisión.
+                </span>
+              </p>
+              <p>
+                <b>¿Es luz, agua o gas?</b>
+                <span className="block text-[#6d726b]">
+                  Es servicio mixto: usa su promedio mensual.
+                </span>
+              </p>
+            </div>
+          </>
+        )}
+        {section === "fixed" && (
+          <div className="mt-4 grid gap-3 text-xs leading-5 md:grid-cols-2">
+            <p className="rounded-xl bg-[#edf5ea] p-4">
+              <b>Incluye:</b> arriendo, contabilidad, software, internet,
+              permisos y seguros que pagas aunque no vendas durante el mes.
             </p>
-            <p className="mt-2 text-xs leading-5 text-[#5e6b62]">
-              Arriendo, personal mensual, contabilidad, software, internet,
-              permisos, seguros, luz, agua y gas.
+            <p className="rounded-xl bg-[#fff8e5] p-4">
+              <b>No incluyas:</b> ingredientes, envases, comisiones, luz, agua,
+              gas ni costos que crecen directamente con cada venta.
             </p>
           </div>
-          <div className="rounded-2xl border border-[#ead7a9] bg-[#fff8e5] p-4">
-            <p className="flex items-center gap-2 text-sm font-black text-[#765d14]">
-              <AlertTriangle size={17} /> No corresponde aquí
+        )}
+        {section === "personnel" && (
+          <div className="mt-4 grid gap-3 text-xs leading-5 md:grid-cols-2">
+            <p className="rounded-xl bg-[#f5f1fb] p-4">
+              Registra sueldos líquidos y cotizaciones o cargas laborales por
+              separado. No agregues además el sueldo bruto completo.
             </p>
-            <p className="mt-2 text-xs leading-5 text-[#766b4d]">
-              Ingredientes, envases, merma y comisiones por venta se registran
-              en Insumos y Costeo.
-            </p>
-            <Link
-              href="/costos?tab=ingredients"
-              className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#765d14]"
-            >
-              Ir a Insumos y compras <ArrowRight size={13} />
-            </Link>
-          </div>
-          <div className="rounded-2xl border border-[#d9d8cf] bg-white p-4">
-            <p className="text-sm font-black">¿Y el IVA?</p>
-            <p className="mt-2 text-xs leading-5 text-[#6d726b]">
-              No lo agregues como costo mensual. Si no es recuperable, usa el
-              monto que efectivamente soporta tu negocio.
+            <p className="rounded-xl bg-[#fff8e5] p-4">
+              Si el dueño trabaja en la operación, asigna un sueldo razonable
+              para no sobreestimar la rentabilidad del negocio.
             </p>
           </div>
-        </div>
-        <div className="mt-4 grid gap-3 text-xs leading-5 md:grid-cols-3">
-          <p>
-            <b>¿Lo pagas aunque no vendas?</b>
-            <span className="block text-[#6d726b]">Es costo fijo.</span>
-          </p>
-          <p>
-            <b>¿Aumenta por unidad vendida?</b>
-            <span className="block text-[#6d726b]">
-              Regístralo como insumo, envase o comisión.
-            </span>
-          </p>
-          <p>
-            <b>¿Es luz, agua o gas?</b>
-            <span className="block text-[#6d726b]">
-              Es servicio mixto: usa su promedio mensual.
-            </span>
-          </p>
-        </div>
+        )}
+        {section === "mixed" && (
+          <div className="mt-4 grid gap-3 text-xs leading-5 md:grid-cols-2">
+            <p className="rounded-xl bg-[#eef5fa] p-4">
+              Luz, agua y gas cambian con la actividad, pero abastecen al
+              negocio completo. Usa el promedio mensual de cada cuenta y no lo
+              repitas dentro de las recetas.
+            </p>
+            <p className="rounded-xl bg-[#fffef9] p-4 ring-1 ring-[#d9d8cf]">
+              <b>Para estimarlo:</b> promedia varios meses representativos. Si
+              tu consumo cambia mucho por temporada, usa el promedio de una
+              temporada comparable.
+            </p>
+          </div>
+        )}
       </details>
       <div className={section === "fixed" ? "mt-4" : "hidden"}>
         <p className="text-xs font-black uppercase tracking-[.12em] text-[#6e746c]">
