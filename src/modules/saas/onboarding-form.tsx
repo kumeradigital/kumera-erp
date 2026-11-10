@@ -42,9 +42,7 @@ export function OnboardingForm({
     }
     if (
       step === 2 &&
-      !fields.some(
-        (field) => field.name === "businessModel" && field.checked,
-      )
+      !fields.some((field) => field.name === "businessModel" && field.checked)
     ) {
       setClientMessage("Selecciona al menos una forma de operar.");
       return;
@@ -71,10 +69,7 @@ export function OnboardingForm({
       <p className="mt-5 text-xs font-black uppercase tracking-[.14em] text-[#657067]">
         Paso {step + 1} de {steps.length} · {steps[step]}
       </p>
-      <div
-        data-onboarding-step="0"
-        className={step === 0 ? "block" : "hidden"}
-      >
+      <div data-onboarding-step="0" className={step === 0 ? "block" : "hidden"}>
         <Panel
           title="Identifica tu empresa"
           detail="Estos datos aparecerán en el ERP."
@@ -95,10 +90,7 @@ export function OnboardingForm({
           <Field name="activity" label="Giro o actividad" />
         </Panel>
       </div>
-      <div
-        data-onboarding-step="1"
-        className={step === 1 ? "block" : "hidden"}
-      >
+      <div data-onboarding-step="1" className={step === 1 ? "block" : "hidden"}>
         <Panel
           title="Tu local principal"
           detail="Podrás añadir más locales en una etapa posterior."
@@ -112,12 +104,57 @@ export function OnboardingForm({
           <Field name="address" label="Dirección" required />
           <Field name="commune" label="Comuna" required />
           <Field name="city" label="Ciudad" defaultValue="Santiago" required />
+          <div>
+            <p className="text-xs font-bold">Días que abre normalmente</p>
+            <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
+              {[
+                [1, "Lun"],
+                [2, "Mar"],
+                [3, "Mié"],
+                [4, "Jue"],
+                [5, "Vie"],
+                [6, "Sáb"],
+                [7, "Dom"],
+              ].map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-[#deded4] p-2 text-xs font-bold"
+                >
+                  <input
+                    type="checkbox"
+                    name="operatingWeekdays"
+                    value={value}
+                    defaultChecked
+                    className="size-4"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-[#747970]">
+              Con esto Kumera calculará automáticamente cuántos días abre tu
+              local en cada mes.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              name="openingTime"
+              label="Hora de apertura"
+              type="time"
+              defaultValue="09:00"
+              required
+            />
+            <Field
+              name="closingTime"
+              label="Hora de cierre"
+              type="time"
+              defaultValue="19:00"
+              required
+            />
+          </div>
         </Panel>
       </div>
-      <div
-        data-onboarding-step="2"
-        className={step === 2 ? "block" : "hidden"}
-      >
+      <div data-onboarding-step="2" className={step === 2 ? "block" : "hidden"}>
         <Panel
           title="¿Cómo opera tu negocio?"
           detail="Puedes elegir ambas opciones."
@@ -134,10 +171,7 @@ export function OnboardingForm({
           />
         </Panel>
       </div>
-      <div
-        data-onboarding-step="3"
-        className={step === 3 ? "block" : "hidden"}
-      >
+      <div data-onboarding-step="3" className={step === 3 ? "block" : "hidden"}>
         <Panel
           title="Ventas y pagos"
           detail="Esto prepara los cálculos de comisión."
@@ -154,10 +188,7 @@ export function OnboardingForm({
           <Check name="paymentMethods" value="transfer" label="Transferencia" />
         </Panel>
       </div>
-      <div
-        data-onboarding-step="4"
-        className={step === 4 ? "block" : "hidden"}
-      >
+      <div data-onboarding-step="4" className={step === 4 ? "block" : "hidden"}>
         <Panel
           title="Ya tenemos lo esencial"
           detail="Entrarás al ERP para crear tu primer producto con la guía correspondiente a reventa o elaboración."

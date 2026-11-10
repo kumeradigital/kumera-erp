@@ -31,6 +31,7 @@ import {
   addIngredientPriceAction,
   addRecipeItemAction,
   configureProductCostAction,
+  createCostedProductAction,
   deleteIngredientAction,
   deleteRecipeAction,
   deleteRecipeItemAction,
@@ -46,6 +47,7 @@ import type {
   CostSettings,
   FixedCost,
   Ingredient,
+  OperatingSchedule,
   ProductCostAnalysis,
   Recipe,
   RecipeKind,
@@ -54,7 +56,15 @@ import type {
 } from "./types";
 import type { BusinessPulse } from "@/modules/pos/types";
 
-export type CostTab = "business" | "ingredients" | "recipes" | "products";
+export type CostTab =
+  | "business"
+  | "own"
+  | "resale"
+  | "supplies"
+  | "ingredients"
+  | "recipes"
+  | "products";
+type CostArea = "business" | "own" | "resale" | "supplies" | "products";
 
 export function CostsApp({
   ingredients,
@@ -64,7 +74,8 @@ export function CostsApp({
   fixedCosts,
   monthlyFixedCosts,
   settings,
-  initialTab = "ingredients",
+  schedule,
+  initialTab = "own",
 }: {
   ingredients: Ingredient[];
   recipes: Recipe[];
@@ -73,24 +84,44 @@ export function CostsApp({
   fixedCosts: FixedCost[];
   monthlyFixedCosts: number;
   settings: CostSettings;
+  schedule: OperatingSchedule;
   initialTab?: CostTab;
 }) {
-  const [tab, setTab] = useState<CostTab>(initialTab);
-  const tabs: { id: CostTab; label: string; icon: React.ReactNode }[] = [
+  const legacyOwnTab = ["ingredients", "recipes"].includes(initialTab)
+    ? initialTab
+    : "ingredients";
+  const [tab, setTab] = useState<CostArea>(
+    ["business", "resale", "supplies", "products"].includes(initialTab)
+      ? (initialTab as CostArea)
+      : "own",
+  );
+  const [ownSection, setOwnSection] = useState<"ingredients" | "recipes">(
+    legacyOwnTab as "ingredients" | "recipes",
+  );
+  const tabs: { id: CostArea; label: string; icon: React.ReactNode }[] = [
     {
       id: "business",
       label: "Costos fijos y mixtos",
       icon: <Building2 size={16} />,
     },
     {
-      id: "ingredients",
-      label: "Insumos y compras",
+      id: "own",
+      label: "Elaboraciones propias",
       icon: <Beaker size={16} />,
     },
-    { id: "recipes", label: "Preparaciones", icon: <FlaskConical size={16} /> },
+    {
+      id: "resale",
+      label: "Productos de reventa",
+      icon: <CircleDollarSign size={16} />,
+    },
+    {
+      id: "supplies",
+      label: "Otros insumos",
+      icon: <PackageCheck size={16} />,
+    },
     {
       id: "products",
-      label: "Costos de productos",
+      label: "Costo de productos",
       icon: <CircleDollarSign size={16} />,
     },
   ];
@@ -117,21 +148,49 @@ export function CostsApp({
           Guía para costear y fijar precios
         </Link>
       </div>
-      <div className="mt-6 flex gap-2 overflow-x-auto pb-2">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setTab(item.id);
-              const url = new URL(window.location.href);
-              url.searchParams.set("tab", item.id);
-              window.history.replaceState(null, "", url);
-            }}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-xs font-bold ${tab === item.id ? "bg-[#235b45] text-white" : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"}`}
+      <div className="mt-6 flex gap-3 overflow-x-auto pb-2">
+        {(
+          [
+            ["Estructura", ["business"]],
+            ["Fuentes del costo", ["own", "resale", "supplies"]],
+            ["Resultado", ["products"]],
+          ] as const
+        ).map(([group, ids]) => (
+          <div
+            key={group}
+            className="shrink-0 rounded-2xl border border-[#e1e0d7] bg-[#f8f7f0] p-2"
           >
-            {item.icon}
-            {item.label}
-          </button>
+            <p className="mb-1 px-2 text-[9px] font-black uppercase tracking-[.13em] text-[#7a8078]">
+              {group}
+            </p>
+            <div className="flex gap-2">
+              {tabs
+                .filter((item) => (ids as readonly string[]).includes(item.id))
+                .map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setTab(item.id);
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("tab", item.id);
+                      window.history.replaceState(null, "", url);
+                    }}
+                    className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-xs font-bold ${
+                      tab === item.id
+                        ? "bg-[#235b45] text-white"
+                        : item.id === "products"
+                          ? "border-2 border-[#235b45] bg-[#eef4eb] text-[#235b45]"
+                          : item.id === "business"
+                            ? "border-2 border-[#9ba99d] bg-[#fffef9] text-[#445249]"
+                            : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"
+                    }`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+            </div>
+          </div>
         ))}
       </div>
       {tab === "business" && (
@@ -139,18 +198,72 @@ export function CostsApp({
           costs={fixedCosts}
           monthly={monthlyFixedCosts}
           settings={settings}
+          schedule={schedule}
         />
       )}
-      {tab === "ingredients" && <IngredientsView ingredients={ingredients} />}
-      {tab === "recipes" && (
-        <RecipesView
-          ingredients={ingredients}
-          recipes={recipes}
-          costs={recipeCosts}
-        />
+      {tab === "own" && (
+        <section className="mt-5">
+          <div className="rounded-2xl border border-[#cfdcc9] bg-[#eef4eb] p-5">
+            <h2 className="font-black text-[#235b45]">Elaboraciones propias</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[#626b63]">
+              Registra materias primas y conviértelas en recetas o subrecetas.
+              El producto vendible se crea posteriormente en Costo de productos.
+            </p>
+          </div>
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+            {(
+              [
+                ["ingredients", "Materias primas"],
+                ["recipes", "Recetas"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setOwnSection(id)}
+                className={`shrink-0 rounded-xl px-4 py-3 text-xs font-black ${ownSection === id ? "bg-[#235b45] text-white" : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {ownSection === "ingredients" && (
+            <IngredientsView ingredients={ingredients} mode="raw" />
+          )}
+          {ownSection === "recipes" && (
+            <RecipesView
+              ingredients={ingredients}
+              recipes={recipes}
+              costs={recipeCosts}
+            />
+          )}
+        </section>
+      )}
+      {tab === "resale" && (
+        <section className="mt-5">
+          <div className="rounded-2xl border border-[#dfd7b8] bg-[#f7f3e4] p-5">
+            <h2 className="font-black text-[#5d542f]">Productos de reventa</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[#6c6754]">
+              Registra productos que compras listos y vendes sin elaborarlos,
+              como bebidas, helados o medialunas de un proveedor. Su costo se
+              conecta al producto vendible desde Costo de productos.
+            </p>
+          </div>
+          <div className="mt-4 inline-flex rounded-xl bg-[#235b45] px-4 py-3 text-xs font-black text-white">
+            Productos
+          </div>
+          <ProductsCostView
+            analyses={analyses}
+            recipes={recipes}
+            productKindMode="resale"
+            showCreate
+          />
+        </section>
+      )}
+      {tab === "supplies" && (
+        <IngredientsView ingredients={ingredients} mode="other" />
       )}
       {tab === "products" && (
-        <ProductsCostView analyses={analyses} recipes={recipes} />
+        <ProductsCostView analyses={analyses} recipes={recipes} showCreate />
       )}
     </main>
   );
@@ -274,18 +387,30 @@ export function CostingRoadmap({
   );
 }
 
-function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
+function IngredientsView({
+  ingredients,
+  mode = "raw",
+}: {
+  ingredients: Ingredient[];
+  mode?: "raw" | "other";
+}) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [pricing, setPricing] = useState<Ingredient | null>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todas");
   const [view, setView] = useCollectionView("ingredients");
+  const isOther = (ingredient: Ingredient) =>
+    ingredient.category === "Empaques" ||
+    /envase|vaso|tapa|bolsa|servilleta|sachet|bombilla/i.test(ingredient.name);
+  const scopedIngredients = ingredients.filter((ingredient) =>
+    mode === "other" ? isOther(ingredient) : !isOther(ingredient),
+  );
   const categories = [
     "Todas",
-    ...new Set(ingredients.map((ingredient) => ingredient.category)),
+    ...new Set(scopedIngredients.map((ingredient) => ingredient.category)),
   ];
-  const visible = ingredients.filter(
+  const visible = scopedIngredients.filter(
     (ingredient) =>
       (category === "Todas" || ingredient.category === category) &&
       `${ingredient.name} ${ingredient.category}`
@@ -313,17 +438,29 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
   return (
     <section className="mt-5">
       <SectionHeader
-        title="Materias primas"
-        subtitle="Registra formatos y precios; esto no controla inventario."
+        title={
+          mode === "other"
+            ? "Envases y otros insumos de venta"
+            : "Materias primas"
+        }
+        subtitle={
+          mode === "other"
+            ? "Registra vasos, tapas, bolsas, servilletas u otros elementos consumidos al vender un producto."
+            : "Registra formatos y precios de los ingredientes usados para elaborar o armar productos."
+        }
         action={() => setCreating(true)}
-        actionLabel="Materia prima"
+        actionLabel={mode === "other" ? "Otro insumo" : "Materia prima"}
       />
       <CollectionToolbar
         view={view}
         onViewChange={setView}
         search={search}
         onSearchChange={setSearch}
-        placeholder="Buscar materia prima..."
+        placeholder={
+          mode === "other"
+            ? "Buscar envase u otro insumo..."
+            : "Buscar materia prima..."
+        }
       >
         <select
           value={category}
@@ -545,10 +682,21 @@ function IngredientsView({ ingredients }: { ingredients: Ingredient[] }) {
             </article>
           ))}
         {!visible.length && (
-          <Empty text="Crea la primera materia prima para comenzar el costeo." />
+          <Empty
+            text={
+              mode === "other"
+                ? "Agrega el primer envase u otro insumo asociado a una venta."
+                : "Crea la primera materia prima para comenzar el costeo."
+            }
+          />
         )}
       </div>
-      {creating && <IngredientDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <IngredientDialog
+          defaultCategory={mode === "other" ? "Empaques" : undefined}
+          onClose={() => setCreating(false)}
+        />
+      )}
       {editing && (
         <IngredientDialog
           ingredient={editing}
@@ -971,14 +1119,19 @@ function productTypeLabel(type: ProductCostAnalysis["productType"]) {
 function ProductsCostView({
   analyses,
   recipes,
+  productKindMode = "all",
+  showCreate = false,
 }: {
   analyses: ProductCostAnalysis[];
   recipes: Recipe[];
+  productKindMode?: "all" | "resale" | "prepared";
+  showCreate?: boolean;
 }) {
   const [editing, setEditing] = useState<ProductCostAnalysis | null>(null);
+  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [productKind, setProductKind] = useState("all");
+  const [productKind, setProductKind] = useState(productKindMode);
   const [category, setCategory] = useState("Todas");
   const [view, setView] = useCollectionView("product-costs");
   const categories = [
@@ -1015,33 +1168,57 @@ function ProductsCostView({
   return (
     <section className="mt-5">
       <SectionHeader
-        title="Rentabilidad por producto"
-        subtitle="Compara por separado lo que revendes y lo que elaboras o armas."
+        title={
+          productKindMode === "resale"
+            ? "Productos comprados para revender"
+            : productKindMode === "prepared"
+              ? "Costos de productos elaborados o armados"
+              : "Rentabilidad por producto"
+        }
+        subtitle={
+          productKindMode === "resale"
+            ? "Para productos que vendes sin transformar: registra el costo del formato comprado y sus unidades vendibles."
+            : productKindMode === "prepared"
+              ? "Cada producto debe vincularse a una receta final que reúna todos sus ingredientes, preparaciones y envases."
+              : "Compara por separado lo que revendes y lo que elaboras o armas."
+        }
+        action={showCreate ? () => setCreating(true) : undefined}
+        actionLabel="Crear producto y costear"
       />
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => setProductKind("resale")}
-          className={`rounded-2xl border p-4 text-left ${productKind === "resale" ? "border-[#235b45] bg-[#eaf2e7]" : "border-[#deddd4] bg-[#fffef9]"}`}
-        >
-          <b>Comprados para revender</b>
-          <p className="mt-1 text-xs leading-5 text-[#70756d]">
-            Se venden sin preparación. El costo nace del formato comprado, sus
-            unidades vendibles, merma, IVA y comisiones.
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setProductKind("prepared")}
-          className={`rounded-2xl border p-4 text-left ${productKind === "prepared" ? "border-[#235b45] bg-[#eaf2e7]" : "border-[#deddd4] bg-[#fffef9]"}`}
-        >
-          <b>Elaborados o armados en el negocio</b>
-          <p className="mt-1 text-xs leading-5 text-[#70756d]">
-            Usan una receta y pueden combinar preparaciones propias con
-            componentes comprados listos para usar.
-          </p>
-        </button>
-      </div>
+      {productKindMode === "resale" && (
+        <div className="mt-4 rounded-2xl border border-[#d9dfce] bg-[#f3f5eb] p-5 text-sm leading-6 text-[#626b63]">
+          <b className="text-[#235b45]">Ejemplo:</b> si una bebida cuesta $600
+          por unidad y se vende a $1.000, Kumera separa el IVA, incorpora la
+          comisión esperada y calcula su contribución real. No necesitas crear
+          una receta ficticia.
+        </div>
+      )}
+      {productKindMode === "all" && (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setProductKind("resale")}
+            className={`rounded-2xl border p-4 text-left ${productKind === "resale" ? "border-[#235b45] bg-[#eaf2e7]" : "border-[#deddd4] bg-[#fffef9]"}`}
+          >
+            <b>Comprados para revender</b>
+            <p className="mt-1 text-xs leading-5 text-[#70756d]">
+              Se venden sin preparación. El costo nace del formato comprado, sus
+              unidades vendibles, merma, IVA y comisiones.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setProductKind("prepared")}
+            className={`rounded-2xl border p-4 text-left ${productKind === "prepared" ? "border-[#235b45] bg-[#eaf2e7]" : "border-[#deddd4] bg-[#fffef9]"}`}
+          >
+            <b>Elaborados o armados en el negocio</b>
+            <p className="mt-1 text-xs leading-5 text-[#70756d]">
+              Usan una receta y pueden combinar preparaciones propias con
+              componentes comprados listos para usar.
+            </p>
+          </button>
+        </div>
+      )}
       <div className="mt-4 rounded-2xl border border-[#cfdcc9] bg-[#eaf2e7] p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1082,16 +1259,22 @@ function ProductsCostView({
         onSearchChange={setSearch}
         placeholder="Buscar producto..."
       >
-        <select
-          value={productKind}
-          onChange={(event) => setProductKind(event.target.value)}
-          className="input h-11 min-h-0 sm:w-56"
-          aria-label="Tipo de producto"
-        >
-          <option value="all">Todos los tipos</option>
-          <option value="resale">Comprados para revender</option>
-          <option value="prepared">Elaborados o armados</option>
-        </select>
+        {productKindMode === "all" && (
+          <select
+            value={productKind}
+            onChange={(event) =>
+              setProductKind(
+                event.target.value as "all" | "resale" | "prepared",
+              )
+            }
+            className="input h-11 min-h-0 sm:w-56"
+            aria-label="Tipo de producto"
+          >
+            <option value="all">Todos los tipos</option>
+            <option value="resale">Comprados para revender</option>
+            <option value="prepared">Elaborados o armados</option>
+          </select>
+        )}
         <select
           value={category}
           onChange={(event) => setCategory(event.target.value)}
@@ -1291,6 +1474,14 @@ function ProductsCostView({
           onClose={() => setEditing(null)}
         />
       )}
+      {creating && (
+        <NewCostedProductDialog
+          recipes={recipes}
+          categories={[...new Set(analyses.map((item) => item.category))]}
+          initialType={productKindMode === "resale" ? "resale" : undefined}
+          onClose={() => setCreating(false)}
+        />
+      )}
     </section>
   );
 }
@@ -1299,10 +1490,12 @@ export function FixedCostsView({
   costs,
   monthly,
   settings,
+  schedule,
 }: {
   costs: FixedCost[];
   monthly: number;
   settings: CostSettings;
+  schedule: OperatingSchedule;
 }) {
   const [creating, setCreating] = useState<{
     name: string;
@@ -1625,6 +1818,7 @@ export function FixedCostsView({
       {configuring && (
         <SettingsDialog
           settings={settings}
+          schedule={schedule}
           onClose={() => setConfiguring(false)}
         />
       )}
@@ -2212,9 +2406,11 @@ function LegacyProjectionsView({
 
 function IngredientDialog({
   ingredient,
+  defaultCategory,
   onClose,
 }: {
   ingredient?: Ingredient;
+  defaultCategory?: string;
   onClose: () => void;
 }) {
   return (
@@ -2238,7 +2434,9 @@ function IngredientDialog({
             <select
               name="category"
               className="input"
-              defaultValue={ingredient?.category || "Harinas"}
+              defaultValue={
+                ingredient?.category || defaultCategory || "Harinas"
+              }
             >
               <option>Harinas</option>
               <option>Carnes</option>
@@ -2819,6 +3017,181 @@ function recipeItemCost(
   return null;
 }
 
+function NewCostedProductDialog({
+  recipes,
+  categories,
+  initialType = "manufactured",
+  onClose,
+}: {
+  recipes: Recipe[];
+  categories: string[];
+  initialType?: "resale" | "manufactured" | "mixed";
+  onClose: () => void;
+}) {
+  const [productType, setProductType] = useState(initialType);
+  return (
+    <Dialog title="Crear producto y asignar su costo" onClose={onClose}>
+      <AsyncForm action={createCostedProductAction}>
+        <Field label="Nombre del producto">
+          <input
+            name="name"
+            required
+            maxLength={100}
+            className="input"
+            placeholder="Ej: Café americano"
+          />
+        </Field>
+        <Field label="Categoría propia de este negocio">
+          <input
+            name="category"
+            required
+            maxLength={60}
+            className="input"
+            list="cost-product-categories"
+            placeholder="Ej: Cafetería"
+            defaultValue={categories[0] || "General"}
+          />
+          <datalist id="cost-product-categories">
+            {categories.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+          <span className="mt-1 block text-[10px] font-normal leading-4 text-[#777]">
+            Puedes escribir una categoría nueva. Sólo pertenecerá a esta
+            empresa.
+          </span>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Forma de venta">
+            <select name="saleUnit" className="input" defaultValue="unit">
+              <option value="unit">Por unidad</option>
+              <option value="kg">Por kilogramo</option>
+            </select>
+          </Field>
+          <Field label="Precio de venta final">
+            <input
+              name="price"
+              required
+              type="number"
+              min="1"
+              className="input"
+            />
+          </Field>
+        </div>
+        <Field label="Origen del costo">
+          <select
+            name="productType"
+            className="input"
+            value={productType}
+            onChange={(event) =>
+              setProductType(event.target.value as typeof productType)
+            }
+          >
+            <option value="manufactured">
+              Elaboración propia desde una receta
+            </option>
+            <option value="mixed">
+              Armado con componentes comprados y/o elaborados
+            </option>
+            <option value="resale">Compra y reventa sin elaboración</option>
+          </select>
+        </Field>
+        {productType === "resale" ? (
+          <div className="grid gap-3 rounded-xl border border-[#deded4] bg-[#faf9f4] p-4">
+            <p className="text-xs font-black text-[#235b45]">
+              Costo directo de reventa
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Costo total comprado">
+                <input
+                  name="resalePurchaseGrossAmount"
+                  type="number"
+                  min="1"
+                  required
+                  className="input"
+                />
+              </Field>
+              <Field label="Unidades vendibles">
+                <input
+                  name="resaleUnitsPerPurchase"
+                  type="number"
+                  min="0.001"
+                  step="0.001"
+                  required
+                  className="input"
+                />
+              </Field>
+            </div>
+            <Field label="IVA de la compra %">
+              <input
+                name="resaleTaxRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                defaultValue="19"
+                className="input"
+              />
+            </Field>
+            <input type="hidden" name="recipeId" value="" />
+          </div>
+        ) : (
+          <Field
+            label={
+              productType === "mixed"
+                ? "Receta final de armado"
+                : "Receta final"
+            }
+          >
+            <select name="recipeId" required className="input" defaultValue="">
+              <option value="" disabled>
+                Seleccionar receta final
+              </option>
+              {recipes
+                .filter((recipe) => recipe.kind === "final")
+                .map((recipe) => (
+                  <option key={recipe.id} value={recipe.id}>
+                    {recipe.name} ·{" "}
+                    {recipe.yieldUnit === "kg" ? "por kg" : "por unidad"}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Merma comercial %">
+            <input
+              name="wastePercentage"
+              type="number"
+              min="0"
+              max="99"
+              step="0.1"
+              defaultValue="0"
+              className="input"
+            />
+          </Field>
+          <Field label="Margen objetivo %">
+            <input
+              name="targetMarginPercentage"
+              type="number"
+              min="0"
+              max="94"
+              step="0.1"
+              defaultValue="60"
+              className="input"
+            />
+          </Field>
+        </div>
+        <p className="rounded-xl bg-[#eef4eb] p-3 text-xs leading-5 text-[#526158]">
+          Al guardar, este producto quedará en el catálogo general y aparecerá
+          automáticamente en Caja si ese módulo está habilitado.
+        </p>
+        <Submit>Crear producto y calcular costo</Submit>
+      </AsyncForm>
+    </Dialog>
+  );
+}
+
 function ProductCostDialog({
   product,
   recipes,
@@ -2828,6 +3201,9 @@ function ProductCostDialog({
   recipes: Recipe[];
   onClose: () => void;
 }) {
+  const initialType =
+    product.productType || (product.recipeId ? "manufactured" : "resale");
+  const [productType, setProductType] = useState(initialType);
   return (
     <Dialog title={`Costeo de ${product.name}`} onClose={onClose}>
       <AsyncForm action={configureProductCostAction}>
@@ -2835,83 +3211,109 @@ function ProductCostDialog({
         <Field label="Cómo obtienes este producto">
           <select
             name="productType"
-            defaultValue={
-              product.productType ||
-              (product.recipeId ? "manufactured" : "resale")
+            value={productType}
+            onChange={(event) =>
+              setProductType(
+                event.target.value as "resale" | "manufactured" | "mixed",
+              )
             }
             className="input"
           >
             <option value="resale">Lo compro para revender</option>
-            <option value="manufactured">Lo elaboro con una receta</option>
+            <option value="manufactured">
+              Lo elaboro desde materias primas
+            </option>
             <option value="mixed">
-              Combina elaboración y componentes comprados
+              Lo armo con componentes comprados y/o elaborados
             </option>
           </select>
         </Field>
-        <div className="rounded-xl border border-[#deded4] bg-[#faf9f4] p-3">
-          <p className="text-xs font-black uppercase tracking-wide text-[#657067]">
-            Si es reventa
-          </p>
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <Field label="Costo compra bruto">
-              <input
-                name="resalePurchaseGrossAmount"
-                type="number"
-                min="0"
-                defaultValue={product.resalePurchaseGrossAmount}
-                className="input"
-              />
-            </Field>
-            <Field label="Unidades vendibles">
-              <input
-                name="resaleUnitsPerPurchase"
-                type="number"
-                min="0"
-                step="0.001"
-                defaultValue={product.resaleUnitsPerPurchase}
-                className="input"
-              />
-            </Field>
-            <Field label="IVA compra %">
-              <input
-                name="resaleTaxRate"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                defaultValue={product.resaleTaxRate ?? 19}
-                className="input"
-              />
-            </Field>
-          </div>
+        <div className="rounded-xl bg-[#eef4eb] p-3 text-xs leading-5 text-[#526158]">
+          {productType === "resale"
+            ? "Se vende tal como se compra. Indica el costo del formato y cuántas unidades puedes vender; no necesita receta."
+            : productType === "manufactured"
+              ? "Su costo nace de una receta final con materias primas y preparaciones propias."
+              : "Su costo nace de una receta final de armado. Puede incluir un componente comprado, una preparación propia y envases; por ejemplo croissant + jamón + queso + bolsa."}
         </div>
-        <Field label="Receta final del producto">
-          <select
-            name="recipeId"
-            defaultValue={product.recipeId || ""}
-            className="input"
+        {productType === "resale" && (
+          <div className="rounded-xl border border-[#deded4] bg-[#faf9f4] p-3">
+            <p className="text-xs font-black uppercase tracking-wide text-[#657067]">
+              Si es reventa
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <Field label="Costo compra bruto">
+                <input
+                  name="resalePurchaseGrossAmount"
+                  type="number"
+                  min="0"
+                  defaultValue={product.resalePurchaseGrossAmount}
+                  className="input"
+                />
+              </Field>
+              <Field label="Unidades vendibles">
+                <input
+                  name="resaleUnitsPerPurchase"
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  defaultValue={product.resaleUnitsPerPurchase}
+                  className="input"
+                />
+              </Field>
+              <Field label="IVA compra %">
+                <input
+                  name="resaleTaxRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  defaultValue={product.resaleTaxRate ?? 19}
+                  className="input"
+                />
+              </Field>
+            </div>
+          </div>
+        )}
+        {productType !== "resale" ? (
+          <Field
+            label={
+              productType === "mixed"
+                ? "Receta final de armado"
+                : "Receta final del producto"
+            }
           >
-            <option value="">Sin receta</option>
-            {recipes
-              .filter(
-                (recipe) =>
-                  recipe.kind === "final" || recipe.id === product.recipeId,
-              )
-              .map((recipe) => (
-                <option key={recipe.id} value={recipe.id}>
-                  {recipe.name}
-                  {recipe.kind !== "final"
-                    ? " · actualmente es subreceta"
-                    : ""}{" "}
-                  · rinde en {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
-                </option>
-              ))}
-          </select>
-        </Field>
-        <p className="-mt-2 text-xs leading-5 text-[#777]">
-          Si el producto tiene masa y relleno, selecciona aquí la receta final
-          que contiene ambas subrecetas; no selecciones solamente la masa.
-        </p>
+            <select
+              name="recipeId"
+              defaultValue={product.recipeId || ""}
+              className="input"
+            >
+              <option value="">Sin receta</option>
+              {recipes
+                .filter(
+                  (recipe) =>
+                    recipe.kind === "final" || recipe.id === product.recipeId,
+                )
+                .map((recipe) => (
+                  <option key={recipe.id} value={recipe.id}>
+                    {recipe.name}
+                    {recipe.kind !== "final"
+                      ? " · actualmente es subreceta"
+                      : ""}{" "}
+                    · rinde en {recipe.yieldUnit === "kg" ? "kg" : "unidades"}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        ) : (
+          <input type="hidden" name="recipeId" value="" />
+        )}
+        {productType !== "resale" && (
+          <p className="-mt-2 text-xs leading-5 text-[#777]">
+            Si el producto tiene masa y relleno, selecciona aquí la receta final
+            que contiene todos sus componentes y envases; no selecciones
+            solamente una parte.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Merma comercial %">
             <input
@@ -3049,15 +3451,18 @@ function FixedCostDialog({
 
 function SettingsDialog({
   settings,
+  schedule,
   onClose,
 }: {
   settings: CostSettings;
+  schedule: OperatingSchedule;
   onClose: () => void;
 }) {
+  const [daysMode, setDaysMode] = useState(schedule.mode);
   return (
     <Dialog title="Parámetros del modelo" onClose={onClose}>
       <AsyncForm action={saveCostSettingsAction}>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="IVA %">
             <input
               name="vatRate"
@@ -3067,19 +3472,117 @@ function SettingsDialog({
               className="input"
             />
           </Field>
-          <Field label="Días abiertos al mes">
-            <input
-              name="operatingDaysMonth"
-              type="number"
-              defaultValue={settings.operatingDaysMonth}
-              className="input"
-            />
-          </Field>
         </div>
         <p className="rounded-xl bg-[#f3f3eb] p-3 text-xs leading-5 text-[#666c64]">
           Esta tasa se usa para separar el precio neto del IVA en ventas y
           compras afectas. El IVA no se agrega como costo fijo mensual.
         </p>
+        <fieldset className="grid gap-3 rounded-2xl border border-[#deddd4] p-4">
+          <legend className="px-1 text-xs font-black">
+            Días de funcionamiento
+          </legend>
+          <label className="flex items-start gap-3 rounded-xl bg-[#f3f3eb] p-3 text-sm">
+            <input
+              type="radio"
+              name="operatingDaysMode"
+              value="weekly"
+              checked={daysMode === "weekly"}
+              onChange={() => setDaysMode("weekly")}
+              className="mt-1"
+            />
+            <span>
+              <b>Calcular desde mi horario semanal</b>
+              <span className="mt-1 block text-xs text-[#666c64]">
+                Kumera contará los días reales del mes: 28, 29, 30 o 31 según el
+                calendario.
+              </span>
+            </span>
+          </label>
+          {daysMode === "weekly" && (
+            <div className="grid gap-3">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                {[
+                  [1, "Lun"],
+                  [2, "Mar"],
+                  [3, "Mié"],
+                  [4, "Jue"],
+                  [5, "Vie"],
+                  [6, "Sáb"],
+                  [7, "Dom"],
+                ].map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-[#d7d7ce] p-2 text-xs font-bold"
+                  >
+                    <input
+                      name="operatingWeekdays"
+                      type="checkbox"
+                      value={value}
+                      defaultChecked={schedule.weekdays.includes(Number(value))}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Hora de apertura">
+                  <input
+                    name="openingTime"
+                    type="time"
+                    defaultValue={schedule.openingTime?.slice(0, 5) || "09:00"}
+                    className="input"
+                  />
+                </Field>
+                <Field label="Hora de cierre">
+                  <input
+                    name="closingTime"
+                    type="time"
+                    defaultValue={schedule.closingTime?.slice(0, 5) || "19:00"}
+                    className="input"
+                  />
+                </Field>
+              </div>
+              <p className="text-xs text-[#666c64]">
+                El horario queda asociado al local principal. Por ahora los
+                feriados no se descuentan automáticamente.
+              </p>
+            </div>
+          )}
+          <label className="flex items-start gap-3 rounded-xl bg-[#f3f3eb] p-3 text-sm">
+            <input
+              type="radio"
+              name="operatingDaysMode"
+              value="manual"
+              checked={daysMode === "manual"}
+              onChange={() => setDaysMode("manual")}
+              className="mt-1"
+            />
+            <span>
+              <b>Usar una cantidad manual mensual</b>
+              <span className="mt-1 block text-xs text-[#666c64]">
+                Útil si tus días cambian sin seguir una semana regular.
+              </span>
+            </span>
+          </label>
+          {daysMode === "manual" ? (
+            <Field label="Días abiertos al mes">
+              <input
+                name="operatingDaysMonth"
+                type="number"
+                min="1"
+                max="31"
+                defaultValue={settings.operatingDaysMonth}
+                className="input"
+              />
+            </Field>
+          ) : (
+            <input
+              type="hidden"
+              name="operatingDaysMonth"
+              value={settings.operatingDaysMonth}
+            />
+          )}
+        </fieldset>
         <p className="pt-2 text-xs font-black">
           Mezcla esperada de pagos (debe sumar 100%)
         </p>

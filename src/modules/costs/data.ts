@@ -13,6 +13,7 @@ import type {
   FixedCost,
   Ingredient,
   IngredientPrice,
+  OperatingSchedule,
   Recipe,
   Scenario,
 } from "./types";
@@ -61,6 +62,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     scenarioResult,
     scenarioItemResult,
     productionResult,
+    locationResult,
   ] = await Promise.all([
     supabase
       .from("ingredients")
@@ -117,6 +119,14 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
           .select("family_product_id,component_product_id,quantity")
           .eq("business_id", businessId)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("business_locations")
+      .select(
+        "operating_days_mode,operating_weekdays,opening_time,closing_time",
+      )
+      .eq("business_id", businessId)
+      .eq("is_primary", true)
+      .maybeSingle(),
   ]);
 
   for (const result of [
@@ -130,6 +140,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     scenarioResult,
     scenarioItemResult,
     productionResult,
+    locationResult,
   ]) {
     if (result.error) throw result.error;
   }
@@ -219,9 +230,24 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
   });
 
   const rawSettings = settingsResult.data!;
+  const schedule: OperatingSchedule = {
+    mode:
+      locationResult.data?.operating_days_mode === "weekly"
+        ? "weekly"
+        : "manual",
+    weekdays: Array.isArray(locationResult.data?.operating_weekdays)
+      ? locationResult.data.operating_weekdays.map(Number)
+      : [1, 2, 3, 4, 5, 6, 7],
+    openingTime: locationResult.data?.opening_time || undefined,
+    closingTime: locationResult.data?.closing_time || undefined,
+  };
+  const { countOperatingDaysInMonth } = await import("./operating-schedule");
   const settings: CostSettings = {
     vatRate: Number(rawSettings.vat_rate),
-    operatingDaysMonth: rawSettings.operating_days_month,
+    operatingDaysMonth:
+      schedule.mode === "weekly"
+        ? countOperatingDaysInMonth(schedule)
+        : rawSettings.operating_days_month,
     expectedCashPercentage: Number(rawSettings.expected_cash_percentage),
     expectedDebitPercentage: Number(rawSettings.expected_debit_percentage),
     expectedCreditPercentage: Number(rawSettings.expected_credit_percentage),
@@ -347,6 +373,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     recipeCosts: Object.fromEntries(recipeCosts),
     analyses,
     settings,
+    schedule,
     fixedCosts,
     monthlyFixedCosts: monthlyFixedCost(
       fixedCosts,

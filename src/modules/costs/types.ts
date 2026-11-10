@@ -74,6 +74,13 @@ export type CostSettings = {
   operationalWastePercentage: number;
 };
 
+export type OperatingSchedule = {
+  mode: "manual" | "weekly";
+  weekdays: number[];
+  openingTime?: string;
+  closingTime?: string;
+};
+
 export type CostProduct = {
   id: string;
   name: string;

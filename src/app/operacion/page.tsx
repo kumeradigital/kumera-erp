@@ -29,6 +29,7 @@ export default async function Page() {
         fixedCosts={costing.fixedCosts}
         monthlyFixedCosts={costing.monthlyFixedCosts}
         costSettings={costing.settings}
+        operatingSchedule={costing.schedule}
         businessPulse={businessPulse}
         globalBusinessPulse={globalBusinessPulse}
         monthlyBusinessPulses={monthlyBusinessPulses}

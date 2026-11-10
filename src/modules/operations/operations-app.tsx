@@ -17,7 +17,11 @@ import {
 } from "lucide-react";
 import { formatClp } from "@/shared/money";
 import { FixedCostsView, ProjectionsView } from "@/modules/costs/costs-app";
-import type { CostSettings, FixedCost } from "@/modules/costs/types";
+import type {
+  CostSettings,
+  FixedCost,
+  OperatingSchedule,
+} from "@/modules/costs/types";
 import type { BusinessPulse } from "@/modules/pos/types";
 import {
   closeAccumulatingProvisionAction,
@@ -57,6 +61,7 @@ export function OperationsApp({
   fixedCosts,
   monthlyFixedCosts,
   costSettings,
+  operatingSchedule,
   businessPulse,
   globalBusinessPulse,
   monthlyBusinessPulses,
@@ -71,6 +76,7 @@ export function OperationsApp({
   fixedCosts: FixedCost[];
   monthlyFixedCosts: number;
   costSettings: CostSettings;
+  operatingSchedule: OperatingSchedule;
   businessPulse: BusinessPulse;
   globalBusinessPulse: BusinessPulse;
   monthlyBusinessPulses: { month: string; pulse: BusinessPulse }[];
@@ -332,6 +338,7 @@ export function OperationsApp({
             costs={fixedCosts}
             monthly={monthlyFixedCosts}
             settings={costSettings}
+            schedule={operatingSchedule}
           />
         )}
         {financeView === "projection" && (

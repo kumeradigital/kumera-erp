@@ -69,11 +69,7 @@ export function ProductsClient({
   ];
   const formCategories = [
     ...new Set([
-      "Bollería",
-      "Empanadas",
-      "Pan",
-      "Pan envasado",
-      "Bebidas",
+      "General",
       "Otros",
       ...products.map((product) => product.category),
     ]),

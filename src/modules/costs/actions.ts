@@ -374,6 +374,105 @@ export async function configureProductCostAction(form: FormData) {
   revalidatePath("/costos");
 }
 
+export async function createCostedProductAction(form: FormData) {
+  const ctx = await context();
+  const name = text(form, "name");
+  const categoryName = text(form, "category") || "General";
+  const price = Math.round(Number(form.get("price")));
+  const saleUnit = text(form, "saleUnit") as "unit" | "kg";
+  const productType = text(form, "productType") as
+    "resale" | "manufactured" | "mixed";
+  const recipeId = text(form, "recipeId") || null;
+  const purchaseGross = Math.round(
+    Number(form.get("resalePurchaseGrossAmount") || 0),
+  );
+  const unitsPerPurchase = Number(form.get("resaleUnitsPerPurchase") || 0);
+  const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
+  const targetMargin = Number(form.get("targetMarginPercentage") || 60);
+  if (!name || name.length > 100)
+    throw new Error("Nombre de producto inválido");
+  if (!categoryName || categoryName.length > 60)
+    throw new Error("Categoría inválida");
+  if (!Number.isInteger(price) || price <= 0)
+    throw new Error("El precio de venta debe ser mayor que cero");
+  if (!(["unit", "kg"] as const).includes(saleUnit))
+    throw new Error("Forma de venta inválida");
+  if (!(["resale", "manufactured", "mixed"] as const).includes(productType))
+    throw new Error("Tipo de producto inválido");
+  if (targetMargin < 0 || targetMargin >= 95)
+    throw new Error("Margen objetivo inválido");
+  if (productType === "resale" && (!purchaseGross || !unitsPerPurchase))
+    throw new Error("Indica el costo de compra y las unidades vendibles");
+  if (productType !== "resale" && !recipeId)
+    throw new Error("Selecciona la receta final del producto");
+  if (recipeId) {
+    const recipe = await ctx.supabase
+      .from("recipes")
+      .select("id,recipe_kind,yield_unit")
+      .eq("id", recipeId)
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .single();
+    if (recipe.error || recipe.data.recipe_kind !== "final")
+      throw new Error("Selecciona una receta final válida");
+    if (recipe.data.yield_unit !== saleUnit)
+      throw new Error(
+        "La unidad de la receta no coincide con la forma de venta",
+      );
+  }
+  const duplicate = await ctx.supabase
+    .from("products")
+    .select("id")
+    .eq("business_id", ctx.businessId)
+    .eq("name", name)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (duplicate.error) throw duplicate.error;
+  if (duplicate.data) throw new Error("Ya existe un producto con ese nombre");
+  const existingCategory = await ctx.supabase
+    .from("product_categories")
+    .select("id")
+    .eq("business_id", ctx.businessId)
+    .eq("name", categoryName)
+    .maybeSingle();
+  if (existingCategory.error) throw existingCategory.error;
+  let categoryId = existingCategory.data?.id;
+  if (!categoryId) {
+    const createdCategory = await ctx.supabase
+      .from("product_categories")
+      .insert({
+        business_id: ctx.businessId,
+        name: categoryName,
+        position: 999,
+      })
+      .select("id")
+      .single();
+    if (createdCategory.error) throw createdCategory.error;
+    categoryId = createdCategory.data.id;
+  }
+  const created = await ctx.supabase.from("products").insert({
+    business_id: ctx.businessId,
+    category_id: categoryId,
+    name,
+    price,
+    sale_unit: saleUnit,
+    product_type: productType,
+    cost_recipe_id: productType === "resale" ? null : recipeId,
+    target_margin_percentage: targetMargin,
+    waste_percentage: Number(form.get("wastePercentage") || 0),
+    resale_purchase_gross_amount:
+      productType === "resale" ? purchaseGross : null,
+    resale_units_per_purchase:
+      productType === "resale" ? unitsPerPurchase : null,
+    resale_tax_rate: productType === "resale" ? resaleTaxRate : null,
+    updated_at: new Date().toISOString(),
+  });
+  if (created.error) throw created.error;
+  revalidatePath("/costos");
+  revalidatePath("/productos");
+  revalidatePath("/caja");
+}
+
 export async function saveFixedCostAction(form: FormData) {
   const ctx = await context();
   const id = text(form, "id") || undefined;
@@ -434,9 +533,28 @@ export async function toggleFixedCostAction(id: string, active: boolean) {
 
 export async function saveCostSettingsAction(form: FormData) {
   const ctx = await context();
+  const operatingDaysMode = text(form, "operatingDaysMode");
+  if (
+    !(["manual", "weekly"] as const).includes(
+      operatingDaysMode as "manual" | "weekly",
+    )
+  )
+    throw new Error("Selecciona cómo calcular los días abiertos");
+  const operatingWeekdays = form
+    .getAll("operatingWeekdays")
+    .map(Number)
+    .filter((day) => Number.isInteger(day) && day >= 1 && day <= 7);
+  if (operatingDaysMode === "weekly" && !operatingWeekdays.length)
+    throw new Error("Selecciona al menos un día de funcionamiento");
+  const manualDays = Number(form.get("operatingDaysMonth"));
+  if (
+    operatingDaysMode === "manual" &&
+    (!Number.isInteger(manualDays) || manualDays < 1 || manualDays > 31)
+  )
+    throw new Error("Los días abiertos deben estar entre 1 y 31");
   const values = {
     vat_rate: Number(form.get("vatRate")),
-    operating_days_month: Number(form.get("operatingDaysMonth")),
+    operating_days_month: manualDays,
     expected_cash_percentage: Number(form.get("expectedCashPercentage")),
     expected_debit_percentage: Number(form.get("expectedDebitPercentage")),
     expected_credit_percentage: Number(form.get("expectedCreditPercentage")),
@@ -469,6 +587,27 @@ export async function saveCostSettingsAction(form: FormData) {
     .update(values)
     .eq("business_id", ctx.businessId);
   if (error) throw error;
+  const locationResult = await ctx.supabase
+    .from("business_locations")
+    .update({
+      operating_days_mode: operatingDaysMode,
+      operating_weekdays:
+        operatingDaysMode === "weekly"
+          ? operatingWeekdays
+          : [1, 2, 3, 4, 5, 6, 7],
+      opening_time:
+        operatingDaysMode === "weekly"
+          ? text(form, "openingTime") || null
+          : null,
+      closing_time:
+        operatingDaysMode === "weekly"
+          ? text(form, "closingTime") || null
+          : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("business_id", ctx.businessId)
+    .eq("is_primary", true);
+  if (locationResult.error) throw locationResult.error;
   revalidatePath("/costos");
   revalidatePath("/operacion");
 }

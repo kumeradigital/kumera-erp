@@ -3,7 +3,15 @@ import { CostsApp, type CostTab } from "@/modules/costs/costs-app";
 import { PosShell } from "@/modules/pos/pos-shell";
 import { requireModule } from "@/server/saas/access";
 
-const validTabs: CostTab[] = ["business", "ingredients", "recipes", "products"];
+const validTabs: CostTab[] = [
+  "business",
+  "own",
+  "resale",
+  "supplies",
+  "ingredients",
+  "recipes",
+  "products",
+];
 
 export default async function CostsPage({
   searchParams,
@@ -14,9 +22,7 @@ export default async function CostsPage({
   const params = await searchParams;
   const requestedTab = params.tab as CostTab;
   const data = await getCostingData();
-  const initialTab = validTabs.includes(requestedTab)
-    ? requestedTab
-    : "ingredients";
+  const initialTab = validTabs.includes(requestedTab) ? requestedTab : "own";
   return (
     <PosShell active="costs">
       <CostsApp
@@ -27,6 +33,7 @@ export default async function CostsPage({
         fixedCosts={data.fixedCosts}
         monthlyFixedCosts={data.monthlyFixedCosts}
         settings={data.settings}
+        schedule={data.schedule}
         initialTab={initialTab}
       />
     </PosShell>
