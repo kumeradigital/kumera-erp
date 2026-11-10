@@ -244,7 +244,7 @@ export function ProductsClient({
           <div
             className={
               view === "cards"
-                ? "mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                ? "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                 : "card mt-5 overflow-x-auto"
             }
           >
@@ -362,28 +362,33 @@ export function ProductsClient({
               visibleProducts.map((p) => (
                 <article
                   key={p.id}
-                  className={`card overflow-hidden ${!p.active && section !== "archived" ? "opacity-55" : ""}`}
+                  className={`card isolate flex min-h-0 flex-col overflow-hidden ${!p.active && section !== "archived" ? "opacity-55" : ""}`}
                 >
-                  <div className="grid h-36 place-items-center bg-[#edece3]">
+                  <div className="relative grid h-28 shrink-0 place-items-center overflow-hidden bg-[#edece3]">
                     {p.imageUrl ? (
                       <img
                         src={p.imageUrl}
                         alt=""
-                        className="h-full w-full object-cover"
+                        className="block h-full w-full object-cover"
                       />
                     ) : (
                       <ImageIcon className="text-[#a4a79f]" />
                     )}
                   </div>
-                  <div className="p-4">
-                    <div className="flex justify-between gap-3">
-                      <div>
-                        <p className="font-black">{p.name}</p>
+                  <div className="relative z-10 flex flex-1 flex-col bg-[#fffef9] p-3">
+                    <div className="flex justify-between gap-2">
+                      <div className="min-w-0">
+                        <p
+                          className="truncate text-sm font-black"
+                          title={p.name}
+                        >
+                          {p.name}
+                        </p>
                         <p className="mt-1 text-xs text-[#7c8078]">
                           {p.category}
                         </p>
                       </div>
-                      <p className="money font-black text-[#235b45]">
+                      <p className="money shrink-0 text-sm font-black text-[#235b45]">
                         {p.sellMembersIndividually ? (
                           "Precios individuales"
                         ) : (
@@ -395,7 +400,7 @@ export function ProductsClient({
                       </p>
                     </div>
                     {p.description && (
-                      <p className="mt-3 text-xs text-[#747970]">
+                      <p className="mt-2 line-clamp-2 text-xs text-[#747970]">
                         {p.description}
                       </p>
                     )}
@@ -445,6 +450,7 @@ export function ProductsClient({
                     )}
                     <ProductActions
                       product={p}
+                      compact
                       archived={section === "archived"}
                       onEdit={() => {
                         setEditing(p);
@@ -735,14 +741,18 @@ function ProductActions({
   product,
   onEdit,
   archived = false,
+  compact = false,
 }: {
   product: Product;
   onEdit: () => void;
   archived?: boolean;
+  compact?: boolean;
 }) {
   if (archived)
     return (
-      <div className="flex justify-end border-t border-[#ebeae2] pt-3 text-xs font-bold">
+      <div
+        className={`${compact ? "mt-auto pt-2" : "pt-3"} flex justify-end border-t border-[#ebeae2] text-xs font-bold`}
+      >
         <button
           onClick={async () => {
             try {
@@ -756,17 +766,19 @@ function ProductActions({
               );
             }
           }}
-          className="flex items-center gap-1.5 rounded-lg bg-[#edf4e9] px-3 py-2 text-[#235b45]"
+          className={`flex items-center gap-1.5 rounded-lg bg-[#edf4e9] text-[#235b45] ${compact ? "px-2 py-1.5" : "px-3 py-2"}`}
         >
           <ArchiveRestore size={14} /> Restaurar
         </button>
       </div>
     );
   return (
-    <div className="flex flex-wrap justify-end gap-2 border-t border-[#ebeae2] pt-3 text-xs font-bold">
+    <div
+      className={`${compact ? "mt-auto gap-1 pt-2 text-[11px]" : "gap-2 pt-3 text-xs"} flex flex-wrap justify-end border-t border-[#ebeae2] font-bold`}
+    >
       <button
         onClick={onEdit}
-        className="flex items-center gap-1 rounded-lg bg-[#edf1e8] px-3 py-2 text-[#235b45]"
+        className={`flex items-center gap-1 rounded-lg bg-[#edf1e8] text-[#235b45] ${compact ? "px-2 py-1.5" : "px-3 py-2"}`}
       >
         <Pencil size={13} /> Editar
       </button>
@@ -775,7 +787,7 @@ function ProductActions({
           await toggleProductAction(product.id, !product.active);
           location.reload();
         }}
-        className="rounded-lg px-3 py-2 text-[#62675f] hover:bg-[#eee]"
+        className={`rounded-lg text-[#62675f] hover:bg-[#eee] ${compact ? "px-2 py-1.5" : "px-3 py-2"}`}
       >
         {product.active ? "Ocultar" : "Activar"}
       </button>
@@ -798,7 +810,7 @@ function ProductActions({
             );
           }
         }}
-        className="flex items-center gap-1 rounded-lg px-3 py-2 text-[#a24628] hover:bg-[#f7e8e2]"
+        className={`flex items-center gap-1 rounded-lg text-[#a24628] hover:bg-[#f7e8e2] ${compact ? "px-2 py-1.5" : "px-3 py-2"}`}
       >
         <Trash2 size={13} /> Archivar
       </button>
