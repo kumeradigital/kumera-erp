@@ -217,18 +217,26 @@ export function PosClient({
       return next;
     });
   }
+  const salesFamilyMemberIds = new Set(
+    productionFamilies
+      .filter((family) => family.product.sellMembersIndividually)
+      .flatMap((family) => family.members.map((member) => member.id)),
+  );
+  const navigationProducts = products.filter(
+    (product) => !salesFamilyMemberIds.has(product.id),
+  );
   const categories = [
     "Todos",
     ...[
       ...new Map(
-        products.map((product) => [
+        navigationProducts.map((product) => [
           normalizedCategory(product.category),
           product.category.trim().replace(/\s+/g, " "),
         ]),
       ).values(),
     ].sort((a, b) => a.localeCompare(b, "es")),
   ];
-  const visibleProducts = products.filter(
+  const visibleProducts = navigationProducts.filter(
     (product) =>
       category === "Todos" ||
       normalizedCategory(product.category) === normalizedCategory(category),
@@ -1429,17 +1437,6 @@ function groupProductsForSale(
 ) {
   const groups = new Map<string, ProductTile>();
   for (const product of products) {
-    // Ciabatta belongs to Pan envasado for reporting, but it is sold directly
-    // from its own tile instead of through the Pan envasado picker.
-    if (normalizedCategory(product.name) === "ciabatta") {
-      groups.set(`product::${product.id}`, {
-        key: `product::${product.id}`,
-        category: product.name,
-        saleUnit: product.saleUnit,
-        products: [product],
-      });
-      continue;
-    }
     if (product.isSalesFamily && product.sellMembersIndividually) {
       const members =
         families.find((family) => family.product.id === product.id)?.members ||
