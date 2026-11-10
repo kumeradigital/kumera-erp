@@ -218,9 +218,9 @@ export function PosClient({
     });
   }
   const salesFamilyMemberIds = new Set(
-    productionFamilies
-      .filter((family) => family.product.sellMembersIndividually)
-      .flatMap((family) => family.members.map((member) => member.id)),
+    productionFamilies.flatMap((family) =>
+      family.members.map((member) => member.id),
+    ),
   );
   const navigationProducts = products.filter(
     (product) => !salesFamilyMemberIds.has(product.id),
