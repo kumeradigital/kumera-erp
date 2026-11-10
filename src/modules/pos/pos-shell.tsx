@@ -130,10 +130,10 @@ export async function PosShell({
               icon={<ShoppingCart size={16} />}
             />
           )}
-          {(enabled("pos") || enabled("costing")) && (
+          {enabled("pos") && (
             <Nav
               href="/productos"
-              label="Productos"
+              label="Catálogo"
               active={active === "products"}
               icon={<Boxes size={16} />}
             />
@@ -216,10 +216,10 @@ export async function PosShell({
                 icon={<Warehouse size={19} />}
               />
             )}
-            {(enabled("pos") || enabled("costing")) && (
+            {enabled("pos") && (
               <MobileNavLink
                 href="/productos"
-                label="Productos"
+                label="Catálogo"
                 active={active === "products"}
                 icon={<Boxes size={19} />}
               />
