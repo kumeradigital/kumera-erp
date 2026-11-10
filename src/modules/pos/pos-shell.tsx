@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   Building2,
-  Boxes,
   History,
   House,
   ListChecks,
@@ -130,14 +129,6 @@ export async function PosShell({
               icon={<ShoppingCart size={16} />}
             />
           )}
-          {enabled("pos") && (
-            <Nav
-              href="/productos"
-              label="Catálogo"
-              active={active === "products"}
-              icon={<Boxes size={16} />}
-            />
-          )}
           {enabled("costing") && (
             <Nav
               href="/costos"
@@ -214,14 +205,6 @@ export async function PosShell({
                 label="Inventario"
                 active={active === "inventory"}
                 icon={<Warehouse size={19} />}
-              />
-            )}
-            {enabled("pos") && (
-              <MobileNavLink
-                href="/productos"
-                label="Catálogo"
-                active={active === "products"}
-                icon={<Boxes size={19} />}
               />
             )}
             {enabled("costing") && (

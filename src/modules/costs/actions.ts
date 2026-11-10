@@ -378,6 +378,7 @@ export async function createCostedProductAction(form: FormData) {
   const ctx = await context();
   const name = text(form, "name");
   const categoryName = text(form, "category") || "General";
+  const description = text(form, "description");
   const price = Math.round(Number(form.get("price")));
   const saleUnit = text(form, "saleUnit") as "unit" | "kg";
   const productType = text(form, "productType") as
@@ -389,12 +390,21 @@ export async function createCostedProductAction(form: FormData) {
   const unitsPerPurchase = Number(form.get("resaleUnitsPerPurchase") || 0);
   const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
   const targetMargin = Number(form.get("targetMarginPercentage") || 60);
+  const pedidosYaRaw = text(form, "pedidosYaPrice");
+  const pedidosYaPrice = pedidosYaRaw ? Math.round(Number(pedidosYaRaw)) : null;
+  const trackDailyAvailability =
+    saleUnit === "unit" && form.get("trackDailyAvailability") === "on";
   if (!name || name.length > 100)
     throw new Error("Nombre de producto inválido");
   if (!categoryName || categoryName.length > 60)
     throw new Error("Categoría inválida");
   if (!Number.isInteger(price) || price <= 0)
     throw new Error("El precio de venta debe ser mayor que cero");
+  if (
+    pedidosYaPrice != null &&
+    (!Number.isInteger(pedidosYaPrice) || pedidosYaPrice <= 0)
+  )
+    throw new Error("Precio de PedidosYa inválido");
   if (!(["unit", "kg"] as const).includes(saleUnit))
     throw new Error("Forma de venta inválida");
   if (!(["resale", "manufactured", "mixed"] as const).includes(productType))
@@ -450,12 +460,30 @@ export async function createCostedProductAction(form: FormData) {
     if (createdCategory.error) throw createdCategory.error;
     categoryId = createdCategory.data.id;
   }
+  let imagePath: string | null = null;
+  const image = form.get("image");
+  if (image instanceof File && image.size > 0) {
+    if (image.size > 5 * 1024 * 1024)
+      throw new Error("La imagen supera el máximo de 5 MB");
+    imagePath = `${ctx.businessId}/${crypto.randomUUID()}-${image.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const uploaded = await ctx.supabase.storage
+      .from("product-images")
+      .upload(imagePath, image, {
+        contentType: image.type,
+        cacheControl: "31536000",
+      });
+    if (uploaded.error) throw uploaded.error;
+  }
   const created = await ctx.supabase.from("products").insert({
     business_id: ctx.businessId,
     category_id: categoryId,
     name,
+    description: description || null,
     price,
+    pedidosya_price: pedidosYaPrice,
+    image_path: imagePath,
     sale_unit: saleUnit,
+    track_daily_availability: trackDailyAvailability,
     product_type: productType,
     cost_recipe_id: productType === "resale" ? null : recipeId,
     target_margin_percentage: targetMargin,

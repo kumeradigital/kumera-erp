@@ -26,9 +26,13 @@ import type { Product } from "./types";
 export function ProductsClient({
   products,
   archivedProducts,
+  embedded = false,
+  hideIndividualCreate = false,
 }: {
   products: Product[];
   archivedProducts: Product[];
+  embedded?: boolean;
+  hideIndividualCreate?: boolean;
 }) {
   const [section, setSection] = useState<
     "products" | "families" | "groups" | "uncosted" | "archived"
@@ -96,19 +100,24 @@ export function ProductsClient({
       setBusy(false);
     }
   }
+  const Root = embedded ? "section" : "main";
   return (
-    <main className="mx-auto max-w-6xl p-5 md:p-8">
+    <Root className={embedded ? "mt-4" : "mx-auto max-w-6xl p-5 md:p-8"}>
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6e746c]">
             Catálogo
           </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">
-            Productos de venta
+          <h1
+            className={`${embedded ? "text-2xl" : "mt-2 text-3xl"} font-black tracking-tight`}
+          >
+            {embedded ? "Catálogo de venta y Caja" : "Productos de venta"}
           </h1>
           <p className="mt-2 text-sm text-[#747970]">
             {section === "products"
-              ? "Crea primero cada producto o variedad con su receta y costo."
+              ? hideIndividualCreate
+                ? "Los productos individuales se crean una sola vez desde Costos y márgenes. Aquí puedes editarlos y organizarlos para Caja."
+                : "Crea primero cada producto o variedad con su receta y costo."
               : section === "families"
                 ? "Promedia productos que se venden mezclados bajo un mismo precio, como Pan y Galletas."
                 : section === "groups"
@@ -118,7 +127,8 @@ export function ProductsClient({
                     : "Recupera productos y familias conservando todos sus datos anteriores."}
           </p>
         </div>
-        {(section === "products" || isGroupingSection) && (
+        {((section === "products" && !hideIndividualCreate) ||
+          isGroupingSection) && (
           <button
             onClick={() => {
               setEditing(null);
@@ -718,7 +728,7 @@ export function ProductsClient({
           </div>
         </div>
       )}
-    </main>
+    </Root>
   );
 }
 function ProductActions({

@@ -55,6 +55,8 @@ import type {
   Scenario,
 } from "./types";
 import type { BusinessPulse } from "@/modules/pos/types";
+import type { Product as CatalogProduct } from "@/modules/pos/types";
+import { ProductsClient } from "@/modules/pos/products-client";
 
 export type CostTab =
   | "business"
@@ -75,6 +77,9 @@ export function CostsApp({
   monthlyFixedCosts,
   settings,
   schedule,
+  catalogProducts,
+  archivedProducts,
+  initialProductView = "costing",
   initialTab = "own",
 }: {
   ingredients: Ingredient[];
@@ -85,6 +90,9 @@ export function CostsApp({
   monthlyFixedCosts: number;
   settings: CostSettings;
   schedule: OperatingSchedule;
+  catalogProducts: CatalogProduct[];
+  archivedProducts: CatalogProduct[];
+  initialProductView?: "costing" | "catalog";
   initialTab?: CostTab;
 }) {
   const legacyOwnTab = ["ingredients", "recipes"].includes(initialTab)
@@ -98,6 +106,7 @@ export function CostsApp({
   const [ownSection, setOwnSection] = useState<"ingredients" | "recipes">(
     legacyOwnTab as "ingredients" | "recipes",
   );
+  const [productView, setProductView] = useState(initialProductView);
   const tabs: { id: CostArea; label: string; icon: React.ReactNode }[] = [
     {
       id: "business",
@@ -263,7 +272,44 @@ export function CostsApp({
         <IngredientsView ingredients={ingredients} mode="other" />
       )}
       {tab === "products" && (
-        <ProductsCostView analyses={analyses} recipes={recipes} showCreate />
+        <section className="mt-5">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {(
+              [
+                ["costing", "Costos y márgenes"],
+                ["catalog", "Catálogo y organización de Caja"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setProductView(id);
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("tab", "products");
+                  url.searchParams.set("view", id);
+                  window.history.replaceState(null, "", url);
+                }}
+                className={`shrink-0 rounded-xl px-4 py-3 text-xs font-black ${productView === id ? "bg-[#235b45] text-white" : "border border-[#deddd4] bg-[#fffef9] text-[#62675f]"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {productView === "costing" ? (
+            <ProductsCostView
+              analyses={analyses}
+              recipes={recipes}
+              showCreate
+            />
+          ) : (
+            <ProductsClient
+              products={catalogProducts}
+              archivedProducts={archivedProducts}
+              embedded
+              hideIndividualCreate
+            />
+          )}
+        </section>
       )}
     </main>
   );
@@ -3061,6 +3107,14 @@ function NewCostedProductDialog({
             empresa.
           </span>
         </Field>
+        <Field label="Descripción opcional">
+          <textarea
+            name="description"
+            maxLength={300}
+            className="input min-h-20 py-3"
+            placeholder="Descripción visible en el catálogo"
+          />
+        </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Forma de venta">
             <select name="saleUnit" className="input" defaultValue="unit">
@@ -3078,6 +3132,15 @@ function NewCostedProductDialog({
             />
           </Field>
         </div>
+        <Field label="Precio en PedidosYa (opcional)">
+          <input
+            name="pedidosYaPrice"
+            type="number"
+            min="1"
+            className="input"
+            placeholder="Puede ser diferente al precio del local"
+          />
+        </Field>
         <Field label="Origen del costo">
           <select
             name="productType"
@@ -3182,6 +3245,30 @@ function NewCostedProductDialog({
             />
           </Field>
         </div>
+        <label className="flex items-start gap-3 rounded-xl border border-[#dfe4da] bg-[#f3f6ef] p-4 text-sm">
+          <input
+            name="trackDailyAvailability"
+            type="checkbox"
+            className="mt-0.5 size-4 accent-[#235b45]"
+          />
+          <span>
+            <b className="block text-[#235b45]">
+              Controlar disponibilidad diaria
+            </b>
+            <span className="mt-1 block text-xs font-normal leading-5 text-[#6f756d]">
+              Para productos vendidos por unidad. Caja solicitará la cantidad
+              disponible al comenzar el día.
+            </span>
+          </span>
+        </label>
+        <Field label="Imagen opcional">
+          <input
+            name="image"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="block w-full text-xs"
+          />
+        </Field>
         <p className="rounded-xl bg-[#eef4eb] p-3 text-xs leading-5 text-[#526158]">
           Al guardar, este producto quedará en el catálogo general y aparecerá
           automáticamente en Caja si ese módulo está habilitado.
