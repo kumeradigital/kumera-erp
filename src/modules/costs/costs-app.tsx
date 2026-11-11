@@ -552,11 +552,19 @@ function IngredientsView({
                       : "Materia prima"}
                 </th>
                 <th className="px-4 py-3">Categoría</th>
-                <th className="px-4 py-3">Unidad base</th>
+                <th className="px-4 py-3">
+                  {mode === "resale" ? "Unidad de venta" : "Unidad base"}
+                </th>
                 <th className="px-4 py-3">Costo vigente</th>
                 <th className="px-4 py-3">Precio pagado</th>
-                <th className="px-4 py-3">Formato comprado</th>
-                <th className="px-4 py-3">Rendimiento</th>
+                <th className="px-4 py-3">
+                  {mode === "resale"
+                    ? "Unidades vendibles obtenidas"
+                    : "Formato comprado"}
+                </th>
+                <th className="px-4 py-3">
+                  {mode === "resale" ? "Interpretación" : "Rendimiento"}
+                </th>
                 <th className="px-4 py-3">Última compra</th>
                 <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
@@ -587,14 +595,22 @@ function IngredientsView({
                       : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <b>{ingredient.usableYieldPercentage || 100}%</b>
-                    <span
-                      className={`ml-2 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${ingredient.yieldStatus === "estimated" ? "bg-[#fff0c2] text-[#775d12]" : "bg-[#e5f0e5] text-[#235b45]"}`}
-                    >
-                      {ingredient.yieldStatus === "estimated"
-                        ? "Estimado"
-                        : "Confirmado"}
-                    </span>
+                    {mode === "resale" ? (
+                      <span className="text-xs text-[#70756d]">
+                        Costo por cada unidad que venderás
+                      </span>
+                    ) : (
+                      <>
+                        <b>{ingredient.usableYieldPercentage || 100}%</b>
+                        <span
+                          className={`ml-2 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${ingredient.yieldStatus === "estimated" ? "bg-[#fff0c2] text-[#775d12]" : "bg-[#e5f0e5] text-[#235b45]"}`}
+                        >
+                          {ingredient.yieldStatus === "estimated"
+                            ? "Estimado"
+                            : "Confirmado"}
+                        </span>
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[#70756d]">
                     {ingredient.latestPrice
@@ -664,7 +680,9 @@ function IngredientsView({
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase text-[#777]">
-                        Formato comprado
+                        {mode === "resale"
+                          ? "Unidades vendibles obtenidas"
+                          : "Formato comprado"}
                       </p>
                       <p className="mt-1 font-black">
                         {ingredient.latestPrice.purchaseQuantity}{" "}
@@ -2670,38 +2688,72 @@ function PriceDialog({
       : ingredient.baseUnit === "ml"
         ? ["l", "ml"]
         : ["unit"];
+  const isResale = ingredient.sourceType === "resale";
   return (
-    <Dialog title={`Precio de ${ingredient.name}`} onClose={onClose}>
+    <Dialog
+      title={
+        isResale
+          ? `Compra y rendimiento de ${ingredient.name}`
+          : `Precio de ${ingredient.name}`
+      }
+      onClose={onClose}
+    >
       <AsyncForm action={addIngredientPriceAction}>
         <input type="hidden" name="ingredientId" value={ingredient.id} />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Cantidad comprada">
+        {isResale && (
+          <div className="mb-4 rounded-xl border border-[#dfd4ae] bg-[#fff8df] p-4 text-xs leading-5 text-[#6f6030]">
+            <b className="text-[#594b20]">Separa compra de venta:</b> indica
+            cuántas unidades podrás vender con el formato completo. Ejemplo: si
+            compras un cheesecake entero por $25.000 y lo vendes en 10 trozos,
+            registra <b>10 unidades vendibles</b>. Kumera calculará el costo de
+            cada trozo.
+          </div>
+        )}
+        <div className={isResale ? "grid gap-3" : "grid grid-cols-2 gap-3"}>
+          <Field
+            label={
+              isResale
+                ? "¿Cuántas unidades vendibles obtienes?"
+                : "Cantidad comprada"
+            }
+          >
             <input
               name="purchaseQuantity"
               required
               type="number"
               step="0.001"
+              min="0.001"
               className="input"
-              placeholder="25"
+              placeholder={isResale ? "Ej: 10 porciones" : "25"}
             />
           </Field>
-          <Field label="Unidad">
-            <select name="purchaseUnit" className="input">
-              {units.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unitLabel(unit)}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {isResale ? (
+            <input type="hidden" name="purchaseUnit" value="unit" />
+          ) : (
+            <Field label="Unidad">
+              <select name="purchaseUnit" className="input">
+                {units.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unitLabel(unit)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
         </div>
         <Field
           label={
             taxMode === "net"
-              ? "Subtotal neto de la compra"
+              ? isResale
+                ? "Costo neto del formato completo"
+                : "Subtotal neto de la compra"
               : taxMode === "included"
-                ? "Total pagado con IVA"
-                : "Monto pagado"
+                ? isResale
+                  ? "Total pagado por el formato completo"
+                  : "Total pagado con IVA"
+                : isResale
+                  ? "Monto pagado por el formato completo"
+                  : "Monto pagado"
           }
         >
           <input
