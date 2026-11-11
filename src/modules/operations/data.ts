@@ -461,38 +461,6 @@ export async function getOperationsData() {
     cutoff.openingBank + bankSales - cardFees + signedTotal(bankOperations);
 
   let obligationRows = obligationsResult.data || [];
-  const currentLoanExists = obligationRows.some(
-    (row) =>
-      row.kind === "loan_payment" &&
-      row.due_date.slice(0, 7) === currentMonth &&
-      row.status !== "cancelled",
-  );
-  if (currentMonth === "2026-11" && !currentLoanExists) {
-    const { data: createdLoan, error: createdLoanError } = await supabase
-      .from("financial_obligations")
-      .insert({
-        business_id: membership.business_id,
-        name: "Cuota crédito noviembre",
-        amount: 264000,
-        due_date: "2026-11-10",
-        kind: "loan_payment",
-        recurrence: "monthly",
-        carry_amount: true,
-        status: "pending",
-        note: "Cuota mensual recurrente. Registrar el pago aunque el desglose entre capital, intereses y cargos todavía esté pendiente.",
-        principal_amount: 0,
-        interest_amount: 0,
-        charges_amount: 0,
-        created_by: user.id,
-      })
-      .select(
-        "id,name,amount,due_date,kind,recurrence,carry_amount,status,note,principal_amount,interest_amount,charges_amount",
-      )
-      .single();
-    if (createdLoanError) throw createdLoanError;
-    obligationRows = [...obligationRows, createdLoan];
-  }
-
   const previousMonthLabel = monthName(previousMonth);
   const previousVatExists = obligationRows.some(
     (row) =>

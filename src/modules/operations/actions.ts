@@ -559,7 +559,9 @@ export async function saveOperationAction(form: FormData) {
             charges_amount: paidObligation.charges_amount,
             created_by: user.id,
           });
-        if (nextError) throw nextError;
+        // Otra solicitud puede haber creado la misma cuota entre la lectura y
+        // este insert. El índice único garantiza que sólo quede una.
+        if (nextError && nextError.code !== "23505") throw nextError;
       }
     }
   }
