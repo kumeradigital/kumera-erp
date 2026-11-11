@@ -23,6 +23,7 @@ export type Ingredient = {
   category: string;
   baseUnit: "g" | "ml" | "unit";
   notes?: string;
+  sourceType: "raw" | "supply" | "resale";
   usableYieldPercentage?: number;
   yieldLossType?: "none" | "cleaning" | "cooking" | "bone_skin" | "combined";
   yieldStatus?: "estimated" | "confirmed";
@@ -97,6 +98,8 @@ export type CostProduct = {
   resalePurchaseGrossAmount?: number;
   resaleUnitsPerPurchase?: number;
   resaleTaxRate?: number;
+  resaleSourceId?: string;
+  resaleSourceName?: string;
 };
 
 export type ProductCostAnalysis = CostProduct & {

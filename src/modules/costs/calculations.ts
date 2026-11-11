@@ -113,8 +113,12 @@ export function analyzeProducts(
   recipes: Recipe[],
   recipeCosts: Map<string, RecipeCost>,
   settings: CostSettings,
+  ingredients: Ingredient[] = [],
 ): ProductCostAnalysis[] {
   const recipeMap = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+  const ingredientMap = new Map(
+    ingredients.map((ingredient) => [ingredient.id, ingredient]),
+  );
   const feePercentage = weightedCommissionPercentage(settings);
   return products.map((product) => {
     const recipe = product.recipeId
@@ -134,15 +138,26 @@ export function analyzeProducts(
     if (!isResale && recipeCost) missing.push(...recipeCost.missing);
     let physicalCost = recipeCost?.perYieldUnit || 0;
     if (isResale) {
-      const gross = product.resalePurchaseGrossAmount || 0;
-      const units = product.resaleUnitsPerPurchase || 0;
-      if (!gross || !units)
-        missing.push("Completa costo y unidades del formato comprado");
-      physicalCost = units
-        ? gross /
-          (1 + (product.resaleTaxRate ?? settings.vatRate) / 100) /
-          units
-        : 0;
+      const source = product.resaleSourceId
+        ? ingredientMap.get(product.resaleSourceId)
+        : undefined;
+      if (source) {
+        if (!source.latestPrice)
+          missing.push(`Falta registrar el precio de ${source.name}`);
+        physicalCost = source.latestPrice?.costPerBase || 0;
+      } else {
+        const gross = product.resalePurchaseGrossAmount || 0;
+        const units = product.resaleUnitsPerPurchase || 0;
+        if (!gross || !units)
+          missing.push(
+            "Selecciona una compra para reventa con costo y precio vigente",
+          );
+        physicalCost = units
+          ? gross /
+            (1 + (product.resaleTaxRate ?? settings.vatRate) / 100) /
+            units
+          : 0;
+      }
     }
     const wasteCost = physicalCost * (product.wastePercentage / 100);
     const commissionCost = product.price * (feePercentage / 100);

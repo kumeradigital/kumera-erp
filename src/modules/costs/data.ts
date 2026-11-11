@@ -44,7 +44,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
   let productQuery = supabase
     .from("products")
     .select(
-      "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,deleted_at,product_type,resale_purchase_gross_amount,resale_units_per_purchase,resale_tax_rate,product_categories(name)",
+      "id,name,price,sale_unit,cost_recipe_id,waste_percentage,target_margin_percentage,is_sales_family,family_product_id,deleted_at,product_type,resale_purchase_gross_amount,resale_units_per_purchase,resale_tax_rate,resale_source_id,product_categories(name)",
     )
     .eq("business_id", businessId)
     .order("name");
@@ -67,7 +67,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     supabase
       .from("ingredients")
       .select(
-        "id,name,category,base_unit,notes,usable_yield_percentage,yield_loss_type,yield_status",
+        "id,name,category,base_unit,notes,source_type,usable_yield_percentage,yield_loss_type,yield_status",
       )
       .eq("business_id", businessId)
       .is("deleted_at", null)
@@ -172,6 +172,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
       category: row.category,
       baseUnit: row.base_unit,
       notes: row.notes || undefined,
+      sourceType: row.source_type || "raw",
       usableYieldPercentage: Number(row.usable_yield_percentage),
       yieldLossType: row.yield_loss_type,
       yieldStatus: row.yield_status,
@@ -226,6 +227,12 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
         ? Number(row.resale_units_per_purchase)
         : undefined,
       resaleTaxRate: Number(row.resale_tax_rate ?? 19),
+      resaleSourceId: row.resale_source_id || undefined,
+      resaleSourceName: row.resale_source_id
+        ? ingredients.find(
+            (ingredient) => ingredient.id === row.resale_source_id,
+          )?.name
+        : undefined,
     };
   });
 
@@ -299,6 +306,7 @@ const getCostingDataCached = cache(async (includeArchivedProducts: boolean) => {
     recipes,
     recipeCosts,
     settings,
+    ingredients,
   );
   const analysisMap = new Map(baseAnalyses.map((item) => [item.id, item]));
   const productionMix = new Map<string, Map<string, number>>();

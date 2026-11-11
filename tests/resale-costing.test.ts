@@ -71,4 +71,58 @@ describe("costeo de productos de reventa", () => {
     expect(result.complete).toBe(false);
     expect(result.missing[0]).toContain("costo");
   });
+
+  it("usa la compra registrada como fuente del costo de reventa", () => {
+    const [result] = analyzeProducts(
+      [
+        {
+          id: "juice",
+          name: "Jugo para vender",
+          category: "Bebidas",
+          price: 1800,
+          saleUnit: "unit",
+          wastePercentage: 0,
+          targetMarginPercentage: 50,
+          isSalesFamily: false,
+          productType: "resale",
+          resaleSourceId: "juice-purchase",
+          resalePurchaseGrossAmount: 99999,
+          resaleUnitsPerPurchase: 1,
+          resaleTaxRate: 19,
+        },
+      ],
+      [],
+      new Map(),
+      settings,
+      [
+        {
+          id: "juice-purchase",
+          name: "Caja de jugos",
+          category: "Reventa",
+          baseUnit: "unit",
+          sourceType: "resale",
+          usableYieldPercentage: 100,
+          yieldLossType: "none",
+          yieldStatus: "confirmed",
+          active: true,
+          latestPrice: {
+            id: "price",
+            purchaseQuantity: 12,
+            purchaseUnit: "unit",
+            baseQuantity: 12,
+            grossAmount: 14280,
+            netAmount: 12000,
+            taxAmount: 2280,
+            taxRate: 19,
+            purchaseDate: "2026-11-10",
+            confirmed: true,
+            costPerBase: 1000,
+          },
+        },
+      ],
+    );
+
+    expect(result.physicalCost).toBe(1000);
+    expect(result.complete).toBe(true);
+  });
 });

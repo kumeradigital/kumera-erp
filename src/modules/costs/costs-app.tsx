@@ -115,12 +115,12 @@ export function CostsApp({
     },
     {
       id: "own",
-      label: "Elaboraciones propias",
+      label: "Elaboración y armado",
       icon: <Beaker size={16} />,
     },
     {
       id: "resale",
-      label: "Productos de reventa",
+      label: "Compras para reventa",
       icon: <CircleDollarSign size={16} />,
     },
     {
@@ -130,7 +130,7 @@ export function CostsApp({
     },
     {
       id: "products",
-      label: "Costo de productos",
+      label: "Productos para vender",
       icon: <CircleDollarSign size={16} />,
     },
   ];
@@ -216,7 +216,8 @@ export function CostsApp({
             <h2 className="font-black text-[#235b45]">Elaboraciones propias</h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-[#626b63]">
               Registra materias primas y conviértelas en recetas o subrecetas.
-              El producto vendible se crea posteriormente en Costo de productos.
+              El producto vendible se crea posteriormente en Productos para
+              vender.
             </p>
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
@@ -240,7 +241,9 @@ export function CostsApp({
           )}
           {ownSection === "recipes" && (
             <RecipesView
-              ingredients={ingredients}
+              ingredients={ingredients.filter(
+                (ingredient) => ingredient.sourceType !== "resale",
+              )}
               recipes={recipes}
               costs={recipeCosts}
             />
@@ -250,22 +253,14 @@ export function CostsApp({
       {tab === "resale" && (
         <section className="mt-5">
           <div className="rounded-2xl border border-[#dfd7b8] bg-[#f7f3e4] p-5">
-            <h2 className="font-black text-[#5d542f]">Productos de reventa</h2>
+            <h2 className="font-black text-[#5d542f]">Compras para reventa</h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-[#6c6754]">
-              Registra productos que compras listos y vendes sin elaborarlos,
-              como bebidas, helados o medialunas de un proveedor. Su costo se
-              conecta al producto vendible desde Costo de productos.
+              Registra lo que compras listo para vender: formato, precio,
+              proveedor y unidades obtenidas. Aquí todavía no defines el precio
+              de venta ni el producto de Caja.
             </p>
           </div>
-          <div className="mt-4 inline-flex rounded-xl bg-[#235b45] px-4 py-3 text-xs font-black text-white">
-            Productos
-          </div>
-          <ProductsCostView
-            analyses={analyses}
-            recipes={recipes}
-            productKindMode="resale"
-            showCreate
-          />
+          <IngredientsView ingredients={ingredients} mode="resale" />
         </section>
       )}
       {tab === "supplies" && (
@@ -276,7 +271,7 @@ export function CostsApp({
           <div className="flex gap-2 overflow-x-auto pb-2">
             {(
               [
-                ["costing", "Costos y márgenes"],
+                ["costing", "Márgenes y precios"],
                 ["catalog", "Catálogo y organización de Caja"],
               ] as const
             ).map(([id, label]) => (
@@ -299,6 +294,7 @@ export function CostsApp({
             <ProductsCostView
               analyses={analyses}
               recipes={recipes}
+              ingredients={ingredients}
               showCreate
             />
           ) : (
@@ -438,7 +434,7 @@ function IngredientsView({
   mode = "raw",
 }: {
   ingredients: Ingredient[];
-  mode?: "raw" | "other";
+  mode?: "raw" | "other" | "resale";
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
@@ -446,11 +442,12 @@ function IngredientsView({
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todas");
   const [view, setView] = useCollectionView("ingredients");
-  const isOther = (ingredient: Ingredient) =>
-    ingredient.category === "Empaques" ||
-    /envase|vaso|tapa|bolsa|servilleta|sachet|bombilla/i.test(ingredient.name);
   const scopedIngredients = ingredients.filter((ingredient) =>
-    mode === "other" ? isOther(ingredient) : !isOther(ingredient),
+    mode === "other"
+      ? ingredient.sourceType === "supply"
+      : mode === "resale"
+        ? ingredient.sourceType === "resale"
+        : ingredient.sourceType === "raw",
   );
   const categories = [
     "Todas",
@@ -464,9 +461,15 @@ function IngredientsView({
         .includes(search.trim().toLocaleLowerCase("es")),
   );
   async function removeIngredient(ingredient: Ingredient) {
+    const noun =
+      mode === "resale"
+        ? "la compra para reventa"
+        : mode === "other"
+          ? "el insumo"
+          : "la materia prima";
     if (
       !confirm(
-        `¿Eliminar ${ingredient.name}? Esta acción la quitará del listado de materias primas.`,
+        `¿Eliminar ${ingredient.name}? Esta acción quitará ${noun} del listado.`,
       )
     )
       return;
@@ -475,9 +478,7 @@ function IngredientsView({
       location.reload();
     } catch (error) {
       alert(
-        error instanceof Error
-          ? error.message
-          : "No se pudo eliminar la materia prima",
+        error instanceof Error ? error.message : `No se pudo eliminar ${noun}`,
       );
     }
   }
@@ -485,17 +486,27 @@ function IngredientsView({
     <section className="mt-5">
       <SectionHeader
         title={
-          mode === "other"
-            ? "Envases y otros insumos de venta"
-            : "Materias primas"
+          mode === "resale"
+            ? "Artículos comprados para revender"
+            : mode === "other"
+              ? "Envases y otros insumos de venta"
+              : "Materias primas"
         }
         subtitle={
-          mode === "other"
-            ? "Registra vasos, tapas, bolsas, servilletas u otros elementos consumidos al vender un producto."
-            : "Registra formatos y precios de los ingredientes usados para elaborar o armar productos."
+          mode === "resale"
+            ? "Registra el formato comprado y su precio. Luego podrás asignarlo a un producto para vender."
+            : mode === "other"
+              ? "Registra vasos, tapas, bolsas, servilletas u otros elementos consumidos al vender un producto."
+              : "Registra formatos y precios de los ingredientes usados para elaborar o armar productos."
         }
         action={() => setCreating(true)}
-        actionLabel={mode === "other" ? "Otro insumo" : "Materia prima"}
+        actionLabel={
+          mode === "resale"
+            ? "Registrar compra para reventa"
+            : mode === "other"
+              ? "Otro insumo"
+              : "Materia prima"
+        }
       />
       <CollectionToolbar
         view={view}
@@ -505,7 +516,9 @@ function IngredientsView({
         placeholder={
           mode === "other"
             ? "Buscar envase u otro insumo..."
-            : "Buscar materia prima..."
+            : mode === "resale"
+              ? "Buscar compra para reventa..."
+              : "Buscar materia prima..."
         }
       >
         <select
@@ -529,7 +542,13 @@ function IngredientsView({
           <table className="w-full min-w-[980px] border-collapse text-left text-sm">
             <thead className="border-b border-[#deddd4] bg-[#f4f4ec] text-[11px] uppercase text-[#747970]">
               <tr>
-                <th className="px-4 py-3">Materia prima</th>
+                <th className="px-4 py-3">
+                  {mode === "resale"
+                    ? "Compra registrada"
+                    : mode === "other"
+                      ? "Insumo"
+                      : "Materia prima"}
+                </th>
                 <th className="px-4 py-3">Categoría</th>
                 <th className="px-4 py-3">Unidad base</th>
                 <th className="px-4 py-3">Costo vigente</th>
@@ -732,7 +751,9 @@ function IngredientsView({
             text={
               mode === "other"
                 ? "Agrega el primer envase u otro insumo asociado a una venta."
-                : "Crea la primera materia prima para comenzar el costeo."
+                : mode === "resale"
+                  ? "Registra la primera compra lista para revender."
+                  : "Crea la primera materia prima para comenzar el costeo."
             }
           />
         )}
@@ -740,6 +761,9 @@ function IngredientsView({
       {creating && (
         <IngredientDialog
           defaultCategory={mode === "other" ? "Empaques" : undefined}
+          defaultSourceType={
+            mode === "resale" ? "resale" : mode === "other" ? "supply" : "raw"
+          }
           onClose={() => setCreating(false)}
         />
       )}
@@ -1165,11 +1189,13 @@ function productTypeLabel(type: ProductCostAnalysis["productType"]) {
 function ProductsCostView({
   analyses,
   recipes,
+  ingredients,
   productKindMode = "all",
   showCreate = false,
 }: {
   analyses: ProductCostAnalysis[];
   recipes: Recipe[];
+  ingredients: Ingredient[];
   productKindMode?: "all" | "resale" | "prepared";
   showCreate?: boolean;
 }) {
@@ -1219,17 +1245,17 @@ function ProductsCostView({
             ? "Productos comprados para revender"
             : productKindMode === "prepared"
               ? "Costos de productos elaborados o armados"
-              : "Rentabilidad por producto"
+              : "Productos para vender"
         }
         subtitle={
           productKindMode === "resale"
             ? "Para productos que vendes sin transformar: registra el costo del formato comprado y sus unidades vendibles."
             : productKindMode === "prepared"
               ? "Cada producto debe vincularse a una receta final que reúna todos sus ingredientes, preparaciones y envases."
-              : "Compara por separado lo que revendes y lo que elaboras o armas."
+              : "Crea el artículo comercial, vincúlalo a una receta o compra registrada y define su precio de venta. Éste es el catálogo que podrá usar Caja."
         }
         action={showCreate ? () => setCreating(true) : undefined}
-        actionLabel="Crear producto y costear"
+        actionLabel="Crear producto para vender"
       />
       {productKindMode === "resale" && (
         <div className="mt-4 rounded-2xl border border-[#d9dfce] bg-[#f3f5eb] p-5 text-sm leading-6 text-[#626b63]">
@@ -1356,7 +1382,7 @@ function ProductsCostView({
               <tr>
                 <th className="px-4 py-3">Producto</th>
                 <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Receta final</th>
+                <th className="px-4 py-3">Fuente del costo</th>
                 <th className="px-4 py-3">Precio</th>
                 <th className="px-4 py-3">Costo variable</th>
                 <th className="px-4 py-3">Contribución</th>
@@ -1373,7 +1399,9 @@ function ProductsCostView({
                     {productTypeLabel(product.productType)}
                   </td>
                   <td className="px-4 py-3 text-[#70756d]">
-                    {product.recipeName || "Sin receta"}
+                    {product.recipeName ||
+                      product.resaleSourceName ||
+                      "Sin fuente"}
                   </td>
                   <td className="money px-4 py-3">
                     {formatClp(product.price)}
@@ -1418,8 +1446,10 @@ function ProductsCostView({
                   <p className="mt-1 text-xs text-[#777]">
                     {productTypeLabel(product.productType)} · {product.category}
                     {" · "}
-                    {product.recipeName || "Sin receta"} · venta por{" "}
-                    {product.saleUnit === "kg" ? "kg" : "unidad"}
+                    {product.recipeName ||
+                      product.resaleSourceName ||
+                      "Sin fuente"}{" "}
+                    · venta por {product.saleUnit === "kg" ? "kg" : "unidad"}
                   </p>
                 </div>
                 <Status
@@ -1517,12 +1547,18 @@ function ProductsCostView({
         <ProductCostDialog
           product={editing}
           recipes={recipes}
+          resaleSources={ingredients.filter(
+            (ingredient) => ingredient.sourceType === "resale",
+          )}
           onClose={() => setEditing(null)}
         />
       )}
       {creating && (
         <NewCostedProductDialog
           recipes={recipes}
+          resaleSources={ingredients.filter(
+            (ingredient) => ingredient.sourceType === "resale",
+          )}
           categories={[...new Set(analyses.map((item) => item.category))]}
           initialType={productKindMode === "resale" ? "resale" : undefined}
           onClose={() => setCreating(false)}
@@ -2453,19 +2489,29 @@ function LegacyProjectionsView({
 function IngredientDialog({
   ingredient,
   defaultCategory,
+  defaultSourceType = "raw",
   onClose,
 }: {
   ingredient?: Ingredient;
   defaultCategory?: string;
+  defaultSourceType?: "raw" | "supply" | "resale";
   onClose: () => void;
 }) {
+  const sourceType = ingredient?.sourceType || defaultSourceType;
+  const noun =
+    sourceType === "resale"
+      ? "compra para reventa"
+      : sourceType === "supply"
+        ? "insumo"
+        : "materia prima";
   return (
     <Dialog
-      title={ingredient ? "Editar materia prima" : "Nueva materia prima"}
+      title={ingredient ? `Editar ${noun}` : `Nueva ${noun}`}
       onClose={onClose}
     >
       <AsyncForm action={saveIngredientAction}>
         {ingredient && <input type="hidden" name="id" value={ingredient.id} />}
+        <input type="hidden" name="sourceType" value={sourceType} />
         <Field label="Nombre *">
           <input
             name="name"
@@ -2481,9 +2527,12 @@ function IngredientDialog({
               name="category"
               className="input"
               defaultValue={
-                ingredient?.category || defaultCategory || "Harinas"
+                ingredient?.category ||
+                defaultCategory ||
+                (sourceType === "resale" ? "Reventa" : "Harinas")
               }
             >
+              <option>Reventa</option>
               <option>Harinas</option>
               <option>Carnes</option>
               <option>Lácteos</option>
@@ -2498,12 +2547,18 @@ function IngredientDialog({
             <select
               name="baseUnit"
               className="input"
-              defaultValue={ingredient?.baseUnit || "g"}
+              defaultValue={
+                ingredient?.baseUnit || (sourceType === "resale" ? "unit" : "g")
+              }
+              disabled={sourceType === "resale"}
             >
               <option value="g">Gramos</option>
               <option value="ml">Mililitros</option>
               <option value="unit">Unidades</option>
             </select>
+            {sourceType === "resale" && (
+              <input type="hidden" name="baseUnit" value="unit" />
+            )}
           </Field>
         </div>
         <Field label="Notas">
@@ -2513,54 +2568,59 @@ function IngredientDialog({
             className="input min-h-20 py-3"
           />
         </Field>
-        <div className="rounded-xl border border-[#e4d9b8] bg-[#fff9e8] p-4">
-          <p className="text-xs font-black text-[#6e5717]">
-            Rendimiento aprovechable
-          </p>
-          <p className="mt-1 text-[11px] leading-5 text-[#756b50]">
-            Se usa para huesos, piel, grasa, limpieza o reducción por cocción.
-            El costo de las recetas aumentará automáticamente según la parte
-            realmente utilizable.
-          </p>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Rendimiento %">
-              <input
-                name="usableYieldPercentage"
-                type="number"
-                min="0.001"
-                max="100"
-                step="0.001"
-                required
-                defaultValue={ingredient?.usableYieldPercentage ?? 100}
-                className="input"
-              />
-            </Field>
-            <Field label="Tipo de pérdida">
-              <select
-                name="yieldLossType"
-                defaultValue={ingredient?.yieldLossType || "none"}
-                className="input"
-              >
-                <option value="none">Sin pérdida</option>
-                <option value="cleaning">Limpieza / grasa</option>
-                <option value="cooking">Cocción</option>
-                <option value="bone_skin">Hueso y piel</option>
-                <option value="combined">Combinada</option>
-              </select>
-            </Field>
-            <Field label="Estado">
-              <select
-                name="yieldStatus"
-                defaultValue={ingredient?.yieldStatus || "confirmed"}
-                className="input"
-              >
-                <option value="estimated">Estimado</option>
-                <option value="confirmed">Confirmado</option>
-              </select>
-            </Field>
+        {sourceType !== "resale" && (
+          <div className="rounded-xl border border-[#e4d9b8] bg-[#fff9e8] p-4">
+            <p className="text-xs font-black text-[#6e5717]">
+              Rendimiento aprovechable
+            </p>
+            <p className="mt-1 text-[11px] leading-5 text-[#756b50]">
+              Se usa para huesos, piel, grasa, limpieza o reducción por cocción.
+              El costo de las recetas aumentará automáticamente según la parte
+              realmente utilizable.
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Rendimiento %">
+                <input
+                  name="usableYieldPercentage"
+                  type="number"
+                  min="0.001"
+                  max="100"
+                  step="0.001"
+                  required
+                  defaultValue={ingredient?.usableYieldPercentage ?? 100}
+                  className="input"
+                />
+              </Field>
+              <Field label="Tipo de pérdida">
+                <select
+                  name="yieldLossType"
+                  defaultValue={ingredient?.yieldLossType || "none"}
+                  className="input"
+                >
+                  <option value="none">Sin pérdida</option>
+                  <option value="cleaning">Limpieza / grasa</option>
+                  <option value="cooking">Cocción</option>
+                  <option value="bone_skin">Hueso y piel</option>
+                  <option value="combined">Combinada</option>
+                </select>
+              </Field>
+              <Field label="Estado">
+                <select
+                  name="yieldStatus"
+                  defaultValue={ingredient?.yieldStatus || "confirmed"}
+                  className="input"
+                >
+                  <option value="estimated">Estimado</option>
+                  <option value="confirmed">Confirmado</option>
+                </select>
+              </Field>
+            </div>
           </div>
-        </div>
-        <Submit>Guardar materia prima</Submit>
+        )}
+        {sourceType === "resale" && (
+          <input type="hidden" name="usableYieldPercentage" value="100" />
+        )}
+        <Submit>Guardar {noun}</Submit>
       </AsyncForm>
     </Dialog>
   );
@@ -2573,6 +2633,7 @@ function PriceDialog({
   ingredient: Ingredient;
   onClose: () => void;
 }) {
+  const [taxMode, setTaxMode] = useState<"net" | "included" | "exempt">("net");
   const units =
     ingredient.baseUnit === "g"
       ? ["kg", "g"]
@@ -2604,9 +2665,17 @@ function PriceDialog({
             </select>
           </Field>
         </div>
-        <Field label="Precio total pagado">
+        <Field
+          label={
+            taxMode === "net"
+              ? "Subtotal neto de la compra"
+              : taxMode === "included"
+                ? "Total pagado con IVA"
+                : "Monto pagado"
+          }
+        >
           <input
-            name="grossAmount"
+            name="purchaseAmount"
             required
             type="number"
             className="input"
@@ -2615,7 +2684,15 @@ function PriceDialog({
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Tratamiento IVA">
-            <select name="taxMode" className="input">
+            <select
+              name="taxMode"
+              className="input"
+              value={taxMode}
+              onChange={(event) =>
+                setTaxMode(event.target.value as "net" | "included" | "exempt")
+              }
+            >
+              <option value="net">Neto de factura, sin IVA</option>
               <option value="included">IVA incluido</option>
               <option value="exempt">Exento / sin crédito</option>
             </select>
@@ -3066,18 +3143,17 @@ function recipeItemCost(
 function NewCostedProductDialog({
   recipes,
   categories,
+  resaleSources,
   initialType = "manufactured",
   onClose,
 }: {
   recipes: Recipe[];
   categories: string[];
+  resaleSources: Ingredient[];
   initialType?: "resale" | "manufactured" | "mixed";
   onClose: () => void;
 }) {
   const [productType, setProductType] = useState(initialType);
-  const [purchaseAmountMode, setPurchaseAmountMode] = useState<"net" | "gross">(
-    "net",
-  );
   return (
     <Dialog title="Crear producto y asignar su costo" onClose={onClose}>
       <AsyncForm action={createCostedProductAction}>
@@ -3165,64 +3241,40 @@ function NewCostedProductDialog({
         {productType === "resale" ? (
           <div className="grid gap-3 rounded-xl border border-[#deded4] bg-[#faf9f4] p-4">
             <p className="text-xs font-black text-[#235b45]">
-              Costo directo de reventa
+              Compra registrada que origina el costo
             </p>
-            <Field label="El valor que ingresarás viene como">
+            <Field label="Producto comprado para revender">
               <select
-                name="resalePurchaseAmountMode"
-                value={purchaseAmountMode}
-                onChange={(event) =>
-                  setPurchaseAmountMode(event.target.value as "net" | "gross")
-                }
+                name="resaleSourceId"
+                required
                 className="input"
+                defaultValue=""
               >
-                <option value="net">Neto de factura, sin IVA</option>
-                <option value="gross">Total pagado, con IVA incluido</option>
+                <option value="" disabled>
+                  Seleccionar compra registrada
+                </option>
+                {resaleSources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                    {source.latestPrice
+                      ? ` · ${formatClp(Math.round(source.latestPrice.costPerBase))} netos/un.`
+                      : " · sin precio registrado"}
+                  </option>
+                ))}
               </select>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                label={
-                  purchaseAmountMode === "net"
-                    ? "Subtotal neto de la compra"
-                    : "Total pagado por la compra"
-                }
-              >
-                <input
-                  name="resalePurchaseAmount"
-                  type="number"
-                  min="1"
-                  required
-                  className="input"
-                />
-              </Field>
-              <Field label="Unidades vendibles">
-                <input
-                  name="resaleUnitsPerPurchase"
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  required
-                  className="input"
-                />
-              </Field>
-            </div>
-            <Field label="IVA de la compra %">
-              <input
-                name="resaleTaxRate"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                defaultValue="19"
-                className="input"
-              />
-            </Field>
             <p className="text-[11px] leading-5 text-[#6f746d]">
-              {purchaseAmountMode === "net"
-                ? "Copia el valor neto de la línea de la factura. Kumera sumará el IVA sólo para guardar el total y usará el neto como costo recuperable."
-                : "Úsalo cuando sólo conoces el monto final pagado. Kumera separará el IVA recuperable automáticamente."}
+              El precio y rendimiento se administran en Compras para reventa.
+              Aquí sólo conectas esa fuente al producto que venderás.
             </p>
+            {!resaleSources.length && (
+              <Link
+                href="/costos?tab=resale"
+                className="text-xs font-black text-[#235b45] underline"
+              >
+                Registrar primero una compra para reventa
+              </Link>
+            )}
             <input type="hidden" name="recipeId" value="" />
           </div>
         ) : (
@@ -3309,18 +3361,17 @@ function NewCostedProductDialog({
 function ProductCostDialog({
   product,
   recipes,
+  resaleSources,
   onClose,
 }: {
   product: ProductCostAnalysis;
   recipes: Recipe[];
+  resaleSources: Ingredient[];
   onClose: () => void;
 }) {
   const initialType =
     product.productType || (product.recipeId ? "manufactured" : "resale");
   const [productType, setProductType] = useState(initialType);
-  const [purchaseAmountMode, setPurchaseAmountMode] = useState<"net" | "gross">(
-    "gross",
-  );
   return (
     <Dialog title={`Costeo de ${product.name}`} onClose={onClose}>
       <AsyncForm action={configureProductCostAction}>
@@ -3347,7 +3398,7 @@ function ProductCostDialog({
         </Field>
         <div className="rounded-xl bg-[#eef4eb] p-3 text-xs leading-5 text-[#526158]">
           {productType === "resale"
-            ? "Se vende tal como se compra. Indica el costo del formato y cuántas unidades puedes vender; no necesita receta."
+            ? "Se vende tal como se compra. Vincúlalo a una compra registrada; no necesita receta."
             : productType === "manufactured"
               ? "Su costo nace de una receta final con materias primas y preparaciones propias."
               : "Su costo nace de una receta final de armado. Puede incluir un componente comprado, una preparación propia y envases; por ejemplo croissant + jamón + queso + bolsa."}
@@ -3358,62 +3409,30 @@ function ProductCostDialog({
               Si es reventa
             </p>
             <div className="mt-3 grid gap-3">
-              <Field label="El valor que ingresarás viene como">
+              <Field label="Producto comprado para revender">
                 <select
-                  name="resalePurchaseAmountMode"
-                  value={purchaseAmountMode}
-                  onChange={(event) =>
-                    setPurchaseAmountMode(event.target.value as "net" | "gross")
-                  }
+                  name="resaleSourceId"
+                  required
+                  defaultValue={product.resaleSourceId || ""}
                   className="input"
                 >
-                  <option value="net">Neto de factura, sin IVA</option>
-                  <option value="gross">Total pagado, con IVA incluido</option>
+                  <option value="" disabled>
+                    Seleccionar compra registrada
+                  </option>
+                  {resaleSources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name}
+                      {source.latestPrice
+                        ? ` · ${formatClp(Math.round(source.latestPrice.costPerBase))} netos/un.`
+                        : " · sin precio registrado"}
+                    </option>
+                  ))}
                 </select>
               </Field>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              <Field
-                label={
-                  purchaseAmountMode === "net"
-                    ? "Subtotal neto"
-                    : "Total con IVA"
-                }
-              >
-                <input
-                  name="resalePurchaseAmount"
-                  type="number"
-                  min="0"
-                  defaultValue={product.resalePurchaseGrossAmount}
-                  className="input"
-                />
-              </Field>
-              <Field label="Unidades vendibles">
-                <input
-                  name="resaleUnitsPerPurchase"
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  defaultValue={product.resaleUnitsPerPurchase}
-                  className="input"
-                />
-              </Field>
-              <Field label="IVA compra %">
-                <input
-                  name="resaleTaxRate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  defaultValue={product.resaleTaxRate ?? 19}
-                  className="input"
-                />
-              </Field>
-            </div>
             <p className="mt-2 text-[11px] leading-5 text-[#6f746d]">
-              {purchaseAmountMode === "net"
-                ? "Copia el neto de la línea de la factura; Kumera calculará el total equivalente."
-                : "Este producto ya estaba guardado como total con IVA. Puedes conservarlo así o cambiar a neto y reemplazar el monto."}
+              El costo se actualizará desde el último precio registrado en
+              Compras para reventa.
             </p>
           </div>
         )}

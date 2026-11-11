@@ -32,6 +32,37 @@ function positive(form: FormData, key: string) {
   return value;
 }
 
+async function loadResaleSource(
+  ctx: Awaited<ReturnType<typeof context>>,
+  sourceId: string,
+) {
+  const source = await ctx.supabase
+    .from("ingredients")
+    .select("id,name,base_unit,source_type")
+    .eq("id", sourceId)
+    .eq("business_id", ctx.businessId)
+    .eq("source_type", "resale")
+    .is("deleted_at", null)
+    .single();
+  if (source.error || !source.data)
+    throw new Error("Selecciona una compra para reventa válida");
+  if (source.data.base_unit !== "unit")
+    throw new Error("La compra para reventa debe medirse en unidades");
+  const price = await ctx.supabase
+    .from("ingredient_prices")
+    .select("gross_amount,purchase_quantity,tax_rate")
+    .eq("business_id", ctx.businessId)
+    .eq("ingredient_id", sourceId)
+    .order("purchase_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (price.error) throw price.error;
+  if (!price.data)
+    throw new Error(`Registra primero el precio de ${source.data.name}`);
+  return price.data;
+}
+
 export async function saveIngredientAction(form: FormData) {
   const ctx = await context();
   const id = text(form, "id") || undefined;
@@ -39,6 +70,7 @@ export async function saveIngredientAction(form: FormData) {
   const category = text(form, "category") || "Otros";
   const baseUnit = text(form, "baseUnit") as "g" | "ml" | "unit";
   const notes = text(form, "notes");
+  const sourceType = text(form, "sourceType") || "raw";
   const usableYieldPercentage = Number(
     form.get("usableYieldPercentage") || 100,
   );
@@ -47,6 +79,10 @@ export async function saveIngredientAction(form: FormData) {
   if (!name || name.length > 100) throw new Error("Nombre inválido");
   if (!(["g", "ml", "unit"] as const).includes(baseUnit))
     throw new Error("Unidad base inválida");
+  if (!"raw supply resale".split(" ").includes(sourceType))
+    throw new Error("Tipo de fuente de costo inválido");
+  if (sourceType === "resale" && baseUnit !== "unit")
+    throw new Error("Una compra para reventa debe medirse en unidades");
   if (
     !Number.isFinite(usableYieldPercentage) ||
     usableYieldPercentage <= 0 ||
@@ -67,6 +103,7 @@ export async function saveIngredientAction(form: FormData) {
     category,
     base_unit: baseUnit,
     notes: notes || null,
+    source_type: sourceType,
     usable_yield_percentage: usableYieldPercentage,
     yield_loss_type: yieldLossType,
     yield_status: yieldStatus,
@@ -107,6 +144,19 @@ export async function deleteIngredientAction(id: string) {
     );
   }
 
+  const { count: productUsage, error: productUsageError } = await ctx.supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", ctx.businessId)
+    .eq("resale_source_id", id)
+    .is("deleted_at", null);
+  if (productUsageError) throw productUsageError;
+  if ((productUsage || 0) > 0) {
+    throw new Error(
+      `${ingredient.name} está vinculada a uno o más productos para vender. Cambia primero su fuente de costo.`,
+    );
+  }
+
   const { error } = await ctx.supabase
     .from("ingredients")
     .update({
@@ -126,7 +176,11 @@ export async function addIngredientPriceAction(form: FormData) {
   const ingredientId = text(form, "ingredientId");
   const purchaseQuantity = positive(form, "purchaseQuantity");
   const purchaseUnit = text(form, "purchaseUnit") as CostUnit;
-  const grossAmount = Math.round(positive(form, "grossAmount"));
+  const enteredAmount = Math.round(
+    Number(form.get("purchaseAmount") || form.get("grossAmount") || 0),
+  );
+  if (!Number.isFinite(enteredAmount) || enteredAmount <= 0)
+    throw new Error("Monto de compra inválido");
   const taxMode = text(form, "taxMode") || "included";
   const taxRate = Number(form.get("taxRate") || 19);
   const supplier = text(form, "supplier");
@@ -149,10 +203,20 @@ export async function addIngredientPriceAction(form: FormData) {
   } catch {
     throw new Error("La unidad de compra no es compatible con el ingrediente");
   }
+  if (!"included net exempt".split(" ").includes(taxMode))
+    throw new Error("Tratamiento de IVA inválido");
+  if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100)
+    throw new Error("IVA inválido");
   const netAmount =
-    taxMode === "exempt"
-      ? grossAmount
-      : Math.round(grossAmount / (1 + taxRate / 100));
+    taxMode === "net"
+      ? enteredAmount
+      : taxMode === "exempt"
+        ? enteredAmount
+        : Math.round(enteredAmount / (1 + taxRate / 100));
+  const grossAmount =
+    taxMode === "net"
+      ? Math.round(enteredAmount * (1 + taxRate / 100))
+      : enteredAmount;
   const taxAmount = grossAmount - netAmount;
   const { error } = await ctx.supabase.from("ingredient_prices").insert({
     business_id: ctx.businessId,
@@ -317,20 +381,7 @@ export async function configureProductCostAction(form: FormData) {
   const productId = text(form, "productId");
   const recipeId = text(form, "recipeId") || null;
   const productType = text(form, "productType") || "manufactured";
-  const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
-  const resalePurchaseAmount = Number(
-    form.get("resalePurchaseAmount") ||
-      form.get("resalePurchaseGrossAmount") ||
-      0,
-  );
-  const resalePurchaseAmountMode = text(form, "resalePurchaseAmountMode");
-  const resalePurchaseGrossAmount =
-    resalePurchaseAmountMode === "net"
-      ? resalePurchaseAmount * (1 + resaleTaxRate / 100)
-      : resalePurchaseAmount;
-  const resaleUnitsPerPurchase = Number(
-    form.get("resaleUnitsPerPurchase") || 0,
-  );
+  const resaleSourceId = text(form, "resaleSourceId") || null;
   const wastePercentage = Number(form.get("wastePercentage") || 0);
   const targetMarginPercentage = Number(
     form.get("targetMarginPercentage") || 60,
@@ -341,15 +392,12 @@ export async function configureProductCostAction(form: FormData) {
     throw new Error("Margen objetivo inválido");
   if (!["resale", "manufactured", "mixed"].includes(productType))
     throw new Error("Tipo de producto inválido");
-  if (
-    productType === "resale" &&
-    (!resalePurchaseGrossAmount || !resaleUnitsPerPurchase)
-  )
-    throw new Error(
-      "Indica el costo del formato comprado y cuántas unidades vendibles contiene",
-    );
-  if (resaleTaxRate < 0 || resaleTaxRate > 100)
-    throw new Error("IVA de compra inválido");
+  const sourcePrice =
+    productType === "resale" && resaleSourceId
+      ? await loadResaleSource(ctx, resaleSourceId)
+      : null;
+  if (productType === "resale" && !resaleSourceId)
+    throw new Error("Selecciona la compra que origina el costo del producto");
   if (recipeId) {
     const { data: recipe, error: recipeError } = await ctx.supabase
       .from("recipes")
@@ -368,11 +416,15 @@ export async function configureProductCostAction(form: FormData) {
       waste_percentage: wastePercentage,
       target_margin_percentage: targetMarginPercentage,
       product_type: productType,
+      resale_source_id: productType === "resale" ? resaleSourceId : null,
       resale_purchase_gross_amount:
-        productType === "resale" ? Math.round(resalePurchaseGrossAmount) : null,
+        productType === "resale" ? Number(sourcePrice?.gross_amount) : null,
       resale_units_per_purchase:
-        productType === "resale" ? resaleUnitsPerPurchase : null,
-      resale_tax_rate: productType === "resale" ? resaleTaxRate : null,
+        productType === "resale"
+          ? Number(sourcePrice?.purchase_quantity)
+          : null,
+      resale_tax_rate:
+        productType === "resale" ? Number(sourcePrice?.tax_rate) : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId)
@@ -391,19 +443,7 @@ export async function createCostedProductAction(form: FormData) {
   const productType = text(form, "productType") as
     "resale" | "manufactured" | "mixed";
   const recipeId = text(form, "recipeId") || null;
-  const unitsPerPurchase = Number(form.get("resaleUnitsPerPurchase") || 0);
-  const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
-  const purchaseAmount = Number(
-    form.get("resalePurchaseAmount") ||
-      form.get("resalePurchaseGrossAmount") ||
-      0,
-  );
-  const purchaseAmountMode = text(form, "resalePurchaseAmountMode");
-  const purchaseGross = Math.round(
-    purchaseAmountMode === "net"
-      ? purchaseAmount * (1 + resaleTaxRate / 100)
-      : purchaseAmount,
-  );
+  const resaleSourceId = text(form, "resaleSourceId") || null;
   const targetMargin = Number(form.get("targetMarginPercentage") || 60);
   const pedidosYaRaw = text(form, "pedidosYaPrice");
   const pedidosYaPrice = pedidosYaRaw ? Math.round(Number(pedidosYaRaw)) : null;
@@ -426,10 +466,12 @@ export async function createCostedProductAction(form: FormData) {
     throw new Error("Tipo de producto inválido");
   if (targetMargin < 0 || targetMargin >= 95)
     throw new Error("Margen objetivo inválido");
-  if (resaleTaxRate < 0 || resaleTaxRate > 100)
-    throw new Error("IVA de compra inválido");
-  if (productType === "resale" && (!purchaseGross || !unitsPerPurchase))
-    throw new Error("Indica el costo de compra y las unidades vendibles");
+  const sourcePrice =
+    productType === "resale" && resaleSourceId
+      ? await loadResaleSource(ctx, resaleSourceId)
+      : null;
+  if (productType === "resale" && !resaleSourceId)
+    throw new Error("Selecciona una compra para reventa");
   if (productType !== "resale" && !recipeId)
     throw new Error("Selecciona la receta final del producto");
   if (recipeId) {
@@ -502,14 +544,16 @@ export async function createCostedProductAction(form: FormData) {
     sale_unit: saleUnit,
     track_daily_availability: trackDailyAvailability,
     product_type: productType,
+    resale_source_id: productType === "resale" ? resaleSourceId : null,
     cost_recipe_id: productType === "resale" ? null : recipeId,
     target_margin_percentage: targetMargin,
     waste_percentage: Number(form.get("wastePercentage") || 0),
     resale_purchase_gross_amount:
-      productType === "resale" ? purchaseGross : null,
+      productType === "resale" ? Number(sourcePrice?.gross_amount) : null,
     resale_units_per_purchase:
-      productType === "resale" ? unitsPerPurchase : null,
-    resale_tax_rate: productType === "resale" ? resaleTaxRate : null,
+      productType === "resale" ? Number(sourcePrice?.purchase_quantity) : null,
+    resale_tax_rate:
+      productType === "resale" ? Number(sourcePrice?.tax_rate) : null,
     updated_at: new Date().toISOString(),
   });
   if (created.error) throw created.error;
