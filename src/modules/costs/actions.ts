@@ -438,7 +438,7 @@ export async function configureProductCostAction(form: FormData) {
 export async function createCostedProductAction(form: FormData) {
   const ctx = await context();
   const name = text(form, "name");
-  const categoryName = text(form, "category") || "General";
+  const categoryName = text(form, "category");
   const description = text(form, "description");
   const price = Math.round(Number(form.get("price")));
   const saleUnit = text(form, "saleUnit") as "unit" | "kg";

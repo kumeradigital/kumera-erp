@@ -295,6 +295,8 @@ export function CostsApp({
               analyses={analyses}
               recipes={recipes}
               ingredients={ingredients}
+              recipeCosts={recipeCosts}
+              settings={settings}
               showCreate
             />
           ) : (
@@ -1191,12 +1193,16 @@ function ProductsCostView({
   analyses,
   recipes,
   ingredients,
+  recipeCosts,
+  settings,
   productKindMode = "all",
   showCreate = false,
 }: {
   analyses: ProductCostAnalysis[];
   recipes: Recipe[];
   ingredients: Ingredient[];
+  recipeCosts: Record<string, RecipeCost>;
+  settings: CostSettings;
   productKindMode?: "all" | "resale" | "prepared";
   showCreate?: boolean;
 }) {
@@ -1557,6 +1563,8 @@ function ProductsCostView({
       {creating && (
         <NewCostedProductDialog
           recipes={recipes}
+          recipeCosts={recipeCosts}
+          settings={settings}
           resaleSources={ingredients.filter(
             (ingredient) => ingredient.sourceType === "resale",
           )}
@@ -3164,18 +3172,52 @@ function recipeItemCost(
 
 function NewCostedProductDialog({
   recipes,
+  recipeCosts,
+  settings,
   categories,
   resaleSources,
   initialType = "manufactured",
   onClose,
 }: {
   recipes: Recipe[];
+  recipeCosts: Record<string, RecipeCost>;
+  settings: CostSettings;
   categories: string[];
   resaleSources: Ingredient[];
   initialType?: "resale" | "manufactured" | "mixed";
   onClose: () => void;
 }) {
   const [productType, setProductType] = useState(initialType);
+  const availableCategories = Array.from(
+    new Set(categories.map((category) => category.trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+  const [categoryChoice, setCategoryChoice] = useState(
+    availableCategories[0] || "__none",
+  );
+  const [recipeId, setRecipeId] = useState("");
+  const [resaleSourceId, setResaleSourceId] = useState("");
+  const [targetMargin, setTargetMargin] = useState(60);
+  const [wastePercentage, setWastePercentage] = useState(0);
+  const [finalPrice, setFinalPrice] = useState("");
+  const sourceCost =
+    productType === "resale"
+      ? resaleSources.find((source) => source.id === resaleSourceId)
+          ?.latestPrice?.costPerBase || 0
+      : recipeCosts[recipeId]?.perYieldUnit || 0;
+  const feePercentage =
+    (settings.expectedDebitPercentage / 100) * settings.debitFeePercentage +
+    (settings.expectedCreditPercentage / 100) * settings.creditFeePercentage;
+  const suggestedDenominator =
+    (1 - targetMargin / 100) / (1 + settings.vatRate / 100) -
+    feePercentage / 100;
+  const suggestedPrice =
+    sourceCost > 0 && suggestedDenominator > 0
+      ? Math.ceil(
+          (sourceCost * (1 + wastePercentage / 100)) /
+            suggestedDenominator /
+            100,
+        ) * 100
+      : 0;
   return (
     <Dialog title="Crear producto y asignar su costo" onClose={onClose}>
       <AsyncForm action={createCostedProductAction}>
@@ -3189,24 +3231,36 @@ function NewCostedProductDialog({
           />
         </Field>
         <Field label="Categoría propia de este negocio">
-          <input
-            name="category"
-            required
-            maxLength={60}
+          <select
             className="input"
-            list="cost-product-categories"
-            placeholder="Ej: Cafetería"
-            defaultValue={categories[0] || "General"}
-          />
-          <datalist id="cost-product-categories">
-            {categories.map((category) => (
-              <option key={category} value={category} />
+            value={categoryChoice}
+            required
+            onChange={(event) => setCategoryChoice(event.target.value)}
+          >
+            {!availableCategories.length && (
+              <option value="__none" disabled>
+                Sin categorías
+              </option>
+            )}
+            {availableCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
-          </datalist>
-          <span className="mt-1 block text-[10px] font-normal leading-4 text-[#777]">
-            Puedes escribir una categoría nueva. Sólo pertenecerá a esta
-            empresa.
-          </span>
+            <option value="__new">＋ Agregar categoría nueva</option>
+          </select>
+          {categoryChoice === "__new" ? (
+            <input
+              name="category"
+              required
+              autoFocus
+              maxLength={60}
+              className="input mt-2"
+              placeholder="Nombre de la nueva categoría"
+            />
+          ) : categoryChoice !== "__none" ? (
+            <input type="hidden" name="category" value={categoryChoice} />
+          ) : null}
         </Field>
         <Field label="Descripción opcional">
           <textarea
@@ -3214,32 +3268,6 @@ function NewCostedProductDialog({
             maxLength={300}
             className="input min-h-20 py-3"
             placeholder="Descripción visible en el catálogo"
-          />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Forma de venta">
-            <select name="saleUnit" className="input" defaultValue="unit">
-              <option value="unit">Por unidad</option>
-              <option value="kg">Por kilogramo</option>
-            </select>
-          </Field>
-          <Field label="Precio de venta final">
-            <input
-              name="price"
-              required
-              type="number"
-              min="1"
-              className="input"
-            />
-          </Field>
-        </div>
-        <Field label="Precio en PedidosYa (opcional)">
-          <input
-            name="pedidosYaPrice"
-            type="number"
-            min="1"
-            className="input"
-            placeholder="Puede ser diferente al precio del local"
           />
         </Field>
         <Field label="Origen del costo">
@@ -3259,6 +3287,11 @@ function NewCostedProductDialog({
             </option>
             <option value="resale">Compra y reventa sin elaboración</option>
           </select>
+          <span className="mt-1 block text-[11px] font-normal leading-5 text-[#6f746d]">
+            Elige reventa si compras el producto listo. Elige elaboración si su
+            costo nace de una receta, o armado si combinas elementos comprados y
+            elaborados.
+          </span>
         </Field>
         {productType === "resale" ? (
           <div className="grid gap-3 rounded-xl border border-[#deded4] bg-[#faf9f4] p-4">
@@ -3270,7 +3303,8 @@ function NewCostedProductDialog({
                 name="resaleSourceId"
                 required
                 className="input"
-                defaultValue=""
+                value={resaleSourceId}
+                onChange={(event) => setResaleSourceId(event.target.value)}
               >
                 <option value="" disabled>
                   Seleccionar compra registrada
@@ -3307,7 +3341,13 @@ function NewCostedProductDialog({
                 : "Receta final"
             }
           >
-            <select name="recipeId" required className="input" defaultValue="">
+            <select
+              name="recipeId"
+              required
+              className="input"
+              value={recipeId}
+              onChange={(event) => setRecipeId(event.target.value)}
+            >
               <option value="" disabled>
                 Seleccionar receta final
               </option>
@@ -3330,7 +3370,10 @@ function NewCostedProductDialog({
               min="0"
               max="99"
               step="0.1"
-              defaultValue="0"
+              value={wastePercentage}
+              onChange={(event) =>
+                setWastePercentage(Number(event.target.value))
+              }
               className="input"
             />
           </Field>
@@ -3341,11 +3384,71 @@ function NewCostedProductDialog({
               min="0"
               max="94"
               step="0.1"
-              defaultValue="60"
+              value={targetMargin}
+              onChange={(event) => setTargetMargin(Number(event.target.value))}
               className="input"
             />
           </Field>
         </div>
+        <div className="rounded-2xl border border-[#c9d9c5] bg-[#eaf2e7] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[.14em] text-[#66766c]">
+            Precio sugerido según el margen elegido
+          </p>
+          {suggestedPrice ? (
+            <>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="money text-3xl font-black text-[#235b45]">
+                  {formatClp(suggestedPrice)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFinalPrice(String(suggestedPrice))}
+                  className="rounded-xl border border-[#235b45] bg-[#fffef9] px-3 py-2 text-xs font-black text-[#235b45]"
+                >
+                  Usar este precio
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] leading-5 text-[#66766c]">
+                Considera costo neto, merma, IVA y la mezcla esperada de
+                comisiones por tarjeta. Puedes elegir otro precio final.
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-xs leading-5 text-[#66766c]">
+              Selecciona primero una receta o compra con precio vigente para
+              calcular la sugerencia.
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Forma de venta">
+            <select name="saleUnit" className="input" defaultValue="unit">
+              <option value="unit">Por unidad</option>
+              <option value="kg">Por kilogramo</option>
+            </select>
+          </Field>
+          <Field label="Precio de venta final">
+            <input
+              name="price"
+              required
+              type="number"
+              min="1"
+              className="input"
+              value={finalPrice}
+              onChange={(event) => setFinalPrice(event.target.value)}
+              placeholder={suggestedPrice ? String(suggestedPrice) : undefined}
+            />
+          </Field>
+        </div>
+        <Field label="Precio en PedidosYa (opcional)">
+          <input
+            name="pedidosYaPrice"
+            type="number"
+            min="1"
+            className="input"
+            placeholder="Puede ser diferente al precio del local"
+          />
+        </Field>
         <label className="flex items-start gap-3 rounded-xl border border-[#dfe4da] bg-[#f3f6ef] p-4 text-sm">
           <input
             name="trackDailyAvailability"
