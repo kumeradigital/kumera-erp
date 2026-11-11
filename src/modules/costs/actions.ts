@@ -317,13 +317,20 @@ export async function configureProductCostAction(form: FormData) {
   const productId = text(form, "productId");
   const recipeId = text(form, "recipeId") || null;
   const productType = text(form, "productType") || "manufactured";
-  const resalePurchaseGrossAmount = Number(
-    form.get("resalePurchaseGrossAmount") || 0,
+  const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
+  const resalePurchaseAmount = Number(
+    form.get("resalePurchaseAmount") ||
+      form.get("resalePurchaseGrossAmount") ||
+      0,
   );
+  const resalePurchaseAmountMode = text(form, "resalePurchaseAmountMode");
+  const resalePurchaseGrossAmount =
+    resalePurchaseAmountMode === "net"
+      ? resalePurchaseAmount * (1 + resaleTaxRate / 100)
+      : resalePurchaseAmount;
   const resaleUnitsPerPurchase = Number(
     form.get("resaleUnitsPerPurchase") || 0,
   );
-  const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
   const wastePercentage = Number(form.get("wastePercentage") || 0);
   const targetMarginPercentage = Number(
     form.get("targetMarginPercentage") || 60,
@@ -384,11 +391,19 @@ export async function createCostedProductAction(form: FormData) {
   const productType = text(form, "productType") as
     "resale" | "manufactured" | "mixed";
   const recipeId = text(form, "recipeId") || null;
-  const purchaseGross = Math.round(
-    Number(form.get("resalePurchaseGrossAmount") || 0),
-  );
   const unitsPerPurchase = Number(form.get("resaleUnitsPerPurchase") || 0);
   const resaleTaxRate = Number(form.get("resaleTaxRate") || 19);
+  const purchaseAmount = Number(
+    form.get("resalePurchaseAmount") ||
+      form.get("resalePurchaseGrossAmount") ||
+      0,
+  );
+  const purchaseAmountMode = text(form, "resalePurchaseAmountMode");
+  const purchaseGross = Math.round(
+    purchaseAmountMode === "net"
+      ? purchaseAmount * (1 + resaleTaxRate / 100)
+      : purchaseAmount,
+  );
   const targetMargin = Number(form.get("targetMarginPercentage") || 60);
   const pedidosYaRaw = text(form, "pedidosYaPrice");
   const pedidosYaPrice = pedidosYaRaw ? Math.round(Number(pedidosYaRaw)) : null;
@@ -411,6 +426,8 @@ export async function createCostedProductAction(form: FormData) {
     throw new Error("Tipo de producto inválido");
   if (targetMargin < 0 || targetMargin >= 95)
     throw new Error("Margen objetivo inválido");
+  if (resaleTaxRate < 0 || resaleTaxRate > 100)
+    throw new Error("IVA de compra inválido");
   if (productType === "resale" && (!purchaseGross || !unitsPerPurchase))
     throw new Error("Indica el costo de compra y las unidades vendibles");
   if (productType !== "resale" && !recipeId)

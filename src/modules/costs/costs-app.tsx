@@ -3075,6 +3075,9 @@ function NewCostedProductDialog({
   onClose: () => void;
 }) {
   const [productType, setProductType] = useState(initialType);
+  const [purchaseAmountMode, setPurchaseAmountMode] = useState<"net" | "gross">(
+    "net",
+  );
   return (
     <Dialog title="Crear producto y asignar su costo" onClose={onClose}>
       <AsyncForm action={createCostedProductAction}>
@@ -3164,10 +3167,29 @@ function NewCostedProductDialog({
             <p className="text-xs font-black text-[#235b45]">
               Costo directo de reventa
             </p>
+            <Field label="El valor que ingresarás viene como">
+              <select
+                name="resalePurchaseAmountMode"
+                value={purchaseAmountMode}
+                onChange={(event) =>
+                  setPurchaseAmountMode(event.target.value as "net" | "gross")
+                }
+                className="input"
+              >
+                <option value="net">Neto de factura, sin IVA</option>
+                <option value="gross">Total pagado, con IVA incluido</option>
+              </select>
+            </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Costo total comprado">
+              <Field
+                label={
+                  purchaseAmountMode === "net"
+                    ? "Subtotal neto de la compra"
+                    : "Total pagado por la compra"
+                }
+              >
                 <input
-                  name="resalePurchaseGrossAmount"
+                  name="resalePurchaseAmount"
                   type="number"
                   min="1"
                   required
@@ -3196,6 +3218,11 @@ function NewCostedProductDialog({
                 className="input"
               />
             </Field>
+            <p className="text-[11px] leading-5 text-[#6f746d]">
+              {purchaseAmountMode === "net"
+                ? "Copia el valor neto de la línea de la factura. Kumera sumará el IVA sólo para guardar el total y usará el neto como costo recuperable."
+                : "Úsalo cuando sólo conoces el monto final pagado. Kumera separará el IVA recuperable automáticamente."}
+            </p>
             <input type="hidden" name="recipeId" value="" />
           </div>
         ) : (
@@ -3291,6 +3318,9 @@ function ProductCostDialog({
   const initialType =
     product.productType || (product.recipeId ? "manufactured" : "resale");
   const [productType, setProductType] = useState(initialType);
+  const [purchaseAmountMode, setPurchaseAmountMode] = useState<"net" | "gross">(
+    "gross",
+  );
   return (
     <Dialog title={`Costeo de ${product.name}`} onClose={onClose}>
       <AsyncForm action={configureProductCostAction}>
@@ -3327,10 +3357,31 @@ function ProductCostDialog({
             <p className="text-xs font-black uppercase tracking-wide text-[#657067]">
               Si es reventa
             </p>
+            <div className="mt-3 grid gap-3">
+              <Field label="El valor que ingresarás viene como">
+                <select
+                  name="resalePurchaseAmountMode"
+                  value={purchaseAmountMode}
+                  onChange={(event) =>
+                    setPurchaseAmountMode(event.target.value as "net" | "gross")
+                  }
+                  className="input"
+                >
+                  <option value="net">Neto de factura, sin IVA</option>
+                  <option value="gross">Total pagado, con IVA incluido</option>
+                </select>
+              </Field>
+            </div>
             <div className="mt-3 grid grid-cols-3 gap-3">
-              <Field label="Costo compra bruto">
+              <Field
+                label={
+                  purchaseAmountMode === "net"
+                    ? "Subtotal neto"
+                    : "Total con IVA"
+                }
+              >
                 <input
-                  name="resalePurchaseGrossAmount"
+                  name="resalePurchaseAmount"
                   type="number"
                   min="0"
                   defaultValue={product.resalePurchaseGrossAmount}
@@ -3359,6 +3410,11 @@ function ProductCostDialog({
                 />
               </Field>
             </div>
+            <p className="mt-2 text-[11px] leading-5 text-[#6f746d]">
+              {purchaseAmountMode === "net"
+                ? "Copia el neto de la línea de la factura; Kumera calculará el total equivalente."
+                : "Este producto ya estaba guardado como total con IVA. Puedes conservarlo así o cambiar a neto y reemplazar el monto."}
+            </p>
           </div>
         )}
         {productType !== "resale" ? (
