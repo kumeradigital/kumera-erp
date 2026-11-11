@@ -241,9 +241,7 @@ export function CostsApp({
           )}
           {ownSection === "recipes" && (
             <RecipesView
-              ingredients={ingredients.filter(
-                (ingredient) => ingredient.sourceType !== "resale",
-              )}
+              ingredients={ingredients}
               recipes={recipes}
               costs={recipeCosts}
             />
@@ -2912,6 +2910,20 @@ function RecipeItemDialog({
   const [kind, id] = key.split(":");
   const ingredient = ingredients.find((item) => item.id === id);
   const subrecipe = recipes.find((item) => item.id === id);
+  const ingredientGroups = [
+    {
+      label: "Materias primas",
+      items: ingredients.filter((item) => item.sourceType === "raw"),
+    },
+    {
+      label: "Compras listas para reventa",
+      items: ingredients.filter((item) => item.sourceType === "resale"),
+    },
+    {
+      label: "Otros insumos y envases",
+      items: ingredients.filter((item) => item.sourceType === "supply"),
+    },
+  ];
   const alreadyAdded = recipe.items.some((item) =>
     kind === "ingredient" ? item.ingredientId === id : item.subrecipeId === id,
   );
@@ -2938,7 +2950,7 @@ function RecipeItemDialog({
         <input type="hidden" name="recipeId" value={recipe.id} />
         <input type="hidden" name="componentType" value={kind} />
         <input type="hidden" name="componentId" value={id} />
-        <Field label="Ingrediente o subreceta">
+        <Field label="Componente comprado o subreceta">
           <select
             value={key}
             onChange={(e) => {
@@ -2947,18 +2959,23 @@ function RecipeItemDialog({
             }}
             className="input"
           >
-            <optgroup label="Materias primas">
-              {ingredients.map((item) => (
-                <option key={item.id} value={`ingredient:${item.id}`}>
-                  {item.name}
-                  {recipe.items.some(
-                    (recipeItem) => recipeItem.ingredientId === item.id,
-                  )
-                    ? " · ya agregado"
-                    : ""}
-                </option>
-              ))}
-            </optgroup>
+            {ingredientGroups.map(
+              (group) =>
+                group.items.length > 0 && (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.items.map((item) => (
+                      <option key={item.id} value={`ingredient:${item.id}`}>
+                        {item.name}
+                        {recipe.items.some(
+                          (recipeItem) => recipeItem.ingredientId === item.id,
+                        )
+                          ? " · ya agregado"
+                          : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                ),
+            )}
             <optgroup label="Subrecetas">
               {recipes
                 .filter(
@@ -2978,9 +2995,10 @@ function RecipeItemDialog({
           </select>
         </Field>
         <p className="-mt-2 rounded-xl bg-[#f3f4ed] p-3 text-xs leading-5 text-[#6d736c]">
-          <b>Materia prima:</b> harina, queso, mantequilla o envase.{" "}
-          <b>Subreceta:</b> una preparación creada previamente, como masa, pino
-          o relleno de chocolate.
+          Puedes combinar <b>materias primas</b>, <b>compras para reventa</b>,
+          <b> envases y otros insumos</b>. Usa una <b>subreceta</b> cuando el
+          componente sea una preparación creada previamente, como masa, pino o
+          relleno de chocolate.
         </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Cantidad">
@@ -3081,7 +3099,13 @@ function RecipeDetailDialog({
                 </b>
                 <p className="mt-1 text-xs text-[#777]">
                   {item.quantity} {unitLabel(item.unit)}
-                  {subrecipe ? " · subreceta" : ""}
+                  {subrecipe
+                    ? " · subreceta"
+                    : ingredient?.sourceType === "resale"
+                      ? " · compra para reventa"
+                      : ingredient?.sourceType === "supply"
+                        ? " · otro insumo"
+                        : " · materia prima"}
                 </p>
               </div>
               <div className="text-right">

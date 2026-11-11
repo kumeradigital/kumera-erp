@@ -318,7 +318,7 @@ export async function addRecipeItemAction(form: FormData) {
       .is("deleted_at", null)
       .single();
     if (ingredientError || !ingredient)
-      throw new Error("Materia prima no válida");
+      throw new Error("Componente comprado no válido");
   }
   const { data: existingItems, error: existingError } = await ctx.supabase
     .from("recipe_items")

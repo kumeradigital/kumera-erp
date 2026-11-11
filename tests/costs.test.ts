@@ -6,12 +6,18 @@ import {
 } from "@/modules/costs/calculations";
 import type { CostSettings, Ingredient, Recipe } from "@/modules/costs/types";
 
-function ingredient(id: string, name: string, costPerBase: number): Ingredient {
+function ingredient(
+  id: string,
+  name: string,
+  costPerBase: number,
+  sourceType: Ingredient["sourceType"] = "raw",
+): Ingredient {
   return {
     id,
     name,
     category: "Prueba",
     baseUnit: "unit",
+    sourceType,
     prices: [],
     latestPrice: {
       id: `${id}-price`,
@@ -47,6 +53,55 @@ const settings: CostSettings = {
 };
 
 describe("motor de costos", () => {
+  it("combina materias primas, compras de reventa e insumos en una receta", () => {
+    const ingredients = [
+      ingredient("ice-cream", "Helado de chocolate", 850, "resale"),
+      ingredient("cone", "Cono", 120, "resale"),
+      ingredient("cup", "Vasito", 45, "supply"),
+      ingredient("spoon", "Cucharita", 15, "supply"),
+    ];
+    const recipes: Recipe[] = [
+      {
+        id: "simple-cone",
+        name: "Cono simple de chocolate",
+        yieldQuantity: 1,
+        yieldUnit: "unit",
+        kind: "final",
+        items: [
+          {
+            id: "ice-cream-item",
+            ingredientId: "ice-cream",
+            quantity: 1,
+            unit: "unit",
+          },
+          {
+            id: "cone-item",
+            ingredientId: "cone",
+            quantity: 1,
+            unit: "unit",
+          },
+          {
+            id: "cup-item",
+            ingredientId: "cup",
+            quantity: 1,
+            unit: "unit",
+          },
+          {
+            id: "spoon-item",
+            ingredientId: "spoon",
+            quantity: 1,
+            unit: "unit",
+          },
+        ],
+      },
+    ];
+
+    const cost = calculateRecipeCosts(ingredients, recipes).get("simple-cone");
+
+    expect(cost?.complete).toBe(true);
+    expect(cost?.perYieldUnit).toBe(1030);
+  });
+
   it("reproduce el costo y margen aproximado de la empanada de pino", () => {
     const ingredients = [
       ingredient("mass-input", "Ingredientes masa", 3329),
