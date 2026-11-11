@@ -760,7 +760,7 @@ function IngredientsView({
       </div>
       {creating && (
         <IngredientDialog
-          defaultCategory={mode === "other" ? "Empaques" : undefined}
+          categories={categories.filter((item) => item !== "Todas")}
           defaultSourceType={
             mode === "resale" ? "resale" : mode === "other" ? "supply" : "raw"
           }
@@ -770,6 +770,7 @@ function IngredientsView({
       {editing && (
         <IngredientDialog
           ingredient={editing}
+          categories={categories.filter((item) => item !== "Todas")}
           onClose={() => setEditing(null)}
         />
       )}
@@ -2488,16 +2489,26 @@ function LegacyProjectionsView({
 
 function IngredientDialog({
   ingredient,
-  defaultCategory,
+  categories,
   defaultSourceType = "raw",
   onClose,
 }: {
   ingredient?: Ingredient;
-  defaultCategory?: string;
+  categories: string[];
   defaultSourceType?: "raw" | "supply" | "resale";
   onClose: () => void;
 }) {
   const sourceType = ingredient?.sourceType || defaultSourceType;
+  const availableCategories = Array.from(
+    new Set(
+      [ingredient?.category, ...categories]
+        .map((category) => category?.trim())
+        .filter((category): category is string => Boolean(category)),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+  const [categoryChoice, setCategoryChoice] = useState(
+    ingredient?.category || availableCategories[0] || "__none",
+  );
   const noun =
     sourceType === "resale"
       ? "compra para reventa"
@@ -2524,24 +2535,35 @@ function IngredientDialog({
         <div className="grid grid-cols-2 gap-3">
           <Field label="Categoría">
             <select
-              name="category"
               className="input"
-              defaultValue={
-                ingredient?.category ||
-                defaultCategory ||
-                (sourceType === "resale" ? "Reventa" : "Harinas")
-              }
+              value={categoryChoice}
+              required
+              onChange={(event) => setCategoryChoice(event.target.value)}
             >
-              <option>Reventa</option>
-              <option>Harinas</option>
-              <option>Carnes</option>
-              <option>Lácteos</option>
-              <option>Verduras</option>
-              <option>Grasas</option>
-              <option>Condimentos</option>
-              <option>Empaques</option>
-              <option>Otros</option>
+              {!availableCategories.length && (
+                <option value="__none" disabled>
+                  Sin categorías
+                </option>
+              )}
+              {availableCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+              <option value="__new">＋ Agregar categoría nueva</option>
             </select>
+            {categoryChoice === "__new" ? (
+              <input
+                name="category"
+                required
+                autoFocus
+                maxLength={60}
+                className="input mt-2"
+                placeholder="Nombre de la nueva categoría"
+              />
+            ) : categoryChoice !== "__none" ? (
+              <input type="hidden" name="category" value={categoryChoice} />
+            ) : null}
           </Field>
           <Field label="Unidad base">
             <select

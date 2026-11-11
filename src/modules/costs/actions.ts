@@ -67,7 +67,7 @@ export async function saveIngredientAction(form: FormData) {
   const ctx = await context();
   const id = text(form, "id") || undefined;
   const name = text(form, "name");
-  const category = text(form, "category") || "Otros";
+  const category = text(form, "category");
   const baseUnit = text(form, "baseUnit") as "g" | "ml" | "unit";
   const notes = text(form, "notes");
   const sourceType = text(form, "sourceType") || "raw";
@@ -77,6 +77,8 @@ export async function saveIngredientAction(form: FormData) {
   const yieldLossType = text(form, "yieldLossType") || "none";
   const yieldStatus = text(form, "yieldStatus") || "confirmed";
   if (!name || name.length > 100) throw new Error("Nombre inválido");
+  if (!category || category.length > 60)
+    throw new Error("Crea o selecciona una categoría válida");
   if (!(["g", "ml", "unit"] as const).includes(baseUnit))
     throw new Error("Unidad base inválida");
   if (!"raw supply resale".split(" ").includes(sourceType))
