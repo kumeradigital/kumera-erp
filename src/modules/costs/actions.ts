@@ -386,7 +386,7 @@ export async function configureProductCostAction(form: FormData) {
   const resaleSourceId = text(form, "resaleSourceId") || null;
   const wastePercentage = Number(form.get("wastePercentage") || 0);
   const targetMarginPercentage = Number(
-    form.get("targetMarginPercentage") || 60,
+    form.get("targetMarginPercentage") || 80,
   );
   if (wastePercentage < 0 || wastePercentage >= 100)
     throw new Error("Merma inválida");
@@ -446,7 +446,7 @@ export async function createCostedProductAction(form: FormData) {
     "resale" | "manufactured" | "mixed";
   const recipeId = text(form, "recipeId") || null;
   const resaleSourceId = text(form, "resaleSourceId") || null;
-  const targetMargin = Number(form.get("targetMarginPercentage") || 60);
+  const targetMargin = Number(form.get("targetMarginPercentage") || 80);
   const pedidosYaRaw = text(form, "pedidosYaPrice");
   const pedidosYaPrice = pedidosYaRaw ? Math.round(Number(pedidosYaRaw)) : null;
   const trackDailyAvailability =

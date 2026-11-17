@@ -3272,7 +3272,7 @@ function NewCostedProductDialog({
   );
   const [recipeId, setRecipeId] = useState("");
   const [resaleSourceId, setResaleSourceId] = useState("");
-  const [targetMargin, setTargetMargin] = useState(60);
+  const [targetMargin, setTargetMargin] = useState(80);
   const [wastePercentage, setWastePercentage] = useState(0);
   const [finalPrice, setFinalPrice] = useState("");
   const sourceCost =
